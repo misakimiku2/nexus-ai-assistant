@@ -1,0 +1,19 @@
+# --- 前端依赖与产物 (React/Vite) ---
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# --- 后端编译产物 (Rust/Tauri) ---
+# 这一行最关键，因为 Rust 的编译文件都在这里
+/src-tauri/target/
+
+# --- 操作系统与编辑器 ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --- 环境与密钥 (保护你的 AI API Key) ---
+.env
+.env.*.local

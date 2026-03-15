@@ -1,0 +1,252 @@
+{
+  "settings": {
+    "title": "System Settings",
+    "categories": {
+      "user": "User Personalization",
+      "ai": "AI Models",
+      "rag": "Local RAG",
+      "voice": "Voice Interaction"
+    },
+    "user": {
+      "header": "User Personalization Settings",
+      "profile": "User Profile",
+      "userName": "User Name",
+      "aiProfile": "AI Assistant Profile",
+      "aiName": "AI Name",
+      "region": "Language & Region",
+      "font": "Interface Font",
+      "fontInter": "Inter (Default)",
+      "fontJetBrains": "JetBrains Mono",
+      "fontSpace": "Space Grotesk",
+      "fontNoto": "Noto Sans SC",
+      "fontLine": "LINE Seed JP",
+      "fontSystem": "System Default",
+      "preview": "Chat Preview",
+      "random": "Randomize"
+    },
+    "ai": {
+      "title": "AI Models",
+      "subtitle": "Configure online or local AI services",
+      "provider": "Model Provider",
+      "online": "Online Models",
+      "local": "Local Models",
+      "connectionSettings": "Connection Settings",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "Enter API Key",
+      "getApiKey": "Get API",
+      "vendor": "Vendor",
+      "model": "Model",
+      "apiUrl": "API URL",
+      "testConnection": "Test Connection",
+      "connectionSuccess": "Connection successful",
+      "connectionError": "Connection failed, please check address or service status",
+      "modelName": "Model Name",
+      "fetchModels": "Fetch Models",
+      "modelNamePlaceholder": "e.g., local-model",
+      "maxContextLength": "Max Context Length (Tokens)"
+    },
+    "rag": {
+      "title": "Local RAG",
+      "subtitle": "Manage local knowledge base and retrieval augmentation",
+      "coreConfig": "Core Configuration",
+      "embeddingModel": "Embedding Model",
+      "embeddingModelHint": "Specialized text embedding models are recommended for best retrieval results.",
+      "knowledgeBaseFiles": "Knowledge Base Files",
+      "uploadHint": "Click to select files, or drag and drop files here",
+      "supportedFormats": "Supports TXT, PDF, MD, DOCX, etc.",
+      "uploadedFiles": "Uploaded Files",
+      "indexingStrategy": "Indexing Strategy",
+      "chunkSize": "Chunk Size",
+      "chunkSizeHintSmall": "Smaller: Precise but lacks context",
+      "chunkSizeHintLarge": "Larger: Complete but may contain noise",
+      "estimatedTokens": "Estimated: ~{{count}} Tokens/chunk",
+      "overlap": "Overlap",
+      "overlapHint": "Maintains context continuity between chunks, usually 10%-20% of chunk size.",
+      "retrievalOptimization": "Retrieval Optimization",
+      "topK": "Retrieval Count (Top K)",
+      "topKHint": "Number of most relevant document snippets extracted from the knowledge base per query.",
+      "systemPrompt": "RAG System Prompt"
+    },
+    "voice": {
+      "header": "Voice Interaction Settings",
+      "engine": "Voice Engine",
+      "engineConfig": "Engine Configuration",
+      "modelPath": "Model Storage Path",
+      "checkPath": "Check Path",
+      "checking": "Checking...",
+      "backend": "Inference Backend",
+      "downloadLink": "Download Models",
+      "persona": "Voice Persona",
+      "addPersona": "Add Custom Persona",
+      "smartEmotion": "Smart Emotion",
+      "smartEmotionDesc": "Automatically adjust tone and emotional fluctuations based on conversation content",
+      "preview": "Voice Waveform Preview",
+      "status": {
+        "header": "System Status",
+        "vram": "VRAM Usage",
+        "ready": "Engine Ready",
+        "notReady": "Not Ready"
+      },
+      "actions": {
+        "edit": "Edit",
+        "delete": "Delete"
+      },
+      "addModal": {
+        "title": "Add Custom Persona",
+        "avatar": "Avatar",
+        "selectIcon": "Select Icon",
+        "uploadPhoto": "Upload Photo",
+        "name": "Persona Name",
+        "namePlaceholder": "e.g., Cyber Poet",
+        "refText": "Reference Text",
+        "refTextPlaceholder": "Enter lines to guide the tone...",
+        "audioTrack": "Mock Audio Track",
+        "addTrack": "Add Track",
+        "tracks": {
+          "calm": "Calm",
+          "battle": "Battle",
+          "enthusiastic": "Enthusiastic"
+        },
+        "pitch": "Pitch",
+        "speed": "Speed",
+        "cancel": "Cancel",
+        "confirm": "Create Persona"
+      },
+      "test": {
+        "header": "Voice Test",
+        "placeholder": "Enter test text...",
+        "button": "Start Test",
+        "testing": "Synthesizing..."
+      },
+      "personas": {
+        "philosopher": "Philosopher",
+        "assistant": "Assistant",
+        "friend": "Friend"
+      }
+    },
+    "footer": {
+      "reset": "Reset",
+      "save": "Save Config",
+      "saving": "Saving...",
+      "saved": "Saved"
+    }
+  },
+  "sidebar": {
+    "chat": "Chat",
+    "agents": "Agent Cluster",
+    "search": "Search History",
+    "terminal": "System Terminal",
+    "mcp": "MCP Control Center",
+    "sessions": "Sessions",
+    "newSession": "New Chat",
+    "newFolder": "New Folder",
+    "multiSelect": "Multi-select Mode",
+    "batchDelete": "Batch Delete",
+    "onlineAgents": "Online Agents",
+    "theme": "Toggle Theme",
+    "settings": "Settings",
+    "deleteFolder": "Delete Folder",
+    "deleteSession": "Delete Chat",
+    "batchDeleteConfirm": "Batch Delete Chats",
+    "deleteFolderMsg": "Are you sure you want to delete this folder? Chats inside will be moved out.",
+    "deleteSessionMsg": "Are you sure you want to delete this chat? This action cannot be undone.",
+    "batchDeleteMsg": "Are you sure you want to delete the selected {{count}} chats? This action cannot be undone."
+  },
+  "header": {
+    "collapseSidebar": "Collapse Sidebar",
+    "expandSidebar": "Expand Sidebar",
+    "local": "Local",
+    "unitTest": "Unit Test",
+    "clusterTest": "Cluster Test",
+    "clearContext": "Clear Context (Reset Tokens)"
+  },
+  "chat": {
+    "inputPlaceholder": "Type your question...",
+    "commandPlaceholder": "Enter system command...",
+    "agentPlaceholder": "Ask {{name}}...",
+    "send": "Send",
+    "shiftEnter": "Shift + Enter to send",
+    "modeChat": "Chat Mode",
+    "modeCommand": "Command Mode",
+    "webSearch": "Web Search",
+    "webSearchOn": "Web Search On",
+    "webSearchOff": "Web Search Off",
+    "attachments": "Add Attachments",
+    "image": "Image",
+    "file": "File",
+    "compress": "Compress Now",
+    "thinking": "Thinking Process",
+    "searchResults": "Web Search ({{count}} results)",
+    "fileEdits": "File Edits ({{count}} files)",
+    "edit": "Edit",
+    "retry": "Retry",
+    "copy": "Copy",
+    "copyMarkdown": "Copy Markdown",
+    "copyText": "Copy Text",
+    "success": "Success",
+    "failure": "Failure",
+    "error": "Execution Error",
+    "preparing": "Preparing...",
+    "mcpAuth": "Waiting for Authorization (MCP Tool Call)",
+    "mcpRequest": "Server <strong>{{name}}</strong> requests high-privilege operation:",
+    "allow": "Allow",
+    "deny": "Deny",
+    "welcome": "How can I help you today?",
+    "agentWelcome": "I am {{name}}, how can I help you today?",
+    "localHint": "Connect to local LM Studio to start chatting. Your data always stays local."
+  },
+  "agentConfig": {
+    "newAgent": "New Agent Cluster",
+    "editAgent": "Edit Agent Config",
+    "tabs": {
+      "basic": "Basic Info",
+      "brain": "Core Brain (Model)",
+      "capabilities": "Capabilities & Tools",
+      "memory": "Memory & RAG"
+    },
+    "basic": {
+      "avatar": "Agent Avatar",
+      "name": "Agent Name",
+      "role": "Role Positioning"
+    },
+    "personality": {
+      "goal": "Core Goal",
+      "goalPlaceholder": "e.g., Ensure system architecture robustness...",
+      "backstory": "Backstory",
+      "backstoryPlaceholder": "Describe the agent's professional background or personality...",
+      "systemPromptTemplate": "You are a top-tier {role}. Your task is {goal}. {backstory}",
+      "defaultRole": "AI Assistant"
+    },
+    "model": {
+      "provider": "Model Provider",
+      "providerOnline": "Online Service",
+      "apiUrl": "API URL",
+      "apiKey": "API Key",
+      "modelName": "Model Name"
+    },
+    "capabilities": {
+      "tools": "Built-in Tools",
+      "toolsDesc": "Empower the agent with specific task execution capabilities.",
+      "toolList": {
+        "file_management": { "name": "File Management", "desc": "Read, write, and modify local file systems." },
+        "terminal": { "name": "Terminal Execution", "desc": "Execute system commands in a secure sandbox." },
+        "web_search": { "name": "Web Search", "desc": "Real-time retrieval of internet information." },
+        "github": { "name": "GitHub Integration", "desc": "Manage repositories, commit code, and handle issues." }
+      },
+      "mcp": "MCP Servers",
+      "mcpDesc": "Connect to external Model Context Protocol servers to extend capabilities."
+    },
+    "memory": {
+      "title": "Memory & RAG",
+      "enableRag": "Access Global RAG Knowledge Base",
+      "enableRagDesc": "Allow agent to retrieve all uploaded documents and knowledge.",
+      "folders": "Bind Specific Knowledge Folders",
+      "foldersDesc": "Restrict agent to specific knowledge base folders."
+    },
+    "generate": {
+      "btn": "AI Auto Generate",
+      "generating": "Generating...",
+      "modalTitle": "AI Auto Generate Agent"
+    }
+  }
+}

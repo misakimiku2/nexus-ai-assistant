@@ -1,0 +1,252 @@
+{
+  "settings": {
+    "title": "系统设置",
+    "categories": {
+      "user": "用户个性化",
+      "ai": "AI 模型设置",
+      "rag": "本地知识库 (RAG)",
+      "voice": "语音交互"
+    },
+    "user": {
+      "header": "用户个性化设置",
+      "profile": "用户资料",
+      "userName": "用户名称",
+      "aiProfile": "AI 助手资料",
+      "aiName": "AI 名称",
+      "region": "语言与地区",
+      "font": "界面字体",
+      "fontInter": "Inter (默认)",
+      "fontJetBrains": "JetBrains Mono",
+      "fontSpace": "Space Grotesk",
+      "fontNoto": "Noto Sans 简体中文",
+      "fontLine": "LINE Seed JP",
+      "fontSystem": "系统默认",
+      "preview": "对话效果预览",
+      "random": "随机生成"
+    },
+    "ai": {
+      "title": "AI 模型",
+      "subtitle": "配置在线或本地 AI 服务",
+      "provider": "模型提供商",
+      "online": "在线模型",
+      "local": "本地模型",
+      "connectionSettings": "连接设置",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "输入 API Key",
+      "getApiKey": "获取 API",
+      "vendor": "厂商",
+      "model": "模型",
+      "apiUrl": "接口地址",
+      "testConnection": "测试连接",
+      "connectionSuccess": "连接成功",
+      "connectionError": "连接失败，请检查地址或服务状态",
+      "modelName": "模型名称",
+      "fetchModels": "获取模型",
+      "modelNamePlaceholder": "例如: local-model",
+      "maxContextLength": "最大上下文长度 (Tokens)"
+    },
+    "rag": {
+      "title": "本地 RAG",
+      "subtitle": "管理本地知识库与检索增强",
+      "coreConfig": "核心配置",
+      "embeddingModel": "嵌入模型 (Embedding Model)",
+      "embeddingModelHint": "建议使用专门的文本嵌入模型以获得最佳检索效果。",
+      "knowledgeBaseFiles": "知识库文件",
+      "uploadHint": "点击选择文件，或将文件拖拽到此处",
+      "supportedFormats": "支持 TXT, PDF, MD, DOCX 等格式",
+      "uploadedFiles": "已上传文件",
+      "indexingStrategy": "索引策略",
+      "chunkSize": "切片大小 (Chunk Size)",
+      "chunkSizeHintSmall": "更小: 精准但缺乏上下文",
+      "chunkSizeHintLarge": "更大: 完整但可能包含噪音",
+      "estimatedTokens": "预估消耗: ~{{count}} Tokens/块",
+      "overlap": "重叠度 (Overlap)",
+      "overlapHint": "保持块与块之间的上下文连贯性，通常设置为切片大小的 10%-20%。",
+      "retrievalOptimization": "检索优化",
+      "topK": "检索文档数量 (Top K)",
+      "topKHint": "每次问答时，从知识库中提取的最相关文档片段数量。",
+      "systemPrompt": "RAG 系统提示词"
+    },
+    "voice": {
+      "header": "语音交互设置",
+      "engine": "语音引擎",
+      "engineConfig": "引擎详细配置",
+      "modelPath": "模型存放路径",
+      "checkPath": "检测路径",
+      "checking": "检测中...",
+      "backend": "推理后端",
+      "downloadLink": "下载模型资源",
+      "persona": "语音人格",
+      "addPersona": "添加自定义人格",
+      "smartEmotion": "智能情感",
+      "smartEmotionDesc": "根据对话内容自动调节语调与情感波动",
+      "preview": "语音波形预览",
+      "status": {
+        "header": "系统状态",
+        "vram": "显存占用",
+        "ready": "引擎就绪",
+        "notReady": "未就绪"
+      },
+      "actions": {
+        "edit": "编辑",
+        "delete": "删除"
+      },
+      "addModal": {
+        "title": "添加自定义人格",
+        "avatar": "头像",
+        "selectIcon": "选择图标",
+        "uploadPhoto": "上传照片",
+        "name": "角色名称",
+        "namePlaceholder": "例如：赛博诗人",
+        "refText": "参考文本",
+        "refTextPlaceholder": "输入用于引导语气的台词...",
+        "audioTrack": "模拟音轨选择",
+        "addTrack": "添加音轨",
+        "tracks": {
+          "calm": "冷静",
+          "battle": "战斗",
+          "enthusiastic": "热情"
+        },
+        "pitch": "音高 (Pitch)",
+        "speed": "语速 (Speed)",
+        "cancel": "取消",
+        "confirm": "创建人格"
+      },
+      "test": {
+        "header": "语音测试",
+        "placeholder": "输入测试文本...",
+        "button": "开始测试",
+        "testing": "合成中..."
+      },
+      "personas": {
+        "philosopher": "哲学家",
+        "assistant": "助手",
+        "friend": "朋友"
+      }
+    },
+    "footer": {
+      "reset": "重置",
+      "save": "保存配置",
+      "saving": "保存中...",
+      "saved": "已保存"
+    }
+  },
+  "sidebar": {
+    "chat": "对话",
+    "agents": "Agent 集群",
+    "search": "搜索历史",
+    "terminal": "系统终端",
+    "mcp": "MCP 控制中心",
+    "sessions": "会话列表",
+    "newSession": "新建对话",
+    "newFolder": "新建文件夹",
+    "multiSelect": "多选模式",
+    "batchDelete": "批量删除",
+    "onlineAgents": "在线 Agents",
+    "theme": "切换主题",
+    "settings": "设置",
+    "deleteFolder": "删除文件夹",
+    "deleteSession": "删除对话",
+    "batchDeleteConfirm": "批量删除对话",
+    "deleteFolderMsg": "确定要删除这个文件夹吗？其中的对话将被移出。",
+    "deleteSessionMsg": "确定要删除这个对话吗？此操作无法撤销。",
+    "batchDeleteMsg": "确定要删除选中的 {{count}} 个对话吗？此操作无法撤销。"
+  },
+  "header": {
+    "collapseSidebar": "收起侧边栏",
+    "expandSidebar": "展开侧边栏",
+    "local": "本地",
+    "unitTest": "单体测试",
+    "clusterTest": "集群测试",
+    "clearContext": "清除上下文 (重置 Token)"
+  },
+  "chat": {
+    "inputPlaceholder": "输入您的问题...",
+    "commandPlaceholder": "输入系统命令...",
+    "agentPlaceholder": "向 {{name}} 提问...",
+    "send": "发送",
+    "shiftEnter": "Shift + Enter 发送",
+    "modeChat": "对话模式",
+    "modeCommand": "命令模式",
+    "webSearch": "联网搜索",
+    "webSearchOn": "开启联网搜索",
+    "webSearchOff": "关闭联网搜索",
+    "attachments": "添加附件",
+    "image": "图片",
+    "file": "文件",
+    "compress": "立即压缩",
+    "thinking": "思考过程",
+    "searchResults": "网络搜索 ({{count}} 个结果)",
+    "fileEdits": "文件修改 ({{count}} 个文件)",
+    "edit": "编辑",
+    "retry": "重试",
+    "copy": "复制",
+    "copyMarkdown": "复制 Markdown",
+    "copyText": "复制文字",
+    "success": "成功",
+    "failure": "失败",
+    "error": "执行出错",
+    "preparing": "准备中...",
+    "mcpAuth": "等待授权 (MCP 工具调用)",
+    "mcpRequest": "服务器 <strong>{{name}}</strong> 请求执行高权限操作：",
+    "allow": "允许执行",
+    "deny": "拒绝",
+    "welcome": "今天我能帮您什么？",
+    "agentWelcome": "我是 {{name}}，今天我能帮您什么？",
+    "localHint": "连接到本地 LM Studio 即可开始对话。您的数据将始终保存在本地。"
+  },
+  "agentConfig": {
+    "newAgent": "新建 Agent 集群",
+    "editAgent": "编辑 Agent 配置",
+    "tabs": {
+      "basic": "基础信息",
+      "brain": "核心大脑 (模型)",
+      "capabilities": "能力与工具",
+      "memory": "记忆与 RAG"
+    },
+    "basic": {
+      "avatar": "Agent 头像",
+      "name": "Agent 名称",
+      "role": "角色定位"
+    },
+    "personality": {
+      "goal": "核心目标",
+      "goalPlaceholder": "例如：确保系统架构的健壮性...",
+      "backstory": "背景故事",
+      "backstoryPlaceholder": "描述该 Agent 的专业背景或性格特征...",
+      "systemPromptTemplate": "你是一个顶级的{role}。你的任务是{goal}。{backstory}",
+      "defaultRole": "AI 助手"
+    },
+    "model": {
+      "provider": "模型提供商",
+      "providerOnline": "在线服务",
+      "apiUrl": "接口地址",
+      "apiKey": "API Key",
+      "modelName": "模型名称"
+    },
+    "capabilities": {
+      "tools": "内置工具",
+      "toolsDesc": "赋予 Agent 执行特定任务的能力。",
+      "toolList": {
+        "file_management": { "name": "文件管理", "desc": "读取、写入与修改本地文件系统。" },
+        "terminal": { "name": "终端执行", "desc": "在安全沙箱中执行系统命令。" },
+        "web_search": { "name": "网络搜索", "desc": "实时检索互联网信息。" },
+        "github": { "name": "GitHub 集成", "desc": "管理仓库、提交代码与处理 Issue。" }
+      },
+      "mcp": "MCP 服务器",
+      "mcpDesc": "连接外部 Model Context Protocol 服务器以扩展能力。"
+    },
+    "memory": {
+      "title": "记忆与 RAG",
+      "enableRag": "访问全局 RAG 知识库",
+      "enableRagDesc": "允许 Agent 检索所有已上传的文档和知识。",
+      "folders": "绑定特定知识文件夹",
+      "foldersDesc": "限制 Agent 只能访问特定的知识库文件夹。"
+    },
+    "generate": {
+      "btn": "AI 自动生成",
+      "generating": "生成中...",
+      "modalTitle": "AI 自动生成 Agent"
+    }
+  }
+}

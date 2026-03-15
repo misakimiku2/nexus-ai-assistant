@@ -1,0 +1,5 @@
+{
+  "name": "Nexus AI Assistant",
+  "description": "A minimalist, professional local AI assistant prototype with context management and streaming support.",
+  "requestFramePermissions": []
+}
