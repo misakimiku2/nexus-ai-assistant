@@ -36,5 +36,5 @@ export const useTranslation = () => {
     });
   };
 
-  return { t: createProxy('') };
+  return { t: createProxy(''), i18n };
 };

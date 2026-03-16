@@ -14,10 +14,16 @@ import { AgentClusterView } from './components/AgentClusterView';
 import { ToolPanel } from './components/ToolPanel';
 import { AddMcpModal } from './components/AddMcpModal';
 import { CanvasWorkspace } from './components/CanvasWorkspace';
+import { CloseConfirmModal } from './components/CloseConfirmModal';
+import { WindowControls } from './components/WindowControls';
 import { useGlobalState } from './context/GlobalStateContext';
 import { motion, AnimatePresence } from 'motion/react';
+import { listen } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { useTranslation } from './hooks/useTranslation';
 
 export default function App() {
+  const { t } = useTranslation();
   const { 
     messages, setMessages, 
     logs, setLogs, 
@@ -33,7 +39,11 @@ export default function App() {
     updateSessionTitle,
     fontFamily,
     mcpServers,
-    setMcpServers
+    setMcpServers,
+    closeWindowAskEveryTime,
+    setCloseWindowAskEveryTime,
+    closeWindowAction,
+    setCloseWindowAction
   } = useGlobalState();
 
   const [isDarkMode, setIsDarkMode] = useState(() => 
@@ -84,7 +94,7 @@ export default function App() {
   const [lmStudioUrl, setLmStudioUrl] = useState('http://localhost:1234/v1/chat/completions');
   const [ollamaUrl, setOllamaUrl] = useState('http://localhost:11434/api/chat');
   const [modelName, setModelName] = useState('local-model');
-  const [systemPrompt, setSystemPrompt] = useState('你是一个专业、简洁的 AI 助手。请务必使用标准的 Markdown 格式进行回复，包括代码块（需指定语言，如 ```javascript）、列表、加粗等。');
+  const [systemPrompt, setSystemPrompt] = useState(t?.systemPrompts?.defaultAssistant || '你是一个专业、简洁的 AI 助手。');
   const [temperature, setTemperature] = useState(0.7);
   const [maxContextLength, setMaxContextLength] = useState(4096);
   const [modelProvider, setModelProvider] = useState<ModelProvider>('lm-studio');
@@ -97,6 +107,9 @@ export default function App() {
   const [newMcpName, setNewMcpName] = useState('');
   const [newMcpCommand, setNewMcpCommand] = useState('');
   const [newMcpArgs, setNewMcpArgs] = useState('');
+
+  // Close Confirm Modal State
+  const [isCloseConfirmModalOpen, setIsCloseConfirmModalOpen] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -123,6 +136,66 @@ export default function App() {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+
+    const setupCloseListener = async () => {
+      try {
+        unlisten = await listen('close-requested', () => {
+          if (closeWindowAskEveryTime) {
+            setIsCloseConfirmModalOpen(true);
+          } else {
+            if (closeWindowAction === 'minimize') {
+              handleMinimizeToTray();
+            } else {
+              handleCloseApp();
+            }
+          }
+        });
+      } catch (error) {
+        console.log('Not running in Tauri environment or listener setup failed');
+      }
+    };
+
+    setupCloseListener();
+
+    return () => {
+      if (unlisten) {
+        unlisten();
+      }
+    };
+  }, [closeWindowAskEveryTime, closeWindowAction]);
+
+  const handleMinimizeToTray = async () => {
+    try {
+      const { emit } = await import('@tauri-apps/api/event');
+      await emit('hide-window');
+      addLog(t.logs.windowMinimized, 'info');
+    } catch (error) {
+      console.log('Not running in Tauri environment', error);
+    }
+    setIsCloseConfirmModalOpen(false);
+  };
+
+  const handleCloseApp = async () => {
+    try {
+      const { emit } = await import('@tauri-apps/api/event');
+      await emit('exit-app');
+    } catch (error) {
+      console.log('Not running in Tauri environment', error);
+    }
+  };
+
+  const handleCloseConfirmMinimize = () => {
+    setCloseWindowAction('minimize');
+    handleMinimizeToTray();
+  };
+
+  const handleCloseConfirmClose = () => {
+    setCloseWindowAction('close');
+    handleCloseApp();
+  };
+
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
 
   const handleStopAI = () => {
@@ -130,17 +203,17 @@ export default function App() {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
       setIsStreaming(false);
-      addLog('用户已强制停止 AI 生成', 'info');
+      addLog(t.logs.userStoppedAI, 'info');
     }
   };
 
   const handleApproveAction = () => {
     if (!pendingAction) return;
-    addLog(`[MCP] 用户已授权执行: ${pendingAction.tool}`, 'command');
+    addLog(t.logs.mcpUserApproved.replace('{tool}', pendingAction.tool), 'command');
     setMessages(prev => [...prev, {
       id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
       role: 'assistant',
-      content: `已成功执行工具 \`${pendingAction.tool}\`。系统配置已更新。`,
+      content: t.logs.toolExecuted.replace('{tool}', pendingAction.tool),
       timestamp: Date.now()
     }]);
     setPendingAction(null);
@@ -148,11 +221,11 @@ export default function App() {
 
   const handleRejectAction = () => {
     if (!pendingAction) return;
-    addLog(`[MCP] 用户拒绝了执行: ${pendingAction.tool}`, 'error');
+    addLog(t.logs.mcpUserRejected.replace('{tool}', pendingAction.tool), 'error');
     setMessages(prev => [...prev, {
       id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
       role: 'assistant',
-      content: `已取消执行工具 \`${pendingAction.tool}\`。`,
+      content: t.logs.toolCancelled.replace('{tool}', pendingAction.tool),
       timestamp: Date.now()
     }]);
     setPendingAction(null);
@@ -164,12 +237,12 @@ export default function App() {
     const newServer: McpServer = {
       id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
       name: newMcpName,
-      status: 'disconnected', // 模拟初始状态为未连接，实际中这里会触发 Tauri 后端去启动进程
+      status: 'disconnected',
       tools: [] 
     };
     
     setMcpServers(prev => [...prev, newServer]);
-    addLog(`[MCP] 已添加新服务器配置: ${newMcpName} (命令: ${newMcpCommand} ${newMcpArgs})`, 'info');
+    addLog(t.logs.mcpServerAdded.replace('{name}', newMcpName).replace('{command}', `${newMcpCommand} ${newMcpArgs}`), 'info');
     
     setIsAddMcpModalOpen(false);
     setNewMcpName('');
@@ -209,12 +282,12 @@ export default function App() {
     }
 
     if (appMode === 'command') {
-      addLog(`执行命令: ${originalInput}`, 'command');
+      addLog(t.logs.commandExecuted.replace('{command}', originalInput), 'command');
     }
 
     let searchContext = '';
     if (isWebSearchEnabled && (originalInput.toLowerCase().includes('搜索') || originalInput.toLowerCase().includes('查询') || originalInput.length > 5)) {
-      addLog(`[MCP] 调用工具: mcp-server-google-search -> web_search`, 'info');
+      addLog(t.logs.mcpToolCalled.replace('{server}', 'mcp-server-google-search').replace('{tool}', 'web_search'), 'info');
       setIsSearching(true);
       
       try {
@@ -241,12 +314,12 @@ export default function App() {
           setSearchGroups(prev => [newGroup, ...prev]);
           
           searchContext = `\n\n[Web Search Results]\n${JSON.stringify(data.results)}`;
-          addLog(`[MCP] 搜索完成，找到 ${data.results.length} 条结果`, 'info');
+          addLog(t.logs.mcpSearchComplete.replace('{count}', String(data.results.length)), 'info');
         } else {
-          addLog(`[MCP] 搜索失败: ${searchRes.statusText}`, 'error');
+          addLog(t.logs.mcpSearchFailed.replace('{error}', searchRes.statusText), 'error');
         }
       } catch (error) {
-        addLog(`[MCP] 搜索出错: ${error instanceof Error ? error.message : '未知错误'}`, 'error');
+        addLog(t.logs.mcpSearchError.replace('{error}', error instanceof Error ? error.message : t.logs.unknownError), 'error');
       } finally {
         setIsSearching(false);
       }
@@ -261,7 +334,7 @@ export default function App() {
         id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
         tool: 'modify_smb_config',
         serverName: 'mcp-server-system-ops',
-        description: '修改系统 SMB 共享配置',
+        description: t.mcpActions.modifySmbConfig,
         originalInput: originalInput
       });
       setIsStreaming(false);
@@ -333,7 +406,7 @@ export default function App() {
       // --- 超长文本无感滑动窗口处理 ---
       const inputTokens = estimateTokens(originalInput);
       if (inputTokens > maxContextLength * 0.6) {
-        addLog(`[系统信息] 检测到超长文本 (约 ${inputTokens} Tokens)，自动启用无感滑动窗口分块处理...`, 'info');
+        addLog(t.logs.longTextDetected.replace('{tokens}', String(inputTokens)), 'info');
         
         const chunkSizeChars = Math.floor(maxContextLength * 1.5); // 大约占用一半的上下文
         const overlapChars = 200;
@@ -362,22 +435,22 @@ export default function App() {
         const chunks = chunkTextWithOverlap(originalInput, chunkSizeChars, overlapChars);
         let accumulatedContent = '';
 
-        addLog(`[系统进程] 文本已切分为 ${chunks.length} 块，准备串行处理...`, 'command');
+        addLog(t.logs.textChunked.replace('{count}', String(chunks.length)), 'command');
 
         for (let i = 0; i < chunks.length; i++) {
           if (abortControllerRef.current?.signal.aborted) {
-            addLog(`[系统进程] 处理被用户中断。`, 'error');
+            addLog(t.logs.processingInterrupted, 'error');
             break;
           }
           
-          addLog(`[系统进程] 开始处理第 ${i + 1}/${chunks.length} 块 (长度: ${chunks[i].length} 字符)...`, 'info');
+          addLog(t.logs.processingChunk.replace('{current}', String(i + 1)).replace('{total}', String(chunks.length)).replace('{length}', String(chunks[i].length)), 'info');
           
           let chunkSystemPrompt = systemPromptToUse;
           if (i > 0) {
             const previousOutput = accumulatedContent.slice(-200);
-            chunkSystemPrompt += `\n\n[系统提示] 这是超长文档的第 ${i + 1}/${chunks.length} 部分。为了保证上下文连贯，上一段的结尾输出是：“${previousOutput}”。请继续处理下一段，保持语境连贯，不要重复上一段的内容。**注意：请直接输出正文，严禁使用 \`\`\`markdown 等代码块包裹，严禁输出任何解释性前言或后语。**`;
+            chunkSystemPrompt += `\n\n${t.chunkProcessing.continuationPrompt.replace('{current}', String(i + 1)).replace('{total}', String(chunks.length)).replace('{previous}', previousOutput)}`;
           } else {
-            chunkSystemPrompt += `\n\n[系统提示] 这是超长文档的第 1/${chunks.length} 部分。**注意：请直接输出正文，严禁使用 \`\`\`markdown 等代码块包裹，严禁输出任何解释性前言或后语。**`;
+            chunkSystemPrompt += `\n\n${t.chunkProcessing.firstChunkPrompt.replace('{total}', String(chunks.length))}`;
           }
 
           const apiMessages = [{ role: 'user', content: chunks[i] }];
@@ -397,7 +470,7 @@ export default function App() {
             })
           });
 
-          if (!response.ok) throw new Error('无法连接到 API');
+          if (!response.ok) throw new Error(t.logs.apiConnectError);
           
           const reader = response.body?.getReader();
           const decoder = new TextDecoder();
@@ -467,10 +540,10 @@ export default function App() {
           }
           accumulatedContent = previousAccumulatedContent + finalDisplayChunkOutput;
           
-          addLog(`[系统进程] 第 ${i + 1}/${chunks.length} 块处理完成。`, 'info');
+          addLog(t.logs.chunkComplete.replace('{current}', String(i + 1)).replace('{total}', String(chunks.length)), 'info');
         }
 
-        addLog(`[系统进程] 超长文本全部分块处理完毕。`, 'command');
+        addLog(t.logs.allChunksComplete, 'command');
 
         const endTime = performance.now();
         const executionTime = Math.round(endTime - startTime);
@@ -522,10 +595,10 @@ export default function App() {
       }));
 
       let totalTokens = estimateTokens(systemPromptToUse) + apiMessages.reduce((acc, m) => acc + estimateTokens(m.content), 0);
-      addLog(`[AI 请求] 开始处理，当前上下文总计: ${totalTokens} tokens (最大限制: ${maxContextLength} tokens)`, 'info');
+      addLog(t.logs.aiRequestStart.replace('{tokens}', String(totalTokens)).replace('{max}', String(maxContextLength)), 'info');
 
       if (totalTokens > maxContextLength * 0.85) {
-        addLog(`[系统信息] 触发深度上下文压缩策略 (防 OOM)，当前: ${totalTokens} tokens, 阈值: ${Math.floor(maxContextLength * 0.85)} tokens`, 'info');
+        addLog(t.logs.contextCompressionTriggered.replace('{current}', String(totalTokens)).replace('{threshold}', String(Math.floor(maxContextLength * 0.85))), 'info');
 
         // 策略 1: 历史代码块骨架化 (保留当前最新消息)
         apiMessages = apiMessages.map((msg, index) => {
@@ -537,7 +610,7 @@ export default function App() {
             content: msg.content.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
               const lines = code.split('\n').length;
               if (lines > 15) {
-                return `\`\`\`${lang}\n/* [代码块已折叠: ${lines}行代码，为节省显存 VRAM 已省略] */\n\`\`\``;
+                return `\`\`\`${lang}\n/* [${t.context.codeBlockCollapsed.replace('{lines}', String(lines))}] */\n\`\`\``;
               }
               return match;
             })
@@ -546,27 +619,26 @@ export default function App() {
 
         const compressedTokens1 = estimateTokens(systemPromptToUse) + apiMessages.reduce((acc, m) => acc + estimateTokens(m.content), 0);
         if (compressedTokens1 < totalTokens) {
-          addLog(`[系统信息] 历史代码块骨架化完成，释放了 ${totalTokens - compressedTokens1} tokens`, 'info');
+          addLog(t.logs.codeBlockSkeletonized.replace('{released}', String(totalTokens - compressedTokens1)), 'info');
         }
         totalTokens = compressedTokens1;
 
-        // 策略 2: Head + Tail 滑动窗口 (保留首条指令和最近2条对话)
         if (totalTokens > maxContextLength * 0.85 && apiMessages.length > 3) {
           const head = apiMessages[0];
           const tail = apiMessages.slice(-2);
           apiMessages = [
             head,
-            { role: 'system', content: '[...为防止显存溢出，中间历史对话已释放...]' },
+            { role: 'system', content: t.context.historyReleased },
             ...tail
           ];
           const compressedTokens2 = estimateTokens(systemPromptToUse) + apiMessages.reduce((acc, m) => acc + estimateTokens(m.content), 0);
-          addLog(`[系统信息] 已执行首尾保留策略 (Head+Tail)，压缩后总计: ${compressedTokens2} tokens`, 'info');
+          addLog(t.logs.headTailApplied.replace('{tokens}', String(compressedTokens2)), 'info');
           totalTokens = compressedTokens2;
         }
       }
       // -----------------------------------
 
-      addLog(`[AI 请求] 正在请求模型 (${currentModelName})，Temperature: ${temperature}...`, 'info');
+      addLog(t.logs.aiRequesting.replace('{model}', currentModelName).replace('{temp}', String(temperature)), 'info');
       setIsWaitingForResponse(true);
       const response = await fetch(currentApiUrl, {
         method: 'POST',
@@ -585,7 +657,7 @@ export default function App() {
 
       if (!response.ok) {
         setIsWaitingForResponse(false);
-        throw new Error('无法连接到 API');
+        throw new Error(t.logs.apiConnectError);
       }
 
       const reader = response.body?.getReader();
@@ -632,7 +704,7 @@ export default function App() {
       const tokenCount = estimateTokens(accumulatedContent);
       const tokenSpeed = Math.round((tokenCount / (executionTime / 1000)) * 10) / 10;
 
-      addLog(`[AI 响应] 处理完成，耗时 ${executionTime}ms，生成 ${tokenCount} tokens (${tokenSpeed} t/s)`, 'info');
+      addLog(t.logs.aiResponseComplete.replace('{time}', String(executionTime)).replace('{tokens}', String(tokenCount)).replace('{speed}', String(tokenSpeed)), 'info');
 
       setMessages(prev => prev.map(m => {
         if (m.id === assistantMessageId) {
@@ -688,10 +760,10 @@ export default function App() {
       setIsWaitingForResponse(false);
       setMessages(prev => prev.map(m => 
         m.role === 'assistant' && m.content === '' 
-          ? { ...m, content: `错误: 无法连接到 API (${currentApiUrl})。请检查网络连接或 API 配置。` } 
+          ? { ...m, content: t.logs.apiConnectErrorDetail.replace('{url}', currentApiUrl) } 
           : m
       ));
-      addLog('连接失败: API 不可用。', 'error');
+      addLog(t.logs.apiUnavailable, 'error');
     } finally {
       setIsStreaming(false);
       setIsWaitingForResponse(false);
@@ -729,7 +801,7 @@ export default function App() {
         body: JSON.stringify({
           model: currentModelName,
           messages: [
-            { role: 'system', content: '你是一个帮助用户总结对话标题的助手。请根据以下用户的提问和AI的回答，总结出一个能概括讨论内容的对话标题，长度控制在12个字以内。不要包含标点符号、引号或多余的解释。直接输出最终的标题内容。' },
+            { role: 'system', content: t.systemPrompts.titleGenerator },
             { role: 'user', content: `用户提问：${firstUserMessage}\n\nAI回答：${firstAssistantMessage}` }
           ],
           temperature: 0.3,
@@ -758,13 +830,13 @@ export default function App() {
           
           if (title) {
             updateSessionTitle(sessionId, title);
-            addLog(`[系统信息] 已自动生成会话标题: ${title}`, 'info');
+            addLog(t.logs.titleGenerated.replace('{title}', title), 'info');
           }
         }
       }
     } catch (error) {
       console.error('Failed to generate title:', error);
-      addLog(`[系统信息] 自动生成标题失败`, 'error');
+      addLog(t.logs.titleGenerateFailed, 'error');
     }
   };
 
@@ -774,12 +846,12 @@ export default function App() {
     const userMessage: Message = {
       id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
       role: 'user',
-      content: input.trim() || (attachedImage ? '[图片]' : ''),
+      content: input.trim() || (attachedImage ? t.image.placeholder : ''),
       timestamp: Date.now(),
       mode: appMode
     };
 
-    addLog(`[用户交互] 发送新消息，长度: ${input.trim().length} 字符`, 'info');
+    addLog(t.logs.messageSent.replace('{length}', String(input.trim().length)), 'info');
 
     let currentMsgs = [...messages, userMessage];
 
@@ -797,15 +869,14 @@ export default function App() {
     const msg = messages[msgIndex];
 
     if (msg.role === 'user') {
-      addLog(`[用户交互] 编辑历史消息，重新发起请求`, 'info');
+      addLog(t.logs.messageEdited, 'info');
       const updatedUserMessage = { ...msg, content: newContent };
       let currentMsgs = [...messages.slice(0, msgIndex), updatedUserMessage];
       
       await requestAI(currentMsgs, systemPrompt, newContent);
     } else {
-      // Edit assistant message - just update content
       setMessages(prev => prev.map(m => m.id === messageId ? { ...m, content: newContent } : m));
-      addLog('[用户交互] 已手动编辑 AI 回复', 'info');
+      addLog(t.logs.aiReplyEdited, 'info');
     }
   };
 
@@ -813,13 +884,12 @@ export default function App() {
     const msgIndex = messages.findIndex(m => m.id === messageId);
     if (msgIndex === -1) return;
 
-    // Find the user prompt before this assistant message
     const historyBefore = messages.slice(0, msgIndex);
     const lastUserMsg = [...historyBefore].reverse().find(m => m.role === 'user');
     
     if (!lastUserMsg) return;
 
-    addLog('[用户交互] 正在重新生成回答...', 'info');
+    addLog(t.logs.regenerating, 'info');
     await requestAI(historyBefore, systemPrompt, lastUserMsg.content, messageId);
   };
 
@@ -858,6 +928,20 @@ export default function App() {
       "flex h-screen w-full overflow-hidden transition-colors duration-300",
       isDarkMode ? "dark bg-zinc-900 text-zinc-200" : "bg-[#f5f5f5] text-zinc-800"
     )} style={{ fontFamily }}>
+      <div 
+        data-tauri-drag-region
+        className={cn(
+          "absolute top-0 right-0 z-50 flex items-center justify-end px-4 h-12 gap-2 shrink-0 pointer-events-none min-w-[90px]",
+          !isToolPanelOpen && "border-l",
+          isDarkMode ? "bg-zinc-700/30" : "bg-zinc-50/50",
+          !isToolPanelOpen && (isDarkMode ? "border-zinc-700" : "border-zinc-200")
+        )}
+      >
+        <div className="pointer-events-auto">
+          <WindowControls />
+        </div>
+      </div>
+      
       <Sidebar 
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
@@ -1048,7 +1132,7 @@ export default function App() {
           setLmStudioUrl('http://localhost:1234/v1/chat/completions');
           setOllamaUrl('http://localhost:11434/api/chat');
           setModelName('local-model');
-          setSystemPrompt('你是一个专业、简洁的 AI 助手。');
+          setSystemPrompt(t.systemPrompts.defaultAssistant);
           setTemperature(0.7);
           setMaxContextLength(4096);
           setModelProvider('lm-studio');
@@ -1076,6 +1160,16 @@ export default function App() {
         setNewMcpArgs={setNewMcpArgs}
         onAdd={handleAddMcpServer}
         isDarkMode={isDarkMode}
+      />
+
+      <CloseConfirmModal
+        isOpen={isCloseConfirmModalOpen}
+        isDarkMode={isDarkMode}
+        askEveryTime={closeWindowAskEveryTime}
+        onAskEveryTimeChange={setCloseWindowAskEveryTime}
+        onMinimize={handleCloseConfirmMinimize}
+        onCloseApp={handleCloseConfirmClose}
+        onCancel={() => setIsCloseConfirmModalOpen(false)}
       />
     </div>
   );

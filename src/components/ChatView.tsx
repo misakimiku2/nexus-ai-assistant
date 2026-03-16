@@ -213,6 +213,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
       <AnimatePresence>
         {appMode === 'command' && (
           <motion.div 
+            data-tauri-drag-region
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 48, opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}

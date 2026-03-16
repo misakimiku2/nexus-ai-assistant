@@ -72,10 +72,14 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
       )}
     >
       {/* Top Tabs */}
-      <div className={cn(
-        "h-12 border-b flex items-center px-4 gap-1 shrink-0 overflow-x-auto no-scrollbar",
-        isDarkMode ? "border-zinc-600 bg-zinc-700/50" : "border-zinc-200 bg-white"
-      )}>
+      <div 
+        data-tauri-drag-region
+        className={cn(
+          "h-12 border-b flex items-center px-4 gap-1 shrink-0 overflow-x-auto no-scrollbar",
+          isDarkMode ? "border-zinc-600 bg-zinc-700/50" : "border-zinc-200 bg-white",
+          !isToolPanelOpen && "pr-[90px]"
+        )}
+      >
         <div className="flex items-center gap-1">
           {tabs.map((tab) => (
             <div 

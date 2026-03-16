@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Settings, Save, RotateCcw, CheckCircle2, XCircle, RefreshCw, Activity, X, Database, Server, Globe, UploadCloud, FileText, User, Languages, Type, MessageSquare, Camera, Mic, Cpu } from 'lucide-react';
+import { Settings, Save, RotateCcw, CheckCircle2, XCircle, RefreshCw, Activity, X, Database, Server, Globe, UploadCloud, FileText, User, Languages, Type, MessageSquare, Camera, Mic, Cpu, Minimize2, Power } from 'lucide-react';
 import { NexusLogo } from './NexusLogo';
 import { useGlobalState } from '../context/GlobalStateContext';
 import { useTranslation } from 'react-i18next';
@@ -89,7 +89,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     userAvatar, setUserAvatar,
     aiAvatar, setAiAvatar,
     language, setLanguage,
-    fontFamily, setFontFamily
+    fontFamily, setFontFamily,
+    closeWindowAskEveryTime, setCloseWindowAskEveryTime,
+    closeWindowAction, setCloseWindowAction
   } = useGlobalState();
   const { t } = useTranslation();
   const [activeCategory, setActiveCategory] = useState<SettingsCategory>('user-settings');
@@ -154,7 +156,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       if (response.ok) {
         const data = await response.json();
         if (data && data.data && Array.isArray(data.data)) {
-          const models = data.data.map((m: any) => m.id);
+          const models = data.data.map((m: any) => m.id).filter((id: string) => id && id.trim() !== '');
           setAvailableModels(models);
           if (models.length > 0 && !models.includes(modelName)) {
             setModelName(models[0]);
@@ -263,7 +265,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+        <motion.div 
+          key="settings-modal"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+        >
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -426,8 +434,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                 />
                               </div>
                               <div className="flex-1 space-y-1">
-                                <label className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.user.userName')}</label>
+                                <label htmlFor="userName" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.user.userName')}</label>
                                 <input 
+                                  id="userName"
+                                  name="userName"
                                   type="text" 
                                   value={userName}
                                   onChange={(e) => setUserName(e.target.value)}
@@ -478,8 +488,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                 />
                               </div>
                               <div className="flex-1 space-y-1">
-                                <label className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.user.aiName')}</label>
+                                <label htmlFor="aiName" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.user.aiName')}</label>
                                 <input 
+                                  id="aiName"
+                                  name="aiName"
                                   type="text" 
                                   value={aiName}
                                   onChange={(e) => setAiName(e.target.value)}
@@ -505,6 +517,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                             <div className="flex items-center gap-3">
                               <Languages size={18} className="text-indigo-500" />
                               <select
+                                id="language"
+                                name="language"
                                 value={language}
                                 onChange={(e) => setLanguage(e.target.value)}
                                 className={cn(
@@ -529,6 +543,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                             <div className="flex items-center gap-3">
                               <Type size={18} className="text-indigo-500" />
                               <select
+                                id="fontFamily"
+                                name="fontFamily"
                                 value={fontFamily}
                                 onChange={(e) => setFontFamily(e.target.value)}
                                 className={cn(
@@ -588,6 +604,74 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           </div>
                         </div>
                       </section>
+
+                      {/* Close Window Settings */}
+                      <section className="space-y-4">
+                        <h4 className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>{t('settings.user.closeWindow')}</h4>
+                        <div className={cn(
+                          "p-5 border rounded-2xl space-y-4",
+                          isDarkMode ? "bg-zinc-700/30 border-zinc-600/50" : "bg-zinc-50 border-zinc-200"
+                        )}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className={cn(
+                                "p-2 rounded-lg",
+                                isDarkMode ? "bg-zinc-600" : "bg-zinc-200"
+                              )}>
+                                <Minimize2 size={16} className="text-indigo-500" />
+                              </div>
+                              <div>
+                                <p className={cn("text-sm font-medium", isDarkMode ? "text-zinc-200" : "text-zinc-800")}>{t('settings.user.closeWindowAction')}</p>
+                                <p className={cn("text-xs", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>{t('settings.user.closeWindowActionDesc')}</p>
+                              </div>
+                            </div>
+                            <select
+                              id="closeWindowAction"
+                              name="closeWindowAction"
+                              value={closeWindowAction}
+                              onChange={(e) => setCloseWindowAction(e.target.value as 'minimize' | 'close')}
+                              className={cn(
+                                "border rounded-xl px-3 py-2 text-sm focus:ring-1 focus:ring-indigo-500/50 outline-none appearance-none cursor-pointer",
+                                isDarkMode ? "bg-zinc-700 border-zinc-600 text-zinc-200" : "bg-white border-zinc-300 text-zinc-900"
+                              )}
+                            >
+                              <option value="minimize">{t('settings.user.closeWindowMinimize')}</option>
+                              <option value="close">{t('settings.user.closeWindowClose')}</option>
+                            </select>
+                          </div>
+
+                          <div className={cn("border-t pt-4", isDarkMode ? "border-zinc-600/50" : "border-zinc-200")} />
+
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className={cn(
+                                "p-2 rounded-lg",
+                                isDarkMode ? "bg-zinc-600" : "bg-zinc-200"
+                              )}>
+                                <Power size={16} className="text-indigo-500" />
+                              </div>
+                              <div>
+                                <p className={cn("text-sm font-medium", isDarkMode ? "text-zinc-200" : "text-zinc-800")}>{t('settings.user.closeWindowAskEveryTime')}</p>
+                                <p className={cn("text-xs", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>{t('settings.user.closeWindowAskEveryTimeDesc')}</p>
+                              </div>
+                            </div>
+                            <label htmlFor="closeWindowAskEveryTime" className="relative inline-flex items-center cursor-pointer">
+                              <input 
+                                id="closeWindowAskEveryTime"
+                                name="closeWindowAskEveryTime"
+                                type="checkbox" 
+                                className="sr-only peer" 
+                                checked={closeWindowAskEveryTime} 
+                                onChange={(e) => setCloseWindowAskEveryTime(e.target.checked)} 
+                              />
+                              <div className={cn(
+                                "w-9 h-5 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500",
+                                isDarkMode ? "bg-zinc-600" : "bg-zinc-300"
+                              )}></div>
+                            </label>
+                          </div>
+                        </div>
+                      </section>
                     </motion.div>
                   )}
 
@@ -634,9 +718,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           {modelProvider === 'online' ? (
                             <>
                               <div className="space-y-2">
-                                <label className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.ai.apiKey')}</label>
+                                <label htmlFor="onlineApiKey" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.ai.apiKey')}</label>
                                 <div className="flex gap-2">
                                   <input 
+                                    id="onlineApiKey"
+                                    name="onlineApiKey"
                                     type="password" 
                                     value={onlineApiKey}
                                     onChange={(e) => setOnlineApiKey(e.target.value)}
@@ -663,9 +749,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               </div>
                               <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2 relative">
-                                  <label className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.ai.vendor')}</label>
+                                  <label htmlFor="onlineProvider" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.ai.vendor')}</label>
                                   <div className="relative">
                                     <button
+                                      id="onlineProvider"
+                                      name="onlineProvider"
                                       type="button"
                                       onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                                       className={cn(
@@ -698,9 +786,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                   </div>
                                 </div>
                                 <div className="space-y-2 relative">
-                                  <label className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.ai.model')}</label>
+                                  <label htmlFor="onlineModel" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.ai.model')}</label>
                                   <div className="relative">
                                     <button
+                                      id="onlineModel"
+                                      name="onlineModel"
                                       type="button"
                                       onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
                                       className={cn(
@@ -713,9 +803,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                     </button>
                                     {isModelDropdownOpen && (
                                       <div className="absolute z-10 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                                        {onlineProviders[onlineProvider as keyof typeof onlineProviders].models.map(model => (
+                                        {onlineProviders[onlineProvider as keyof typeof onlineProviders].models.filter(m => m && m.trim() !== '').map((model, idx) => (
                                           <button
-                                            key={model}
+                                            key={model || `model-${idx}`}
                                             type="button"
                                             onClick={() => {
                                               setOnlineModel(model);
@@ -736,9 +826,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           ) : (
                             <>
                               <div className="space-y-2">
-                                <label className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.ai.apiUrl')}</label>
+                                <label htmlFor="apiUrl" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.ai.apiUrl')}</label>
                                 <div className="flex gap-2">
                                   <input 
+                                    id="apiUrl"
+                                    name="apiUrl"
                                     type="text" 
                                     value={modelProvider === 'ollama' ? ollamaUrl : lmStudioUrl}
                                     onChange={(e) => {
@@ -768,7 +860,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               
                               <div className="space-y-2">
                                 <div className="flex justify-between items-center">
-                                  <label className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.ai.modelName')}</label>
+                                  <label htmlFor="modelNameInput" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.ai.modelName')}</label>
                                   <button 
                                     onClick={fetchModels} 
                                     disabled={isFetchingModels}
@@ -780,6 +872,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                 </div>
                                 {availableModels.length > 0 ? (
                                   <select
+                                    id="modelNameInput"
+                                    name="modelNameInput"
                                     value={modelName}
                                     onChange={(e) => setModelName(e.target.value)}
                                     className={cn(
@@ -787,12 +881,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                       isDarkMode ? "bg-zinc-700 border-zinc-600 text-zinc-200" : "bg-white border-zinc-300 text-zinc-900"
                                     )}
                                   >
-                                    {availableModels.map(model => (
-                                      <option key={model} value={model}>{model}</option>
+                                    {availableModels.filter(m => m && m.trim() !== '').map((model, idx) => (
+                                      <option key={model || `model-${idx}`} value={model}>{model}</option>
                                     ))}
                                   </select>
                                 ) : (
                                   <input 
+                                    id="modelNameInput"
+                                    name="modelNameInput"
                                     type="text" 
                                     value={modelName}
                                     onChange={(e) => setModelName(e.target.value)}
@@ -809,8 +905,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
                           <div className="space-y-4 pt-2">
                             <div className="flex justify-between items-center">
-                              <label className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.ai.maxContextLength')}</label>
+                              <label htmlFor="maxContextLength" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.ai.maxContextLength')}</label>
                               <input 
+                                id="maxContextLength"
+                                name="maxContextLength"
                                 type="number" 
                                 value={maxContextLength}
                                 onChange={(e) => setMaxContextLength(parseInt(e.target.value) || 4096)}
@@ -856,8 +954,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                             <Database size={16} className="text-indigo-500 dark:text-indigo-400" />
                             {t('settings.rag.coreConfig')}
                           </h4>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" className="sr-only peer" checked={ragEnabled} onChange={(e) => setRagEnabled(e.target.checked)} />
+                          <label htmlFor="ragEnabled" className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                              id="ragEnabled"
+                              name="ragEnabled"
+                              type="checkbox" 
+                              className="sr-only peer" 
+                              checked={ragEnabled} 
+                              onChange={(e) => setRagEnabled(e.target.checked)} 
+                            />
                             <div className={cn(
                               "w-9 h-5 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500",
                               isDarkMode ? "bg-zinc-600" : "bg-zinc-300"
@@ -866,8 +971,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         </div>
                         
                         <div className={cn("space-y-2 transition-opacity", !ragEnabled && "opacity-50 pointer-events-none")}>
-                          <label className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.rag.embeddingModel')}</label>
+                          <label htmlFor="embeddingModel" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.rag.embeddingModel')}</label>
                           <select
+                            id="embeddingModel"
+                            name="embeddingModel"
                             value={embeddingModel}
                             onChange={(e) => setEmbeddingModel(e.target.value)}
                             className={cn(
@@ -968,12 +1075,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         
                         <div className="space-y-4">
                           <div className="flex justify-between items-center">
-                            <label className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.rag.chunkSize')}</label>
+                            <label htmlFor="chunkSize" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.rag.chunkSize')}</label>
                             <span className="text-xs font-mono text-indigo-500 dark:text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded-md">
                               {chunkSize}
                             </span>
                           </div>
                           <input 
+                            id="chunkSize"
+                            name="chunkSize"
                             type="range" 
                             min="200" 
                             max="2000" 
@@ -993,12 +1102,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
                         <div className="space-y-4 pt-2">
                           <div className="flex justify-between items-center">
-                            <label className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.rag.overlap')}</label>
+                            <label htmlFor="overlap" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.rag.overlap')}</label>
                             <span className="text-xs font-mono text-indigo-500 dark:text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded-md">
                               {overlap}
                             </span>
                           </div>
                           <input 
+                            id="overlap"
+                            name="overlap"
                             type="range" 
                             min="0" 
                             max="500" 
@@ -1024,12 +1135,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         
                         <div className="space-y-4">
                           <div className="flex justify-between items-center">
-                            <label className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.rag.topK')}</label>
+                            <label htmlFor="topK" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.rag.topK')}</label>
                             <span className="text-xs font-mono text-indigo-500 dark:text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded-md">
                               {topK}
                             </span>
                           </div>
                           <input 
+                            id="topK"
+                            name="topK"
                             type="range" 
                             min="1" 
                             max="10" 
@@ -1042,8 +1155,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         </div>
 
                         <div className="space-y-2 pt-2">
-                          <label className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.rag.systemPrompt')}</label>
+                          <label htmlFor="ragPrompt" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.rag.systemPrompt')}</label>
                           <textarea 
+                            id="ragPrompt"
+                            name="ragPrompt"
                             value={ragPrompt}
                             onChange={(e) => setRagPrompt(e.target.value)}
                             rows={4}
@@ -1091,11 +1206,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
             </div>
           </motion.div>
-        </div>
+        </motion.div>
       )}
       <AnimatePresence>
         {croppingImage && (
           <ImageCropper 
+            key="image-cropper"
             image={croppingImage}
             isDarkMode={isDarkMode}
             onCropComplete={handleCropComplete}

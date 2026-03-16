@@ -19,8 +19,6 @@ const ONLINE_PROVIDERS: Record<string, { url: string; models: string[]; apiKeyUr
   }
 };
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-
 interface AgentConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -69,10 +67,10 @@ export const AgentConfigModal: React.FC<AgentConfigModalProps> = ({
     try {
       let generatedData;
       
-      // Model-agnostic generation logic
-      if (formData.modelProvider === 'gemini') {
+      if (formData.modelProvider === 'online' && formData.onlineProvider === 'google' && formData.apiKey) {
+        const ai = new GoogleGenAI({ apiKey: formData.apiKey });
         const response = await ai.models.generateContent({
-          model: "gemini-3-flash-preview",
+          model: formData.modelId || "gemini-3-flash-preview",
           contents: `${t.agentConfig.generate.modalTitle}: ${promptDescription}`,
           config: {
             responseMimeType: "application/json",
@@ -91,14 +89,12 @@ export const AgentConfigModal: React.FC<AgentConfigModalProps> = ({
         });
         generatedData = JSON.parse(response.text || "{}");
       } else {
-        // Fallback for Ollama/LM Studio/Other
         const apiUrl = formData.apiUrl || 'http://localhost:11434';
         if (!apiUrl) {
           alert(t.settings.connectionError.replace('{error}', 'API URL is missing'));
           return;
         }
         
-        // Ensure we don't double up the path
         const baseUrl = apiUrl.endsWith('/v1/chat/completions') 
           ? apiUrl 
           : `${apiUrl.replace(/\/$/, '')}/v1/chat/completions`;
@@ -129,7 +125,6 @@ export const AgentConfigModal: React.FC<AgentConfigModalProps> = ({
           
           const data = await response.json();
           const content = data.choices[0].message.content;
-          // Simple parsing for non-Gemini models
           const jsonMatch = content.match(/\{.*\}/s);
           generatedData = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
         } catch (fetchError) {

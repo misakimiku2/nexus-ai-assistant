@@ -22,7 +22,14 @@
       "fontLine": "LINE Seed JP",
       "fontSystem": "系统默认",
       "preview": "对话效果预览",
-      "random": "随机生成"
+      "random": "随机生成",
+      "closeWindow": "关闭窗口",
+      "closeWindowAction": "默认关闭行为",
+      "closeWindowActionDesc": "选择点击关闭按钮时的默认行为",
+      "closeWindowMinimize": "最小化到托盘",
+      "closeWindowClose": "直接关闭程序",
+      "closeWindowAskEveryTime": "每次询问",
+      "closeWindowAskEveryTimeDesc": "每次点击关闭时都弹出确认窗口"
     },
     "ai": {
       "title": "AI 模型",
@@ -131,6 +138,13 @@
       "saved": "已保存"
     }
   },
+  "closeConfirm": {
+    "title": "关闭窗口",
+    "message": "请选择您希望执行的操作",
+    "minimize": "最小化运行",
+    "closeApp": "关闭程序",
+    "askEveryTime": "每次询问"
+  },
   "sidebar": {
     "chat": "对话",
     "agents": "Agent 集群",
@@ -157,8 +171,11 @@
     "expandSidebar": "展开侧边栏",
     "local": "本地",
     "unitTest": "单体测试",
+    "unitTestTitle": "运行单体测试",
     "clusterTest": "集群测试",
-    "clearContext": "清除上下文 (重置 Token)"
+    "clusterTestTitle": "运行集群测试",
+    "clearContext": "清除上下文 (重置 Token)",
+    "clearHistory": "清除历史记录"
   },
   "chat": {
     "inputPlaceholder": "输入您的问题...",
@@ -248,5 +265,176 @@
       "generating": "生成中...",
       "modalTitle": "AI 自动生成 Agent"
     }
+  },
+  "mcp": {
+    "title": "MCP 控制中心",
+    "desc": "管理 Model Context Protocol 服务器连接",
+    "addServer": "添加服务器",
+    "status": {
+      "connected": "已连接",
+      "disconnected": "已断开"
+    },
+    "disconnect": "断开连接",
+    "availableTools": "可用工具",
+    "noTools": "暂无可用工具",
+    "requiresAuth": "需要授权"
+  },
+  "toolPanel": {
+    "params": {
+      "systemPrompt": "系统提示词",
+      "promptPlaceholder": "输入系统提示词...",
+      "temperature": "温度参数",
+      "tempPrecise": "精准",
+      "tempCreative": "创意"
+    }
+  },
+  "common": {
+    "confirm": "确认",
+    "edit": "编辑",
+    "none": "无",
+    "error": "操作失败",
+    "cancel": "取消",
+    "save": "保存",
+    "delete": "删除",
+    "local": "本地"
+  },
+  "canvas": {
+    "workspace": "工作区",
+    "newWorkspace": "新工作区",
+    "createWorkspace": "创建工作区",
+    "closeToolbar": "关闭工具栏",
+    "openToolbar": "打开工具栏",
+    "placeholder": "在此处开始输入..."
+  },
+  "search": {
+    "unknownSession": "未知会话",
+    "title": "搜索历史",
+    "total": "共 {count} 条记录",
+    "deselectAll": "取消全选",
+    "selectAll": "全选",
+    "deleteSelected": "删除选中 ({count})",
+    "batchManage": "批量管理",
+    "noHistory": "暂无搜索历史",
+    "noHistoryDesc": "开始对话后，搜索记录将显示在这里"
+  },
+  "terminal": {
+    "title": "系统终端",
+    "tokenUsage": "Token 用量: {count}",
+    "initComplete": "系统初始化完成",
+    "waiting": "等待输入..."
+  },
+  "systemPrompts": {
+    "defaultAssistant": "你是一个专业、简洁的 AI 助手。",
+    "codeExpert": "你是一个精通全栈开发的专家。在回答时，请优先提供高质量、可运行的代码示例，并详细解释核心逻辑。",
+    "creativeWriter": "你是一个富有想象力的作家。请使用生动、优美的语言进行创作，注重情感表达和细节描写。",
+    "titleGenerator": "你是一个帮助用户总结对话标题的助手。请根据以下用户的提问和AI的回答，总结出一个能概括讨论内容的对话标题，长度控制在12个字以内。不要包含标点符号、引号或多余的解释。直接输出最终的标题内容。"
+  },
+  "presets": {
+    "defaultAssistant": "默认助手",
+    "codeExpert": "代码专家",
+    "creativeWriter": "创意写作"
+  },
+  "logs": {
+    "windowMinimized": "窗口已最小化到系统托盘",
+    "userStoppedAI": "用户已强制停止 AI 生成",
+    "mcpUserApproved": "[MCP] 用户已授权执行: {tool}",
+    "mcpUserRejected": "[MCP] 用户拒绝了执行: {tool}",
+    "toolExecuted": "已成功执行工具 `{tool}`。系统配置已更新。",
+    "toolCancelled": "已取消执行工具 `{tool}`。",
+    "mcpServerAdded": "[MCP] 已添加新服务器配置: {name} (命令: {command})",
+    "commandExecuted": "执行命令: {command}",
+    "mcpToolCalled": "[MCP] 调用工具: {server} -> {tool}",
+    "mcpSearchComplete": "[MCP] 搜索完成，找到 {count} 条结果",
+    "mcpSearchFailed": "[MCP] 搜索失败: {error}",
+    "mcpSearchError": "[MCP] 搜索出错: {error}",
+    "unknownError": "未知错误",
+    "longTextDetected": "[系统信息] 检测到超长文本 (约 {tokens} Tokens)，自动启用无感滑动窗口分块处理...",
+    "textChunked": "[系统进程] 文本已切分为 {count} 块，准备串行处理...",
+    "processingInterrupted": "[系统进程] 处理被用户中断。",
+    "processingChunk": "[系统进程] 开始处理第 {current}/{total} 块 (长度: {length} 字符)...",
+    "chunkComplete": "[系统进程] 第 {current}/{total} 块处理完成。",
+    "allChunksComplete": "[系统进程] 超长文本全部分块处理完毕。",
+    "aiRequestStart": "[AI 请求] 开始处理，当前上下文总计: {tokens} tokens (最大限制: {max} tokens)",
+    "contextCompressionTriggered": "[系统信息] 触发深度上下文压缩策略 (防 OOM)，当前: {current} tokens, 阈值: {threshold} tokens",
+    "codeBlockSkeletonized": "[系统信息] 历史代码块骨架化完成，释放了 {released} tokens",
+    "headTailApplied": "[系统信息] 已执行首尾保留策略 (Head+Tail)，压缩后总计: {tokens} tokens",
+    "aiRequesting": "[AI 请求] 正在请求模型 ({model})，Temperature: {temp}...",
+    "aiResponseComplete": "[AI 响应] 处理完成，耗时 {time}ms，生成 {tokens} tokens ({speed} t/s)",
+    "apiConnectError": "无法连接到 API",
+    "apiConnectErrorDetail": "错误: 无法连接到 API ({url})。请检查网络连接或 API 配置。",
+    "apiUnavailable": "连接失败: API 不可用。",
+    "titleGenerated": "[系统信息] 已自动生成会话标题: {title}",
+    "titleGenerateFailed": "[系统信息] 自动生成标题失败",
+    "messageSent": "[用户交互] 发送新消息，长度: {length} 字符",
+    "messageEdited": "[用户交互] 编辑历史消息，重新发起请求",
+    "aiReplyEdited": "[用户交互] 已手动编辑 AI 回复",
+    "regenerating": "[用户交互] 正在重新生成回答...",
+    "callingSystemInterface": "正在调用系统接口...",
+    "portNotResponding": "发现 445 端口未响应",
+    "generatingFixSuggestions": "正在生成修复建议...",
+    "fixSuggestionsGenerated": "修复建议已生成",
+    "unitTestDataLoaded": "已加载单体测试模拟数据",
+    "clusterTestDataLoaded": "已加载集群测试模拟数据，并创建任务文件夹"
+  },
+  "session": {
+    "newChat": "新对话",
+    "agentCluster": "Agent 集群",
+    "chatWithAgent": "与 {name} 对话",
+    "chatWithAnyAgent": "与 Agent 对话",
+    "clusterTask": "集群任务：{name}",
+    "architectPlanning": "系统架构规划 ({name})",
+    "uiImplementation": "前端组件实现 ({name})",
+    "securityReview": "安全合规审查 ({name})"
+  },
+  "context": {
+    "manuallyCleared": "上下文已手动清除",
+    "compressing": "正在执行手动上下文压缩... (压缩前: {tokens} tokens)",
+    "codeBlockCollapsed": "代码块已折叠: {lines}行代码，为节省显存 VRAM 已省略",
+    "codeBlockCollapsedManual": "代码块已手动折叠: {lines}行代码",
+    "historyReleased": "[...为防止显存溢出，中间历史对话已释放...]",
+    "compressionComplete": "上下文压缩完成 (处理了 {count} 处内容)，压缩后: {after} tokens，释放了 {released} tokens",
+    "noCompressionNeeded": "当前上下文已是最佳状态，无需压缩",
+    "middleTruncated": "[...中间部分内容过长，已手动截断以释放上下文...]",
+    "historyCompressedManual": "[系统提示: 中间历史对话已手动压缩释放以节省显存]"
+  },
+  "mockData": {
+    "systemRefactoring": "系统重构",
+    "analyzeDependencies": "帮我分析一下这个项目的依赖，并尝试升级过时的包。",
+    "scanningProject": "好的，我正在扫描项目目录并检查 package.json。我已经识别出几个可以升级的依赖项。",
+    "thinkingUpgrade": "用户想要升级依赖。我需要：\n1. 读取 package.json\n2. 运行 npm outdated\n3. 逐个分析风险并升级",
+    "dependencyScanTitle": "依赖项扫描与风险评估",
+    "dependencyScanDesc": "已完成对 node_modules 的全量扫描，发现 5 个主要版本过时。",
+    "readPackageJson": "读取 package.json",
+    "runDependencyAudit": "运行依赖审计",
+    "versionUpgradeTitle": "执行版本升级",
+    "versionUpgradeDesc": "正在尝试将 vite 从 v4 升级到 v5，并处理潜在的配置冲突。",
+    "backupConfig": "备份配置文件",
+    "installVite": "执行 npm install vite@latest",
+    "verifyBuild": "验证构建流程",
+    "blogRequest": "我想开发一个带深色模式的个人博客前端页面，需要用到 React 和 Tailwind CSS。请帮我规划并实现。",
+    "blogResponse": "我已经为你规划了个人博客的整体架构，并启动了子任务。我们将采用 React + Vite + Tailwind CSS 的技术栈。",
+    "basicArchitectureTitle": "基础架构搭建与配置",
+    "basicArchitectureDesc": "初始化 Vite 项目并配置 Tailwind CSS 环境变量。",
+    "initVite": "初始化 Vite 项目",
+    "installTailwind": "安装 Tailwind CSS",
+    "configTailwind": "配置 tailwind.config.js",
+    "uiDevelopmentTitle": "前端 UI 组件开发",
+    "uiDevelopmentDesc": "正在由 @ui-weaver 实现响应式布局和深色模式切换。",
+    "designDarkMode": "设计深色模式配色方案",
+    "implementHeader": "实现 Header 组件",
+    "implementArticleList": "实现文章列表组件",
+    "responsiveAdaptation": "响应式适配",
+    "securityReviewTitle": "安全合规性审查",
+    "securityReviewDesc": "待 UI 开发完成后由 @sec-guard 进行代码审计。"
+  },
+  "chunkProcessing": {
+    "continuationPrompt": "[系统提示] 这是超长文档的第 {current}/{total} 部分。为了保证上下文连贯，上一段的结尾输出是：\"{previous}\"。请继续处理下一段，保持语境连贯，不要重复上一段的内容。**注意：请直接输出正文，严禁使用 ```markdown 等代码块包裹，严禁输出任何解释性前言或后语。**",
+    "firstChunkPrompt": "[系统提示] 这是超长文档的第 1/{total} 部分。**注意：请直接输出正文，严禁使用 ```markdown 等代码块包裹，严禁输出任何解释性前言或后语。**"
+  },
+  "mcpActions": {
+    "modifySmbConfig": "修改系统 SMB 共享配置"
+  },
+  "image": {
+    "placeholder": "[图片]"
   }
 }

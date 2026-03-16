@@ -195,6 +195,7 @@ const AddPersonaModal: React.FC<{
                 <AnimatePresence>
                   {showIconPicker && (
                     <motion.div
+                      key="icon-picker"
                       initial={{ opacity: 0, y: 10, scale: 0.9 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.9 }}
@@ -228,10 +229,12 @@ const AddPersonaModal: React.FC<{
               </div>
 
               <div className="flex-1 space-y-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-zinc-500">
+                <label htmlFor="personaName" className="text-xs font-bold uppercase tracking-widest text-zinc-500">
                   {t('settings.voice.addModal.name')}
                 </label>
                 <input
+                  id="personaName"
+                  name="personaName"
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -248,10 +251,12 @@ const AddPersonaModal: React.FC<{
 
             {/* Reference Text */}
             <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-widest text-zinc-500">
+              <label htmlFor="personaRefText" className="text-xs font-bold uppercase tracking-widest text-zinc-500">
                 {t('settings.voice.addModal.refText')}
               </label>
               <textarea
+                id="personaRefText"
+                name="personaRefText"
                 value={refText}
                 onChange={(e) => setRefText(e.target.value)}
                 placeholder={t('settings.voice.addModal.refTextPlaceholder')}
@@ -267,7 +272,7 @@ const AddPersonaModal: React.FC<{
             {/* Audio Track Management */}
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <label className="text-xs font-bold uppercase tracking-widest text-zinc-500">
+                <label id="audioTrackLabel" className="text-xs font-bold uppercase tracking-widest text-zinc-500">
                   {t('settings.voice.addModal.audioTrack')}
                 </label>
                 <button 
@@ -278,7 +283,7 @@ const AddPersonaModal: React.FC<{
                   {t('settings.voice.addModal.addTrack')}
                 </button>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2" role="group" aria-labelledby="audioTrackLabel">
                 {tracks.map((t) => (
                   <div 
                     key={t.id}
@@ -306,12 +311,14 @@ const AddPersonaModal: React.FC<{
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <label className="text-xs font-bold uppercase tracking-widest text-zinc-500">
+                  <label htmlFor="personaPitch" className="text-xs font-bold uppercase tracking-widest text-zinc-500">
                     {t('settings.voice.addModal.pitch')}
                   </label>
                   <span className="text-xs font-mono text-indigo-500">{pitch.toFixed(1)}x</span>
                 </div>
                 <input
+                  id="personaPitch"
+                  name="personaPitch"
                   type="range"
                   min="0.5"
                   max="2.0"
@@ -323,12 +330,14 @@ const AddPersonaModal: React.FC<{
               </div>
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <label className="text-xs font-bold uppercase tracking-widest text-zinc-500">
+                  <label htmlFor="personaSpeed" className="text-xs font-bold uppercase tracking-widest text-zinc-500">
                     {t('settings.voice.addModal.speed')}
                   </label>
                   <span className="text-xs font-mono text-indigo-500">{speed.toFixed(1)}x</span>
                 </div>
                 <input
+                  id="personaSpeed"
+                  name="personaSpeed"
                   type="range"
                   min="0.5"
                   max="2.0"
@@ -370,6 +379,7 @@ const AddPersonaModal: React.FC<{
       <AnimatePresence>
         {croppingImage && (
           <ImageCropper
+            key="cropping-image"
             image={croppingImage}
             onCropComplete={handleCropComplete}
             onCancel={() => setCroppingImage(null)}
@@ -503,7 +513,7 @@ export const VoiceSettings: React.FC<VoiceSettingsProps> = ({ isDarkMode }) => {
             <div className="space-y-4 pt-2">
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <label className="text-[10px] font-bold uppercase text-zinc-500">{t('settings.voice.modelPath')}</label>
+                  <label htmlFor="voiceModelPath" className="text-[10px] font-bold uppercase text-zinc-500">{t('settings.voice.modelPath')}</label>
                   <div className="flex items-center gap-2">
                     <button 
                       onClick={handleCheckPath}
@@ -533,6 +543,8 @@ export const VoiceSettings: React.FC<VoiceSettingsProps> = ({ isDarkMode }) => {
                 )}>
                   <FolderOpen size={14} className="text-indigo-500" />
                   <input 
+                    id="voiceModelPath"
+                    name="voiceModelPath"
                     type="text"
                     value={currentConfig.path}
                     onChange={(e) => setEngineConfigs(prev => ({
@@ -546,8 +558,8 @@ export const VoiceSettings: React.FC<VoiceSettingsProps> = ({ isDarkMode }) => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase text-zinc-500">{t('settings.voice.backend')}</label>
-                  <div className="flex gap-1 bg-zinc-700/20 p-1 rounded-xl border border-zinc-600/10">
+                  <label id="voiceBackendLabel" className="text-[10px] font-bold uppercase text-zinc-500">{t('settings.voice.backend')}</label>
+                  <div className="flex gap-1 bg-zinc-700/20 p-1 rounded-xl border border-zinc-600/10" role="group" aria-labelledby="voiceBackendLabel">
                     {['GPU', 'CPU'].map((b) => (
                       <button
                         key={b}
@@ -568,11 +580,13 @@ export const VoiceSettings: React.FC<VoiceSettingsProps> = ({ isDarkMode }) => {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase text-zinc-500">{t('settings.voice.downloadLink')}</label>
+                  <label id="voiceDownloadLabel" className="text-[10px] font-bold uppercase text-zinc-500">{t('settings.voice.downloadLink')}</label>
                   <a 
+                    id="voiceDownloadLink"
                     href={currentConfig.downloadUrl}
                     target="_blank"
                     rel="noopener noreferrer"
+                    aria-labelledby="voiceDownloadLabel"
                     className={cn(
                       "flex items-center justify-center gap-2 h-[34px] rounded-xl border text-xs font-bold transition-all",
                       isDarkMode ? "bg-zinc-700 border-zinc-600 text-zinc-300 hover:bg-zinc-600" : "bg-zinc-100 border-zinc-200 text-zinc-600 hover:bg-zinc-200"
@@ -654,6 +668,7 @@ export const VoiceSettings: React.FC<VoiceSettingsProps> = ({ isDarkMode }) => {
                     <AnimatePresence>
                       {activeMenu === p.id && (
                         <motion.div
+                          key={`menu-${p.id}`}
                           initial={{ opacity: 0, scale: 0.9, y: -10 }}
                           animate={{ opacity: 1, scale: 1, y: 0 }}
                           exit={{ opacity: 0, scale: 0.9, y: -10 }}

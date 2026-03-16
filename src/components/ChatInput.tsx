@@ -359,6 +359,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             {/* Middle Bar: Full-width Textarea */}
             <div className="px-2">
               <textarea
+                id="chatInput"
+                name="chatInput"
                 ref={textareaRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}

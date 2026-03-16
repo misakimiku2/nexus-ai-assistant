@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../hooks/useTranslation';
 import { Message, LogEntry, ChatSession, ChatFolder, Agent, TodoItem, SearchGroup, SearchResult, McpServer } from '../types';
 import { AGENTS as INITIAL_AGENTS } from '../data/agents';
 import { generateMockConversation, generateClusterMockConversation } from '../utils/mockData';
@@ -79,6 +79,12 @@ interface GlobalState {
   setLanguage: (lang: string) => void;
   fontFamily: string;
   setFontFamily: (font: string) => void;
+  
+  // Close Window Settings
+  closeWindowAskEveryTime: boolean;
+  setCloseWindowAskEveryTime: (value: boolean) => void;
+  closeWindowAction: 'minimize' | 'close';
+  setCloseWindowAction: (action: 'minimize' | 'close') => void;
 }
 
 export const GlobalStateContext = createContext<GlobalState | undefined>(undefined);
@@ -93,15 +99,16 @@ export const useGlobalState = () => {
 
 const estimateTokens = (text: string) => Math.ceil(text.length * 0.5);
 
-const createInitialSession = (): ChatSession => ({
-  id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
-  title: '新对话',
-  messages: [],
-  updatedAt: Date.now(),
-});
-
 export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
+  
+  const createInitialSession = (title?: string): ChatSession => ({
+    id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+    title: title || t?.session?.newChat || '新对话',
+    messages: [],
+    updatedAt: Date.now(),
+  });
+  
   const [sessions, setSessions] = useState<ChatSession[]>([createInitialSession()]);
   const [currentSessionId, setCurrentSessionId] = useState<string>(sessions[0].id);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -137,6 +144,16 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [language, setLanguage] = useState<string>(() => localStorage.getItem('nexus_language') || 'zh');
   const [fontFamily, setFontFamily] = useState<string>(() => localStorage.getItem('nexus_font_family') || 'Inter');
 
+  // Close Window Settings
+  const [closeWindowAskEveryTime, setCloseWindowAskEveryTime] = useState<boolean>(() => {
+    const stored = localStorage.getItem('nexus_close_window_ask_every_time');
+    return stored === null ? true : stored === 'true';
+  });
+  const [closeWindowAction, setCloseWindowAction] = useState<'minimize' | 'close'>(() => {
+    const stored = localStorage.getItem('nexus_close_window_action');
+    return (stored === 'minimize' || stored === 'close') ? stored : 'minimize';
+  });
+
   // Persist User Settings
   useEffect(() => { localStorage.setItem('nexus_user_name', userName); }, [userName]);
   useEffect(() => { localStorage.setItem('nexus_ai_name', aiName); }, [aiName]);
@@ -144,6 +161,8 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
   useEffect(() => { localStorage.setItem('nexus_ai_avatar', aiAvatar); }, [aiAvatar]);
   useEffect(() => { localStorage.setItem('nexus_language', language); }, [language]);
   useEffect(() => { localStorage.setItem('nexus_font_family', fontFamily); }, [fontFamily]);
+  useEffect(() => { localStorage.setItem('nexus_close_window_ask_every_time', String(closeWindowAskEveryTime)); }, [closeWindowAskEveryTime]);
+  useEffect(() => { localStorage.setItem('nexus_close_window_action', closeWindowAction); }, [closeWindowAction]);
 
   // Sync i18next with global state language
   useEffect(() => {
@@ -153,28 +172,25 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
   }, [language, i18n]);
 
   const [systemPromptPresets, setSystemPromptPresets] = useState<{ id: string; name: string; content: string }[]>([
-    { id: '1', name: '默认助手', content: '你是一个专业、简洁的 AI 助手。请务必使用标准的 Markdown 格式进行回复，包括代码块（需指定语言，如 ```javascript）、列表、加粗等。' },
-    { id: '2', name: '代码专家', content: '你是一个精通全栈开发的专家。在回答时，请优先提供高质量、可运行的代码示例，并详细解释核心逻辑。' },
-    { id: '3', name: '创意写作', content: '你是一个富有想象力的作家。请使用生动、优美的语言进行创作，注重情感表达和细节描写。' }
+    { id: '1', name: t?.presets?.defaultAssistant || '默认助手', content: t?.systemPrompts?.defaultAssistant || '你是一个专业、简洁的 AI 助手。' },
+    { id: '2', name: t?.presets?.codeExpert || '代码专家', content: t?.systemPrompts?.codeExpert || '你是一个精通全栈开发的专家。在回答时，请优先提供高质量、可运行的代码示例，并详细解释核心逻辑。' },
+    { id: '3', name: t?.presets?.creativeWriter || '创意写作', content: t?.systemPrompts?.creativeWriter || '你是一个富有想象力的作家。请使用生动、优美的语言进行创作，注重情感表达和细节描写。' }
   ]);
 
-  // Derived todos from all messages in current session
   const todos = messages.flatMap(m => m.todos || []);
 
-  // Sync messages to current session
   useEffect(() => {
     setSessions(prev => prev.map(session => {
       if (session.id === currentSessionId) {
-        // Auto-generate title for new sessions based on first message
         let newTitle = session.title;
-        if (session.title === '新对话' && messages.length > 0 && messages[0].role === 'user') {
+        if (session.title === (t?.session?.newChat || '新对话') && messages.length > 0 && messages[0].role === 'user') {
           newTitle = messages[0].content.slice(0, 15) + (messages[0].content.length > 15 ? '...' : '');
         }
         return { ...session, messages, updatedAt: Date.now(), title: newTitle };
       }
       return session;
     }));
-  }, [messages, currentSessionId]);
+  }, [messages, currentSessionId, t?.session?.newChat]);
 
   // Sync current session messages to state when switching sessions
   useEffect(() => {
@@ -203,41 +219,38 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
   const clearHistory = () => {
     setMessages([]);
     setCurrentTokenCount(0);
-    addLog('上下文已手动清除', 'info');
+    addLog(t?.context?.manuallyCleared || '上下文已手动清除', 'info');
   };
 
   const compressMessages = () => {
     if (messages.length === 0) return;
     
     const beforeTokens = messages.reduce((acc, msg) => acc + estimateTokens(msg.content), 0);
-    addLog(`正在执行手动上下文压缩... (压缩前: ${beforeTokens} tokens)`, 'info');
+    addLog((t?.context?.compressing || '正在执行手动上下文压缩... (压缩前: {tokens} tokens)').replace('{tokens}', String(beforeTokens)), 'info');
     
     let compressedCount = 0;
 
-    // 1. 骨架化所有历史代码块，并截断超长文本 (保留最后一条消息不压缩，以免影响当前阅读)
     let newMessages = messages.map((msg, index) => {
       if (index === messages.length - 1) return msg;
       
       let newContent = msg.content;
       let isModified = false;
 
-      // 压缩代码块
       if (newContent.includes('```')) {
         const originalLength = newContent.length;
         newContent = newContent.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
           const lines = code.split('\n').length;
           if (lines > 15) {
-            return `\`\`\`${lang}\n/* [代码块已手动折叠: ${lines}行代码] */\n\`\`\``;
+            return `\`\`\`${lang}\n/* [${(t?.context?.codeBlockCollapsedManual || '代码块已手动折叠: {lines}行代码').replace('{lines}', String(lines))}] */\n\`\`\``;
           }
           return match;
         });
         if (newContent.length < originalLength) isModified = true;
       }
 
-      // 截断超长纯文本 (例如长文档翻译的原文)
       if (newContent.length > 1500) {
         newContent = newContent.substring(0, 500) + 
-          '\n\n> ***[...中间部分内容过长，已手动截断以释放上下文...]***\n\n' + 
+          `\n\n> ***${t?.context?.middleTruncated || '[...中间部分内容过长，已手动截断以释放上下文...]'}***\n\n` + 
           newContent.substring(newContent.length - 500);
         isModified = true;
       }
@@ -250,7 +263,6 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
       };
     });
 
-    // 2. 如果消息过多，执行 Head + Tail 策略 (保留首条和最后两条)
     if (newMessages.length > 4) {
       const head = newMessages[0];
       const tail = newMessages.slice(-2);
@@ -259,7 +271,7 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
         { 
           id: 'system-compressed-' + Date.now() + Math.random().toString(36).substring(2, 9), 
           role: 'assistant', 
-          content: '> ***[系统提示: 中间历史对话已手动压缩释放以节省显存]***', 
+          content: `> ***${t?.context?.historyCompressedManual || '[系统提示: 中间历史对话已手动压缩释放以节省显存]'}***`, 
           timestamp: Date.now() 
         },
         ...tail
@@ -270,9 +282,9 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     if (compressedCount > 0) {
       setMessages(newMessages);
       const afterTokens = newMessages.reduce((acc, msg) => acc + estimateTokens(msg.content), 0);
-      addLog(`上下文压缩完成 (处理了 ${compressedCount} 处内容)，压缩后: ${afterTokens} tokens，释放了 ${beforeTokens - afterTokens} tokens`, 'info');
+      addLog((t?.context?.compressionComplete || '上下文压缩完成 (处理了 {count} 处内容)，压缩后: {after} tokens，释放了 {released} tokens').replace('{count}', String(compressedCount)).replace('{after}', String(afterTokens)).replace('{released}', String(beforeTokens - afterTokens)), 'info');
     } else {
-      addLog('当前上下文已是最佳状态，无需压缩', 'info');
+      addLog(t?.context?.noCompressionNeeded || '当前上下文已是最佳状态，无需压缩', 'info');
     }
   };
 
@@ -284,15 +296,14 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
   };
 
   const createNewSessionWithAgent = (agentId: string) => {
-    // Find or create "Agent 集群" folder
-    let folderId = folders.find(f => f.name === 'Agent 集群')?.id;
+    let folderId = folders.find(f => f.name === (t?.session?.agentCluster || 'Agent 集群'))?.id;
     if (!folderId) {
       folderId = Date.now().toString() + Math.random().toString(36).substring(2, 9) + '-folder';
-      setFolders(prev => [{ id: folderId!, name: 'Agent 集群', isExpanded: true }, ...prev]);
+      setFolders(prev => [{ id: folderId!, name: t?.session?.agentCluster || 'Agent 集群', isExpanded: true }, ...prev]);
     }
 
     const agent = agents.find(a => a.id === agentId);
-    const title = agent ? `与 ${agent.name} 对话` : '与 Agent 对话';
+    const title = agent ? (t?.session?.chatWithAgent || '与 {name} 对话').replace('{name}', agent.name) : (t?.session?.chatWithAnyAgent || '与 Agent 对话');
 
     const newSession: ChatSession = {
       ...createInitialSession(),
@@ -417,20 +428,20 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     
     setMessages(prev => [...prev, userMsg]);
     setIsStreaming(true);
-    addLog('执行命令: /check-smb', 'command');
+    addLog((t?.logs?.commandExecuted || '执行命令: {command}').replace('{command}', '/check-smb'), 'command');
 
     setTimeout(() => {
-      addLog('正在调用系统接口...', 'info');
+      addLog(t?.logs?.callingSystemInterface || '正在调用系统接口...', 'info');
       setCurrentTokenCount(prev => prev + 15);
     }, 800);
 
     setTimeout(() => {
-      addLog('发现 445 端口未响应', 'error');
+      addLog(t?.logs?.portNotResponding || '发现 445 端口未响应', 'error');
       setCurrentTokenCount(prev => prev + 20);
     }, 2000);
 
     setTimeout(() => {
-      addLog('正在生成修复建议...', 'info');
+      addLog(t?.logs?.generatingFixSuggestions || '正在生成修复建议...', 'info');
       setCurrentTokenCount(prev => prev + 35);
     }, 3500);
 
@@ -444,7 +455,7 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
       };
       setMessages(prev => [...prev, aiMsg]);
       setIsStreaming(false);
-      addLog('修复建议已生成', 'info');
+      addLog(t?.logs?.fixSuggestionsGenerated || '修复建议已生成', 'info');
     }, 5000);
   };
 
@@ -454,46 +465,46 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
       {
         id: 'm1',
         role: 'user',
-        content: '帮我分析一下这个项目的依赖，并尝试升级过时的包。',
+        content: t?.mockData?.analyzeDependencies || '帮我分析一下这个项目的依赖，并尝试升级过时的包。',
         timestamp: now - 60000,
         mode: 'chat'
       },
       {
         id: 'm2',
         role: 'assistant',
-        content: '好的，我正在扫描项目目录并检查 package.json。我已经识别出几个可以升级的依赖项。',
+        content: t?.mockData?.scanningProject || '好的，我正在扫描项目目录并检查 package.json。我已经识别出几个可以升级的依赖项。',
         timestamp: now - 50000,
         mode: 'chat',
-        thinking: '用户想要升级依赖。我需要：\n1. 读取 package.json\n2. 运行 npm outdated\n3. 逐个分析风险并升级',
+        thinking: t?.mockData?.thinkingUpgrade || '用户想要升级依赖。我需要：\n1. 读取 package.json\n2. 运行 npm outdated\n3. 逐个分析风险并升级',
         todos: [
           {
             id: 's-todo-1',
-            title: '依赖项扫描与风险评估',
+            title: t?.mockData?.dependencyScanTitle || '依赖项扫描与风险评估',
             status: 'completed',
             progress: 100,
-            description: '已完成对 node_modules 的全量扫描，发现 5 个主要版本过时。',
+            description: t?.mockData?.dependencyScanDesc || '已完成对 node_modules 的全量扫描，发现 5 个主要版本过时。',
             steps: [
-              { label: '读取 package.json', status: 'completed' },
-              { label: '运行依赖审计', status: 'completed' }
+              { label: t?.mockData?.readPackageJson || '读取 package.json', status: 'completed' },
+              { label: t?.mockData?.runDependencyAudit || '运行依赖审计', status: 'completed' }
             ]
           },
           {
             id: 's-todo-2',
-            title: '执行版本升级',
+            title: t?.mockData?.versionUpgradeTitle || '执行版本升级',
             status: 'working',
             progress: 40,
-            description: '正在尝试将 vite 从 v4 升级到 v5，并处理潜在的配置冲突。',
+            description: t?.mockData?.versionUpgradeDesc || '正在尝试将 vite 从 v4 升级到 v5，并处理潜在的配置冲突。',
             steps: [
-              { label: '备份配置文件', status: 'completed' },
-              { label: '执行 npm install vite@latest', status: 'working' },
-              { label: '验证构建流程', status: 'pending' }
+              { label: t?.mockData?.backupConfig || '备份配置文件', status: 'completed' },
+              { label: t?.mockData?.installVite || '执行 npm install vite@latest', status: 'working' },
+              { label: t?.mockData?.verifyBuild || '验证构建流程', status: 'pending' }
             ]
           }
         ]
       }
     ];
     setMessages(mockMessages);
-    addLog('已加载单体测试模拟数据', 'info');
+    addLog(t?.logs?.unitTestDataLoaded || '已加载单体测试模拟数据', 'info');
   };
 
   const simulateClusterTest = () => {
@@ -501,7 +512,7 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     const folderId = now.toString() + '-cluster-folder';
     const newFolder: ChatFolder = {
       id: folderId,
-      name: '集群任务：系统重构',
+      name: (t?.session?.clusterTask || '集群任务：{name}').replace('{name}', t?.mockData?.systemRefactoring || '系统重构'),
       isExpanded: true,
       isClusterTask: true
     };
@@ -514,12 +525,12 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
 
     const architectSession: ChatSession = {
       id: architectSessionId,
-      title: '系统架构规划 (Nexus 架构师)',
+      title: (t?.session?.architectPlanning || '系统架构规划 ({name})').replace('{name}', 'Nexus Architect'),
       messages: [
         {
           id: 'c-msg-1',
           role: 'user',
-          content: '我想开发一个带深色模式的个人博客前端页面，需要用到 React 和 Tailwind CSS。请帮我规划并实现。',
+          content: t?.mockData?.blogRequest || '我想开发一个带深色模式的个人博客前端页面，需要用到 React 和 Tailwind CSS。请帮我规划并实现。',
           timestamp: now - 120000,
           mode: 'chat'
         },
@@ -527,42 +538,42 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
           id: 'c-msg-2',
           role: 'assistant',
           agentId: 'nexus-architect',
-          content: '我已经为你规划了个人博客的整体架构，并启动了子任务。我们将采用 React + Vite + Tailwind CSS 的技术栈。',
+          content: t?.mockData?.blogResponse || '我已经为你规划了个人博客的整体架构，并启动了子任务。我们将采用 React + Vite + Tailwind CSS 的技术栈。',
           timestamp: now - 110000,
           mode: 'chat',
           todos: [
             {
               id: 'todo-1',
-              title: '基础架构搭建与配置',
+              title: t?.mockData?.basicArchitectureTitle || '基础架构搭建与配置',
               status: 'completed',
               progress: 100,
-              description: '初始化 Vite 项目并配置 Tailwind CSS 环境变量。',
+              description: t?.mockData?.basicArchitectureDesc || '初始化 Vite 项目并配置 Tailwind CSS 环境变量。',
               steps: [
-                { label: '初始化 Vite 项目', status: 'completed' },
-                { label: '安装 Tailwind CSS', status: 'completed' },
-                { label: '配置 tailwind.config.js', status: 'completed' }
+                { label: t?.mockData?.initVite || '初始化 Vite 项目', status: 'completed' },
+                { label: t?.mockData?.installTailwind || '安装 Tailwind CSS', status: 'completed' },
+                { label: t?.mockData?.configTailwind || '配置 tailwind.config.js', status: 'completed' }
               ]
             },
             {
               id: 'todo-2',
-              title: '前端 UI 组件开发',
+              title: t?.mockData?.uiDevelopmentTitle || '前端 UI 组件开发',
               status: 'working',
               progress: 65,
-              description: '正在由 @ui-weaver 实现响应式布局和深色模式切换。',
+              description: t?.mockData?.uiDevelopmentDesc || '正在由 @ui-weaver 实现响应式布局和深色模式切换。',
               targetSessionId: uiSessionId,
               steps: [
-                { label: '设计深色模式配色方案', status: 'completed' },
-                { label: '实现 Header 组件', status: 'completed' },
-                { label: '实现文章列表组件', status: 'working' },
-                { label: '响应式适配', status: 'pending' }
+                { label: t?.mockData?.designDarkMode || '设计深色模式配色方案', status: 'completed' },
+                { label: t?.mockData?.implementHeader || '实现 Header 组件', status: 'completed' },
+                { label: t?.mockData?.implementArticleList || '实现文章列表组件', status: 'working' },
+                { label: t?.mockData?.responsiveAdaptation || '响应式适配', status: 'pending' }
               ]
             },
             {
               id: 'todo-3',
-              title: '安全合规性审查',
+              title: t?.mockData?.securityReviewTitle || '安全合规性审查',
               status: 'pending',
               progress: 0,
-              description: '待 UI 开发完成后由 @sec-guard 进行代码审计。',
+              description: t?.mockData?.securityReviewDesc || '待 UI 开发完成后由 @sec-guard 进行代码审计。',
               targetSessionId: secSessionId
             }
           ]
@@ -575,7 +586,7 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
 
     const uiSession: ChatSession = {
       id: uiSessionId,
-      title: '前端组件实现 (界面编织者)',
+      title: (t?.session?.uiImplementation || '前端组件实现 ({name})').replace('{name}', 'UI Weaver'),
       messages: generateClusterMockConversation('ui'),
       updatedAt: Date.now() - 1000,
       folderId,
@@ -584,7 +595,7 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
 
     const secSession: ChatSession = {
       id: secSessionId,
-      title: '安全合规审查 (安全卫士)',
+      title: (t?.session?.securityReview || '安全合规审查 ({name})').replace('{name}', 'Security Guard'),
       messages: generateClusterMockConversation('security'),
       updatedAt: Date.now() - 2000,
       folderId,
@@ -596,7 +607,7 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     setMessages(architectSession.messages);
     setIsStreaming(true);
     
-    addLog('已加载集群测试模拟数据，并创建任务文件夹', 'info');
+    addLog(t?.logs?.clusterTestDataLoaded || '已加载集群测试模拟数据，并创建任务文件夹', 'info');
   };
 
   return (
@@ -620,7 +631,9 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
       userAvatar, setUserAvatar,
       aiAvatar, setAiAvatar,
       language, setLanguage,
-      fontFamily, setFontFamily
+      fontFamily, setFontFamily,
+      closeWindowAskEveryTime, setCloseWindowAskEveryTime,
+      closeWindowAction, setCloseWindowAction
     }}>
       {children}
     </GlobalStateContext.Provider>

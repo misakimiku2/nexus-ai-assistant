@@ -32,7 +32,13 @@ export const Header: React.FC<HeaderProps> = ({
   const { t } = useTranslation();
 
   return (
-    <header className="h-12 flex items-center justify-between px-6 glass border-t-0 border-x-0">
+    <header 
+      data-tauri-drag-region
+      className={cn(
+        "h-12 flex items-center justify-between px-6 glass border-t-0 border-x-0",
+        !isToolPanelOpen && "pr-[90px]"
+      )}
+    >
       <div className="flex items-center gap-4">
         <button 
           onClick={() => setIsSidebarExpanded(!isSidebarExpanded)}

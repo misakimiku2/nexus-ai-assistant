@@ -267,20 +267,13 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
           exit={{ width: 0, opacity: 0 }}
           className="glass border-y-0 border-r-0 flex flex-col z-10 overflow-hidden"
         >
-          {/* Window Control Bar */}
-          <div className={cn(
-            "flex items-center justify-end px-4 h-12 border-b gap-2 shrink-0",
-            isDarkMode ? "bg-zinc-700/30 border-zinc-700" : "bg-zinc-50/50 border-zinc-200"
-          )}>
-            <div className="flex gap-1.5">
-              <button className="w-3 h-3 rounded-full bg-amber-500/80 hover:bg-amber-500 transition-colors" title="最小化" />
-              <button className="w-3 h-3 rounded-full bg-emerald-500/80 hover:bg-emerald-500 transition-colors" title="最大化" />
-              <button 
-                onClick={onClose}
-                className="w-3 h-3 rounded-full bg-red-500/80 hover:bg-red-500 transition-colors" 
-                title="关闭" 
-              />
-            </div>
+          <div 
+            data-tauri-drag-region
+            className={cn(
+              "flex items-center justify-end px-4 h-12 border-b gap-2 shrink-0",
+              isDarkMode ? "bg-zinc-700/30 border-zinc-700" : "bg-zinc-50/50 border-zinc-200"
+            )}
+          >
           </div>
 
           {/* Tabs Header */}

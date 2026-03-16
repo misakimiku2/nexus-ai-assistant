@@ -22,7 +22,14 @@
       "fontLine": "LINE Seed JP",
       "fontSystem": "System Default",
       "preview": "Chat Preview",
-      "random": "Randomize"
+      "random": "Randomize",
+      "closeWindow": "Close Window",
+      "closeWindowAction": "Default Close Behavior",
+      "closeWindowActionDesc": "Choose the default action when clicking close button",
+      "closeWindowMinimize": "Minimize to Tray",
+      "closeWindowClose": "Close Application",
+      "closeWindowAskEveryTime": "Ask Every Time",
+      "closeWindowAskEveryTimeDesc": "Show confirmation dialog every time when closing"
     },
     "ai": {
       "title": "AI Models",
@@ -131,6 +138,13 @@
       "saved": "Saved"
     }
   },
+  "closeConfirm": {
+    "title": "Close Window",
+    "message": "Please select the action you want to perform",
+    "minimize": "Minimize to Tray",
+    "closeApp": "Close Application",
+    "askEveryTime": "Ask Every Time"
+  },
   "sidebar": {
     "chat": "Chat",
     "agents": "Agent Cluster",
@@ -157,8 +171,11 @@
     "expandSidebar": "Expand Sidebar",
     "local": "Local",
     "unitTest": "Unit Test",
+    "unitTestTitle": "Run Unit Test",
     "clusterTest": "Cluster Test",
-    "clearContext": "Clear Context (Reset Tokens)"
+    "clusterTestTitle": "Run Cluster Test",
+    "clearContext": "Clear Context (Reset Tokens)",
+    "clearHistory": "Clear History"
   },
   "chat": {
     "inputPlaceholder": "Type your question...",
@@ -248,5 +265,176 @@
       "generating": "Generating...",
       "modalTitle": "AI Auto Generate Agent"
     }
+  },
+  "mcp": {
+    "title": "MCP Control Center",
+    "desc": "Manage Model Context Protocol server connections",
+    "addServer": "Add Server",
+    "status": {
+      "connected": "Connected",
+      "disconnected": "Disconnected"
+    },
+    "disconnect": "Disconnect",
+    "availableTools": "Available Tools",
+    "noTools": "No tools available",
+    "requiresAuth": "Requires Auth"
+  },
+  "toolPanel": {
+    "params": {
+      "systemPrompt": "System Prompt",
+      "promptPlaceholder": "Enter system prompt...",
+      "temperature": "Temperature",
+      "tempPrecise": "Precise",
+      "tempCreative": "Creative"
+    }
+  },
+  "common": {
+    "confirm": "Confirm",
+    "edit": "Edit",
+    "none": "None",
+    "error": "Operation failed",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "local": "Local"
+  },
+  "canvas": {
+    "workspace": "Workspace",
+    "newWorkspace": "New Workspace",
+    "createWorkspace": "Create Workspace",
+    "closeToolbar": "Close Toolbar",
+    "openToolbar": "Open Toolbar",
+    "placeholder": "Start typing here..."
+  },
+  "search": {
+    "unknownSession": "Unknown Session",
+    "title": "Search History",
+    "total": "Total {count} records",
+    "deselectAll": "Deselect All",
+    "selectAll": "Select All",
+    "deleteSelected": "Delete Selected ({count})",
+    "batchManage": "Batch Manage",
+    "noHistory": "No Search History",
+    "noHistoryDesc": "Search records will appear here after you start chatting"
+  },
+  "terminal": {
+    "title": "System Terminal",
+    "tokenUsage": "Token Usage: {count}",
+    "initComplete": "System initialization complete",
+    "waiting": "Waiting for input..."
+  },
+  "systemPrompts": {
+    "defaultAssistant": "You are a professional and concise AI assistant.",
+    "codeExpert": "You are an expert in full-stack development. When answering, please prioritize high-quality, runnable code examples and explain the core logic in detail.",
+    "creativeWriter": "You are an imaginative writer. Please use vivid and beautiful language for your creations, focusing on emotional expression and detailed descriptions.",
+    "titleGenerator": "You are an assistant that helps users summarize conversation titles. Based on the following user question and AI response, summarize a conversation title that captures the discussion content, within 12 characters. Do not include punctuation, quotes, or extra explanations. Output the final title content directly."
+  },
+  "presets": {
+    "defaultAssistant": "Default Assistant",
+    "codeExpert": "Code Expert",
+    "creativeWriter": "Creative Writer"
+  },
+  "logs": {
+    "windowMinimized": "Window minimized to system tray",
+    "userStoppedAI": "User has forcibly stopped AI generation",
+    "mcpUserApproved": "[MCP] User authorized execution: {tool}",
+    "mcpUserRejected": "[MCP] User rejected execution: {tool}",
+    "toolExecuted": "Successfully executed tool `{tool}`. System configuration updated.",
+    "toolCancelled": "Cancelled execution of tool `{tool}`.",
+    "mcpServerAdded": "[MCP] New server configuration added: {name} (command: {command})",
+    "commandExecuted": "Execute command: {command}",
+    "mcpToolCalled": "[MCP] Calling tool: {server} -> {tool}",
+    "mcpSearchComplete": "[MCP] Search complete, found {count} results",
+    "mcpSearchFailed": "[MCP] Search failed: {error}",
+    "mcpSearchError": "[MCP] Search error: {error}",
+    "unknownError": "Unknown error",
+    "longTextDetected": "[System] Long text detected (~{tokens} Tokens), automatically enabling seamless sliding window chunking...",
+    "textChunked": "[System] Text split into {count} chunks, preparing for serial processing...",
+    "processingInterrupted": "[System] Processing interrupted by user.",
+    "processingChunk": "[System] Processing chunk {current}/{total} (length: {length} characters)...",
+    "chunkComplete": "[System] Chunk {current}/{total} processing complete.",
+    "allChunksComplete": "[System] All chunks processed successfully.",
+    "aiRequestStart": "[AI Request] Starting processing, current context total: {tokens} tokens (max limit: {max} tokens)",
+    "contextCompressionTriggered": "[System] Deep context compression triggered (prevent OOM), current: {current} tokens, threshold: {threshold} tokens",
+    "codeBlockSkeletonized": "[System] Historical code blocks skeletonized, released {released} tokens",
+    "headTailApplied": "[System] Head+Tail strategy applied, compressed total: {tokens} tokens",
+    "aiRequesting": "[AI Request] Requesting model ({model}), Temperature: {temp}...",
+    "aiResponseComplete": "[AI Response] Processing complete, took {time}ms, generated {tokens} tokens ({speed} t/s)",
+    "apiConnectError": "Unable to connect to API",
+    "apiConnectErrorDetail": "Error: Unable to connect to API ({url}). Please check network connection or API configuration.",
+    "apiUnavailable": "Connection failed: API unavailable.",
+    "titleGenerated": "[System] Auto-generated session title: {title}",
+    "titleGenerateFailed": "[System] Failed to auto-generate title",
+    "messageSent": "[User] New message sent, length: {length} characters",
+    "messageEdited": "[User] Historical message edited, resubmitting request",
+    "aiReplyEdited": "[User] AI reply manually edited",
+    "regenerating": "[User] Regenerating response...",
+    "callingSystemInterface": "Calling system interface...",
+    "portNotResponding": "Port 445 not responding",
+    "generatingFixSuggestions": "Generating fix suggestions...",
+    "fixSuggestionsGenerated": "Fix suggestions generated",
+    "unitTestDataLoaded": "Unit test mock data loaded",
+    "clusterTestDataLoaded": "Cluster test mock data loaded, task folder created"
+  },
+  "session": {
+    "newChat": "New Chat",
+    "agentCluster": "Agent Cluster",
+    "chatWithAgent": "Chat with {name}",
+    "chatWithAnyAgent": "Chat with Agent",
+    "clusterTask": "Cluster Task: {name}",
+    "architectPlanning": "System Architecture Planning ({name})",
+    "uiImplementation": "Frontend Component Implementation ({name})",
+    "securityReview": "Security Compliance Review ({name})"
+  },
+  "context": {
+    "manuallyCleared": "Context manually cleared",
+    "compressing": "Executing manual context compression... (before: {tokens} tokens)",
+    "codeBlockCollapsed": "Code block collapsed: {lines} lines, omitted to save VRAM",
+    "codeBlockCollapsedManual": "Code block manually collapsed: {lines} lines",
+    "historyReleased": "[...Intermediate history released to prevent VRAM overflow...]",
+    "compressionComplete": "Context compression complete (processed {count} items), after: {after} tokens, released {released} tokens",
+    "noCompressionNeeded": "Current context is already optimal, no compression needed",
+    "middleTruncated": "[...Middle content too long, manually truncated to release context...]",
+    "historyCompressedManual": "[System: Intermediate history manually compressed to save VRAM]"
+  },
+  "mockData": {
+    "systemRefactoring": "System Refactoring",
+    "analyzeDependencies": "Help me analyze this project's dependencies and try to upgrade outdated packages.",
+    "scanningProject": "Okay, I'm scanning the project directory and checking package.json. I've identified several dependencies that can be upgraded.",
+    "thinkingUpgrade": "User wants to upgrade dependencies. I need to:\n1. Read package.json\n2. Run npm outdated\n3. Analyze risks and upgrade one by one",
+    "dependencyScanTitle": "Dependency Scan & Risk Assessment",
+    "dependencyScanDesc": "Completed full scan of node_modules, found 5 major versions outdated.",
+    "readPackageJson": "Read package.json",
+    "runDependencyAudit": "Run dependency audit",
+    "versionUpgradeTitle": "Execute Version Upgrade",
+    "versionUpgradeDesc": "Attempting to upgrade vite from v4 to v5, handling potential config conflicts.",
+    "backupConfig": "Backup config files",
+    "installVite": "Run npm install vite@latest",
+    "verifyBuild": "Verify build process",
+    "blogRequest": "I want to develop a personal blog frontend page with dark mode, using React and Tailwind CSS. Please help me plan and implement it.",
+    "blogResponse": "I've planned the overall architecture for your personal blog and started subtasks. We'll use the React + Vite + Tailwind CSS tech stack.",
+    "basicArchitectureTitle": "Basic Architecture Setup & Configuration",
+    "basicArchitectureDesc": "Initialize Vite project and configure Tailwind CSS environment variables.",
+    "initVite": "Initialize Vite project",
+    "installTailwind": "Install Tailwind CSS",
+    "configTailwind": "Configure tailwind.config.js",
+    "uiDevelopmentTitle": "Frontend UI Component Development",
+    "uiDevelopmentDesc": "Being implemented by @ui-weaver for responsive layout and dark mode toggle.",
+    "designDarkMode": "Design dark mode color scheme",
+    "implementHeader": "Implement Header component",
+    "implementArticleList": "Implement Article List component",
+    "responsiveAdaptation": "Responsive adaptation",
+    "securityReviewTitle": "Security Compliance Review",
+    "securityReviewDesc": "Pending @sec-guard code audit after UI development completes."
+  },
+  "chunkProcessing": {
+    "continuationPrompt": "[System] This is part {current}/{total} of a long document. To maintain context continuity, the ending output of the previous section was: \"{previous}\". Please continue processing the next section, maintaining context coherence without repeating the previous section's content. **Note: Output the main text directly, do not wrap with ```markdown code blocks, and do not output any explanatory preface or epilogue.**",
+    "firstChunkPrompt": "[System] This is part 1/{total} of a long document. **Note: Output the main text directly, do not wrap with ```markdown code blocks, and do not output any explanatory preface or epilogue.**"
+  },
+  "mcpActions": {
+    "modifySmbConfig": "Modify system SMB share configuration"
+  },
+  "image": {
+    "placeholder": "[Image]"
   }
 }
