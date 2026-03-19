@@ -1,0 +1,70 @@
+export interface JSONSchema {
+  type: 'object' | 'array' | 'string' | 'number' | 'integer' | 'boolean' | 'null';
+  properties?: Record<string, JSONSchema>;
+  items?: JSONSchema;
+  required?: string[];
+  description?: string;
+  enum?: (string | number)[];
+  default?: unknown;
+  minimum?: number;
+  maximum?: number;
+  minLength?: number;
+  maxLength?: number;
+}
+
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  parameters: JSONSchema;
+  execute: (params: Record<string, unknown>) => Promise<ToolExecutionResult>;
+  requiresAuth?: boolean;
+  category?: 'filesystem' | 'network' | 'system' | 'utility';
+  examples?: ToolExample[];
+}
+
+export interface ToolExample {
+  description: string;
+  parameters: Record<string, unknown>;
+  result: string;
+}
+
+export interface ToolExecutionResult {
+  success: boolean;
+  output: string;
+  error?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ChatCompletionTool {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: JSONSchema;
+  };
+}
+
+export interface ToolRegistryEntry {
+  definition: ToolDefinition;
+  enabled: boolean;
+  lastUsed?: number;
+  useCount: number;
+}
+
+export interface BuiltinToolConfig {
+  searchEnabled: boolean;
+  filesystemEnabled: boolean;
+  shellEnabled: boolean;
+  networkEnabled: boolean;
+  allowedPaths?: string[];
+  blockedCommands?: string[];
+}
+
+export const DEFAULT_BUILTIN_TOOL_CONFIG: BuiltinToolConfig = {
+  searchEnabled: true,
+  filesystemEnabled: true,
+  shellEnabled: true,
+  networkEnabled: true,
+  allowedPaths: [],
+  blockedCommands: ['rm -rf', 'format', 'del /s', 'shutdown', 'reboot'],
+};

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Settings, Save, RotateCcw, CheckCircle2, XCircle, RefreshCw, Activity, X, Database, Server, Globe, UploadCloud, FileText, User, Languages, Type, MessageSquare, Camera, Mic, Cpu, Minimize2, Power } from 'lucide-react';
+import { Settings, Save, RotateCcw, CheckCircle2, XCircle, RefreshCw, Activity, X, Database, Server, Globe, UploadCloud, FileText, User, Languages, Type, MessageSquare, Camera, Mic, Cpu, Minimize2, Power, ExternalLink } from 'lucide-react';
 import { NexusLogo } from './NexusLogo';
 import { useGlobalState } from '../context/GlobalStateContext';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +8,37 @@ import { cn } from '../lib/utils';
 import { ImageCropper } from './ImageCropper';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 import { VoiceSettings } from './VoiceSettings';
+
+interface TavilyUsage {
+  key: {
+    usage: number;
+    limit: number | null;
+    search_usage: number;
+    extract_usage: number;
+    crawl_usage: number;
+    map_usage: number;
+    research_usage: number;
+  };
+  account: {
+    current_plan: string;
+    plan_usage: number;
+    plan_limit: number;
+    search_usage: number;
+    extract_usage: number;
+    crawl_usage: number;
+    map_usage: number;
+    research_usage: number;
+  };
+}
+
+const openExternalLink = async (url: string) => {
+  try {
+    const { open } = await import('@tauri-apps/plugin-shell');
+    await open(url);
+  } catch {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+};
 
 const CapabilitiesRadarChart = ({ temperature, toolsCount, contextWindow, ragFilesCount }: { temperature: number, toolsCount: number, contextWindow: number, ragFilesCount: number }) => {
   const data = [
@@ -91,7 +122,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     language, setLanguage,
     fontFamily, setFontFamily,
     closeWindowAskEveryTime, setCloseWindowAskEveryTime,
-    closeWindowAction, setCloseWindowAction
+    closeWindowAction, setCloseWindowAction,
+    searchEngine, setSearchEngine,
+    tavilyApiKey, setTavilyApiKey,
+    tavilyEnabled, setTavilyEnabled,
+    tavilySearchDepth, setTavilySearchDepth,
+    tavilyIncludeAnswer, setTavilyIncludeAnswer
   } = useGlobalState();
   const { t } = useTranslation();
   const [activeCategory, setActiveCategory] = useState<SettingsCategory>('user-settings');
@@ -130,6 +166,37 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  
+  const [tavilyUsage, setTavilyUsage] = useState<TavilyUsage | null>(null);
+  const [isFetchingTavilyUsage, setIsFetchingTavilyUsage] = useState(false);
+
+  const fetchTavilyUsage = async (apiKey: string) => {
+    if (!apiKey) return;
+    setIsFetchingTavilyUsage(true);
+    try {
+      const response = await fetch('https://api.tavily.com/usage', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setTavilyUsage(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch Tavily usage:', error);
+    } finally {
+      setIsFetchingTavilyUsage(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tavilyApiKey) {
+      fetchTavilyUsage(tavilyApiKey);
+    }
+  }, [tavilyApiKey]);
 
   // Avatar Cropping State
   const [croppingImage, setCroppingImage] = useState<string | null>(null);
@@ -671,6 +738,259 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                             </label>
                           </div>
                         </div>
+                      </section>
+
+                      {/* Network Search Settings */}
+                      <section className="space-y-4">
+                        <h4 className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>{t('settings.user.networkSearch')}</h4>
+                        <div className={cn(
+                          "p-5 border rounded-2xl space-y-4",
+                          isDarkMode ? "bg-zinc-700/30 border-zinc-600/50" : "bg-zinc-50 border-zinc-200"
+                        )}>
+                          <div className="flex items-center gap-3">
+                            <div className={cn(
+                              "p-2 rounded-lg",
+                              isDarkMode ? "bg-zinc-600" : "bg-zinc-200"
+                            )}>
+                              <Globe size={16} className="text-indigo-500" />
+                            </div>
+                            <select
+                              id="searchEngine"
+                              name="searchEngine"
+                              value={searchEngine}
+                              onChange={(e) => setSearchEngine(e.target.value)}
+                              className={cn(
+                                "flex-1 border rounded-xl px-3 py-2 text-sm focus:ring-1 focus:ring-indigo-500/50 outline-none appearance-none cursor-pointer",
+                                isDarkMode ? "bg-zinc-700 border-zinc-600 text-zinc-200" : "bg-white border-zinc-300 text-zinc-900"
+                              )}
+                            >
+                              <option value="auto">{t('settings.user.searchEngineAuto')}</option>
+                              <option value="tavily">{t('settings.user.searchEngineTavily')}</option>
+                              <option value="baidu">{t('settings.user.searchEngineBaidu')}</option>
+                              <option value="bing">{t('settings.user.searchEngineBing')}</option>
+                              <option value="duckduckgo">{t('settings.user.searchEngineDuckDuckGo')}</option>
+                            </select>
+                          </div>
+                          <p className={cn("text-xs", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>
+                            {t('settings.user.searchEngineHint')}
+                          </p>
+                        </div>
+
+                        {/* Tavily Configuration */}
+                        {(searchEngine === 'tavily' || searchEngine === 'auto') && (
+                          <div className={cn(
+                            "p-5 border rounded-2xl space-y-4",
+                            isDarkMode ? "bg-indigo-900/20 border-indigo-500/30" : "bg-indigo-50 border-indigo-200"
+                          )}>
+                            <div className="flex items-center justify-between">
+                              <h5 className={cn("text-sm font-medium flex items-center gap-2", isDarkMode ? "text-indigo-300" : "text-indigo-700")}>
+                                <Globe size={16} />
+                                {t('settings.user.tavilyConfig')}
+                              </h5>
+                              <button
+                                type="button"
+                                onClick={() => openExternalLink('https://app.tavily.com')}
+                                className={cn(
+                                  "text-xs flex items-center gap-1 transition-colors",
+                                  isDarkMode ? "text-indigo-400 hover:text-indigo-300" : "text-indigo-500 hover:text-indigo-600"
+                                )}
+                              >
+                                {t('settings.user.tavilyGetApiKey')}
+                                <ExternalLink size={12} />
+                              </button>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <label htmlFor="tavilyApiKey" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>
+                                {t('settings.user.tavilyApiKey')}
+                              </label>
+                              <input
+                                id="tavilyApiKey"
+                                name="tavilyApiKey"
+                                type="password"
+                                value={tavilyApiKey}
+                                onChange={(e) => setTavilyApiKey(e.target.value)}
+                                placeholder={t('settings.user.tavilyApiKeyPlaceholder')}
+                                className={cn(
+                                  "w-full border rounded-xl px-4 py-2.5 text-sm focus:ring-1 focus:ring-indigo-500/50 outline-none transition-all",
+                                  isDarkMode ? "bg-zinc-700 border-zinc-600 text-zinc-200 placeholder-zinc-500" : "bg-white border-zinc-300 text-zinc-900 placeholder-zinc-400"
+                                )}
+                              />
+                            </div>
+
+                            {tavilyApiKey && tavilyUsage && (
+                              <div className={cn(
+                                "p-3 rounded-xl space-y-3",
+                                isDarkMode ? "bg-zinc-800/50" : "bg-white/50"
+                              )}>
+                                <div className="flex items-center justify-between">
+                                  <span className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>
+                                    {t('settings.user.tavilyPlan')}: {tavilyUsage.account?.current_plan || 'Free'}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => fetchTavilyUsage(tavilyApiKey)}
+                                    disabled={isFetchingTavilyUsage}
+                                    className={cn(
+                                      "text-xs flex items-center gap-1 transition-colors",
+                                      isDarkMode ? "text-indigo-400 hover:text-indigo-300" : "text-indigo-500 hover:text-indigo-600",
+                                      isFetchingTavilyUsage && "opacity-50"
+                                    )}
+                                  >
+                                    <RefreshCw size={12} className={isFetchingTavilyUsage ? "animate-spin" : ""} />
+                                    {t('settings.user.tavilyRefreshUsage')}
+                                  </button>
+                                </div>
+                                
+                                <div className="space-y-1">
+                                  <div className="flex justify-between text-xs">
+                                    <span className={isDarkMode ? "text-zinc-400" : "text-zinc-500"}>{t('settings.user.tavilyUsage')}</span>
+                                    <span className={isDarkMode ? "text-zinc-300" : "text-zinc-700"}>
+                                      {tavilyUsage.account?.plan_usage || 0} / {tavilyUsage.account?.plan_limit || '∞'}
+                                    </span>
+                                  </div>
+                                  {tavilyUsage.account?.plan_limit ? (
+                                    <div className={cn(
+                                      "h-2 rounded-full overflow-hidden",
+                                      isDarkMode ? "bg-zinc-700" : "bg-zinc-200"
+                                    )}>
+                                      <div 
+                                        className={cn(
+                                          "h-full rounded-full transition-all duration-300",
+                                          (tavilyUsage.account.plan_usage / tavilyUsage.account.plan_limit) > 0.8 
+                                            ? "bg-red-500" 
+                                            : (tavilyUsage.account.plan_usage / tavilyUsage.account.plan_limit) > 0.5 
+                                              ? "bg-amber-500" 
+                                              : "bg-indigo-500"
+                                        )}
+                                        style={{ 
+                                          width: `${Math.min((tavilyUsage.account.plan_usage / tavilyUsage.account.plan_limit) * 100, 100)}%` 
+                                        }}
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className={cn(
+                                      "h-2 rounded-full overflow-hidden",
+                                      isDarkMode ? "bg-zinc-700" : "bg-zinc-200"
+                                    )}>
+                                      <div 
+                                        className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 animate-pulse"
+                                        style={{ width: '30%' }}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <div className={cn("flex justify-between", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>
+                                    <span>{t('settings.user.tavilySearchUsage')}</span>
+                                    <span className={isDarkMode ? "text-zinc-300" : "text-zinc-700"}>{tavilyUsage.account?.search_usage || 0}</span>
+                                  </div>
+                                  <div className={cn("flex justify-between", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>
+                                    <span>{t('settings.user.tavilyExtractUsage')}</span>
+                                    <span className={isDarkMode ? "text-zinc-300" : "text-zinc-700"}>{tavilyUsage.account?.extract_usage || 0}</span>
+                                  </div>
+                                  <div className={cn("flex justify-between", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>
+                                    <span>{t('settings.user.tavilyCrawlUsage')}</span>
+                                    <span className={isDarkMode ? "text-zinc-300" : "text-zinc-700"}>{tavilyUsage.account?.crawl_usage || 0}</span>
+                                  </div>
+                                  <div className={cn("flex justify-between", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>
+                                    <span>{t('settings.user.tavilyMapUsage')}</span>
+                                    <span className={isDarkMode ? "text-zinc-300" : "text-zinc-700"}>{tavilyUsage.account?.map_usage || 0}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className={cn("text-sm font-medium", isDarkMode ? "text-zinc-200" : "text-zinc-800")}>{t('settings.user.tavilyEnabled')}</p>
+                                <p className={cn("text-xs", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>{t('settings.user.tavilyEnabledDesc')}</p>
+                              </div>
+                              <label htmlFor="tavilyEnabled" className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  id="tavilyEnabled"
+                                  name="tavilyEnabled"
+                                  type="checkbox"
+                                  className="sr-only peer"
+                                  checked={tavilyEnabled}
+                                  onChange={(e) => setTavilyEnabled(e.target.checked)}
+                                />
+                                <div className={cn(
+                                  "w-9 h-5 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500",
+                                  isDarkMode ? "bg-zinc-600" : "bg-zinc-300"
+                                )}></div>
+                              </label>
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>
+                                {t('settings.user.tavilySearchDepth')}
+                              </label>
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setTavilySearchDepth('basic')}
+                                  className={cn(
+                                    "flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all",
+                                    tavilySearchDepth === 'basic'
+                                      ? "bg-indigo-500 text-white"
+                                      : isDarkMode
+                                        ? "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
+                                        : "bg-zinc-200 text-zinc-700 hover:bg-zinc-300"
+                                  )}
+                                >
+                                  {t('settings.user.tavilySearchDepthBasic')}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setTavilySearchDepth('advanced')}
+                                  className={cn(
+                                    "flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all",
+                                    tavilySearchDepth === 'advanced'
+                                      ? "bg-indigo-500 text-white"
+                                      : isDarkMode
+                                        ? "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
+                                        : "bg-zinc-200 text-zinc-700 hover:bg-zinc-300"
+                                  )}
+                                >
+                                  {t('settings.user.tavilySearchDepthAdvanced')}
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className={cn("text-sm font-medium", isDarkMode ? "text-zinc-200" : "text-zinc-800")}>{t('settings.user.tavilyIncludeAnswer')}</p>
+                                <p className={cn("text-xs", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>{t('settings.user.tavilyIncludeAnswerDesc')}</p>
+                              </div>
+                              <label htmlFor="tavilyIncludeAnswer" className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  id="tavilyIncludeAnswer"
+                                  name="tavilyIncludeAnswer"
+                                  type="checkbox"
+                                  className="sr-only peer"
+                                  checked={tavilyIncludeAnswer}
+                                  onChange={(e) => setTavilyIncludeAnswer(e.target.checked)}
+                                />
+                                <div className={cn(
+                                  "w-9 h-5 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500",
+                                  isDarkMode ? "bg-zinc-600" : "bg-zinc-300"
+                                )}></div>
+                              </label>
+                            </div>
+
+                            <p className={cn("text-xs flex items-center gap-1", isDarkMode ? "text-indigo-400" : "text-indigo-600")}>
+                              <span>💡</span> {t('settings.user.tavilyHint')}
+                            </p>
+
+                            {!tavilyApiKey && (
+                              <p className={cn("text-xs flex items-center gap-1", isDarkMode ? "text-amber-400" : "text-amber-600")}>
+                                <span>⚠️</span> {t('settings.user.tavilyNotConfigured')}
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </section>
                     </motion.div>
                   )}

@@ -137,8 +137,20 @@ const {
   sessions,
   currentSessionId,
   createNewSession,
+  createNewSessionWithAgent,
   switchSession,
+  updateSessionTitle,
+  updateSessionAgents,
   deleteSession,
+  batchDeleteSessions,
+  
+  // 文件夹管理
+  folders,
+  createFolder,
+  updateFolder,
+  deleteFolder,
+  toggleFolder,
+  moveSessionToFolder,
   
   // Agent 管理
   agents,
@@ -146,17 +158,46 @@ const {
   updateAgent,
   deleteAgent,
   
+  // 系统提示词预设
+  systemPromptPresets,
+  addPreset,
+  updatePreset,
+  deletePreset,
+  
+  // 派生状态
+  todos,
+  
   // 用户设置
   userName,
   setUserName,
   aiName,
   setAiName,
+  userAvatar,
+  setUserAvatar,
+  aiAvatar,
+  setAiAvatar,
   language,
   setLanguage,
+  fontFamily,
+  setFontFamily,
+  
+  // 关闭窗口设置
+  closeWindowAskEveryTime,
+  setCloseWindowAskEveryTime,
+  closeWindowAction,
+  setCloseWindowAction,
   
   // MCP 服务器
   mcpServers,
   setMcpServers,
+  
+  // 搜索状态
+  searchGroups,
+  setSearchGroups,
+  searchResults,
+  setSearchResults,
+  deleteSearchGroup,
+  batchDeleteSearchGroups,
   
   // 日志
   logs,
@@ -164,7 +205,16 @@ const {
   
   // 流式状态
   isStreaming,
-  setIsStreaming
+  setIsStreaming,
+  currentTokenCount,
+  setCurrentTokenCount,
+  
+  // 工具方法
+  clearHistory,
+  compressMessages,
+  simulateSmbCheck,
+  simulateTest,
+  simulateClusterTest
 } = useGlobalState();
 ```
 

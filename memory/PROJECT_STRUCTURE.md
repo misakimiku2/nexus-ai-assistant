@@ -24,7 +24,9 @@ nexus-ai-assistant/
 │   │   ├── TerminalView.tsx      # 终端视图
 │   │   ├── TodoCard.tsx          # 待办事项卡片
 │   │   ├── ToolPanel.tsx         # 工具参数面板
-│   │   └── VoiceSettings.tsx     # 语音设置
+│   │   ├── VoiceSettings.tsx     # 语音设置
+│   │   ├── WindowControls.tsx    # 窗口控制按钮
+│   │   └── CloseConfirmModal.tsx # 关闭确认弹窗
 │   ├── context/
 │   │   └── GlobalStateContext.tsx # 全局状态管理
 │   ├── data/

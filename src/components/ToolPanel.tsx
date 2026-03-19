@@ -190,7 +190,7 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
   // Auto-expand the latest search group when a new one is added
   React.useEffect(() => {
     if (sessionSearchGroups.length > 0) {
-      const latest = sessionSearchGroups[sessionSearchGroups.length - 1];
+      const latest = sessionSearchGroups[0];
       setExpandedSearchGroupId(latest.id);
     }
   }, [sessionSearchGroups.length]);

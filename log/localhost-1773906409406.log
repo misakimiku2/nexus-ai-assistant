@@ -1,0 +1,13 @@
+react-dom-client.development.js:28004 Download the React DevTools for a better development experience: https://react.dev/link/react-devtools
+index.ts:30 Uncaught TypeError: Class extends value undefined is not a constructor or null
+    at node_modules/agent-base/dist/index.js (index.ts:30:42)
+    at __require (chunk-DC5AMYBS.js:9:50)
+    at node_modules/https-proxy-agent/dist/index.js (index.ts:6:1)
+    at __require (chunk-DC5AMYBS.js:9:50)
+    at utils.ts:4:33
+node_modules/agent-base/dist/index.js @ index.ts:30
+__require @ chunk-DC5AMYBS.js:9
+node_modules/https-proxy-agent/dist/index.js @ index.ts:6
+__require @ chunk-DC5AMYBS.js:9
+(匿名) @ utils.ts:4
+favicon.ico:1  GET http://localhost:3000/favicon.ico 404 (Not Found)

@@ -1,3 +1,6 @@
+mod search;
+mod tools;
+
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -7,6 +10,7 @@ use tauri::{
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -85,6 +89,19 @@ pub fn run() {
 
             Ok(())
         })
+        .invoke_handler(tauri::generate_handler![
+            search::search,
+            tools::filesystem::read_file,
+            tools::filesystem::write_file,
+            tools::filesystem::list_directory,
+            tools::filesystem::delete_file,
+            tools::filesystem::create_directory,
+            tools::filesystem::file_exists,
+            tools::filesystem::get_file_info,
+            tools::shell::execute_command,
+            tools::shell::execute_powershell,
+            tools::shell::get_system_info
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

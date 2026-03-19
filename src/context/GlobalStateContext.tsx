@@ -85,6 +85,20 @@ interface GlobalState {
   setCloseWindowAskEveryTime: (value: boolean) => void;
   closeWindowAction: 'minimize' | 'close';
   setCloseWindowAction: (action: 'minimize' | 'close') => void;
+  
+  // Search Engine Settings
+  searchEngine: string;
+  setSearchEngine: (engine: string) => void;
+  
+  // Tavily Settings
+  tavilyApiKey: string;
+  setTavilyApiKey: (key: string) => void;
+  tavilyEnabled: boolean;
+  setTavilyEnabled: (enabled: boolean) => void;
+  tavilySearchDepth: 'basic' | 'advanced';
+  setTavilySearchDepth: (depth: 'basic' | 'advanced') => void;
+  tavilyIncludeAnswer: boolean;
+  setTavilyIncludeAnswer: (include: boolean) => void;
 }
 
 export const GlobalStateContext = createContext<GlobalState | undefined>(undefined);
@@ -154,6 +168,28 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     return (stored === 'minimize' || stored === 'close') ? stored : 'minimize';
   });
 
+  // Search Engine Settings
+  const [searchEngine, setSearchEngine] = useState<string>(() => {
+    return localStorage.getItem('nexus_search_engine') || 'auto';
+  });
+
+  // Tavily Settings
+  const [tavilyApiKey, setTavilyApiKey] = useState<string>(() => {
+    return localStorage.getItem('nexus_tavily_api_key') || '';
+  });
+  const [tavilyEnabled, setTavilyEnabled] = useState<boolean>(() => {
+    const stored = localStorage.getItem('nexus_tavily_enabled');
+    return stored === 'true';
+  });
+  const [tavilySearchDepth, setTavilySearchDepth] = useState<'basic' | 'advanced'>(() => {
+    const stored = localStorage.getItem('nexus_tavily_search_depth');
+    return (stored === 'basic' || stored === 'advanced') ? stored : 'basic';
+  });
+  const [tavilyIncludeAnswer, setTavilyIncludeAnswer] = useState<boolean>(() => {
+    const stored = localStorage.getItem('nexus_tavily_include_answer');
+    return stored === 'true';
+  });
+
   // Persist User Settings
   useEffect(() => { localStorage.setItem('nexus_user_name', userName); }, [userName]);
   useEffect(() => { localStorage.setItem('nexus_ai_name', aiName); }, [aiName]);
@@ -163,6 +199,11 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
   useEffect(() => { localStorage.setItem('nexus_font_family', fontFamily); }, [fontFamily]);
   useEffect(() => { localStorage.setItem('nexus_close_window_ask_every_time', String(closeWindowAskEveryTime)); }, [closeWindowAskEveryTime]);
   useEffect(() => { localStorage.setItem('nexus_close_window_action', closeWindowAction); }, [closeWindowAction]);
+  useEffect(() => { localStorage.setItem('nexus_search_engine', searchEngine); }, [searchEngine]);
+  useEffect(() => { localStorage.setItem('nexus_tavily_api_key', tavilyApiKey); }, [tavilyApiKey]);
+  useEffect(() => { localStorage.setItem('nexus_tavily_enabled', String(tavilyEnabled)); }, [tavilyEnabled]);
+  useEffect(() => { localStorage.setItem('nexus_tavily_search_depth', tavilySearchDepth); }, [tavilySearchDepth]);
+  useEffect(() => { localStorage.setItem('nexus_tavily_include_answer', String(tavilyIncludeAnswer)); }, [tavilyIncludeAnswer]);
 
   // Sync i18next with global state language
   useEffect(() => {
@@ -633,7 +674,12 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
       language, setLanguage,
       fontFamily, setFontFamily,
       closeWindowAskEveryTime, setCloseWindowAskEveryTime,
-      closeWindowAction, setCloseWindowAction
+      closeWindowAction, setCloseWindowAction,
+      searchEngine, setSearchEngine,
+      tavilyApiKey, setTavilyApiKey,
+      tavilyEnabled, setTavilyEnabled,
+      tavilySearchDepth, setTavilySearchDepth,
+      tavilyIncludeAnswer, setTavilyIncludeAnswer
     }}>
       {children}
     </GlobalStateContext.Provider>

@@ -83,8 +83,17 @@ interface GlobalState {
   sessions: ChatSession[];
   currentSessionId: string;
   
+  // 文件夹管理
+  folders: ChatFolder[];
+  
   // Agent 管理
   agents: Agent[];
+  
+  // 系统提示词预设
+  systemPromptPresets: { id: string; name: string; content: string }[];
+  
+  // 派生状态
+  todos: TodoItem[];
   
   // 用户设置
   userName: string;
@@ -93,6 +102,10 @@ interface GlobalState {
   aiAvatar: string;
   language: string;
   fontFamily: string;
+  
+  // 关闭窗口设置
+  closeWindowAskEveryTime: boolean;
+  closeWindowAction: 'minimize' | 'close';
   
   // MCP 服务器
   mcpServers: McpServer[];

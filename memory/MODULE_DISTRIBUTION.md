@@ -32,11 +32,16 @@ GlobalStateContext
 │   └── currentTokenCount: number
 ├── Agent 状态 (Agent State)
 │   └── agents: Agent[]
+├── 系统提示词预设 (System Prompt Presets)
+│   └── systemPromptPresets: { id, name, content }[]
+├── 派生状态 (Derived State)
+│   └── todos: TodoItem[]
 ├── 用户设置 (User Settings)
 │   ├── userName, aiName
 │   ├── userAvatar, aiAvatar
 │   ├── language, fontFamily
-│   └── systemPromptPresets
+│   ├── closeWindowAskEveryTime
+│   └── closeWindowAction
 ├── MCP 状态 (MCP State)
 │   └── mcpServers: McpServer[]
 ├── 搜索状态 (Search State)
@@ -95,9 +100,11 @@ GlobalStateContext
 | 组件 | 文件 | 职责 |
 |------|------|------|
 | ConfirmationModal | `ConfirmationModal.tsx` | 确认弹窗 |
+| CloseConfirmModal | `CloseConfirmModal.tsx` | 关闭窗口确认弹窗 |
 | AddMcpModal | `AddMcpModal.tsx` | 添加 MCP 服务器弹窗 |
 | ImageCropper | `ImageCropper.tsx` | 图片裁剪组件 |
 | TodoCard | `TodoCard.tsx` | 待办事项卡片 |
+| WindowControls | `WindowControls.tsx` | 窗口控制按钮 (最小化/最大化/关闭) |
 
 ---
 

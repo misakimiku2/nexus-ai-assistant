@@ -1,4 +1,13 @@
+import { AgentStatus, ReasoningStep, ToolCallRecord } from './agent/types';
+
 export type MessageRole = 'user' | 'assistant' | 'system';
+
+export interface AgentExecutionData {
+  reasoningSteps: ReasoningStep[];
+  toolCalls: ToolCallRecord[];
+  iterationCount: number;
+  status: AgentStatus;
+}
 
 export interface TodoItem {
   id: string;
@@ -37,6 +46,7 @@ export interface Message {
   executionTime?: number;
   versions?: MessageVersion[];
   currentVersionIndex?: number;
+  agentExecution?: AgentExecutionData;
 }
 
 export interface SearchResult {

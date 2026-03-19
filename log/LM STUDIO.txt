@@ -1,0 +1,318 @@
+2026-03-20 02:14:24  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-03-20 02:14:24 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "local-model",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an intelligent agent that uses the ReAct (... <Truncated in logs> ... continue the conversation based on those results."
+    },
+    {
+      "role": "user",
+      "content": "尘白禁区最近怎么了？"
+    }
+  ],
+  "temperature": 0.7,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "description": "Search the web for current information. Returns a ... <Truncated in logs> ...\n- Examples of bad queries: \"2026年 北京 天气 预报 明天 后天\"",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query (2-4 keywords, natural language)"
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 5)",
+              "default": 5,
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "http_request",
+        "description": "Make an HTTP request to a URL.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "The URL to request"
+            },
+            "method": {
+              "type": "string",
+              "description": "HTTP method (default: GET)",
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "PATCH"
+              ],
+              "default": "GET"
+            },
+            "headers": {
+              "type": "object",
+              "description": "HTTP headers as key-value pairs"
+            },
+            "body": {
+              "type": "string",
+              "description": "Request body (for POST, PUT, PATCH)"
+            },
+            "timeout": {
+              "type": "integer",
+              "description": "Timeout in milliseconds (default: 30000)",
+              "default": 30000
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "calculate",
+        "description": "Perform mathematical calculations. Supports basic arithmetic and common math functions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string",
+              "description": "The mathematical expression to evaluate (e.g., \"2 + 2\", \"Math.sqrt(16)\", \"Math.PI * 2\")"
+            }
+          },
+          "required": [
+            "expression"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_time",
+        "description": "Get the current date and time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "timezone": {
+              "type": "string",
+              "description": "Timezone (e.g., \"Asia/Shanghai\", \"UTC\"). Default: local timezone"
+            },
+            "format": {
+              "type": "string",
+              "description": "Output format: \"iso\", \"locale\", or \"unix\"",
+              "enum": [
+                "iso",
+                "locale",
+                "unix"
+              ],
+              "default": "locale"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "stream": true
+}
+2026-03-20 02:14:24  [INFO]
+ [qwen/qwen3.5-9b] Running chat completion on conversation with 2 messages.
+2026-03-20 02:14:24  [INFO]
+ [qwen/qwen3.5-9b] Streaming response...
+2026-03-20 02:14:25  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 0.0%
+2026-03-20 02:14:26  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 100.0%
+2026-03-20 02:14:28  [INFO]
+ [qwen/qwen3.5-9b] Finished streaming response
+2026-03-20 02:14:30  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-03-20 02:14:30 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "local-model",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an intelligent agent that uses the ReAct (... <Truncated in logs> ... continue the conversation based on those results."
+    },
+    {
+      "role": "user",
+      "content": "尘白禁区最近怎么了？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n",
+      "toolCalls": [
+        {
+          "id": "798641895",
+          "type": "function",
+          "function": {
+            "name": "web_search",
+            "arguments": "{\"query\":\"尘白禁区 最近 新闻\",\"max_results\":5}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "content": "AI Answer: 尘白禁区于2026年3月2日宣布无限期停服，原因涉及内容合规整改和监管压力。停... <Truncated in logs> ...启动服务器技术维护，且未给出明确的开服\",\n    \"score\": 0.9995308\n  }\n]",
+      "toolCallId": "798641895",
+      "name": "web_search"
+    }
+  ],
+  "temperature": 0.7,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "description": "Search the web for current information. Returns a ... <Truncated in logs> ...\n- Examples of bad queries: \"2026年 北京 天气 预报 明天 后天\"",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query (2-4 keywords, natural language)"
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 5)",
+              "default": 5,
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "http_request",
+        "description": "Make an HTTP request to a URL.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "The URL to request"
+            },
+            "method": {
+              "type": "string",
+              "description": "HTTP method (default: GET)",
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "PATCH"
+              ],
+              "default": "GET"
+            },
+            "headers": {
+              "type": "object",
+              "description": "HTTP headers as key-value pairs"
+            },
+            "body": {
+              "type": "string",
+              "description": "Request body (for POST, PUT, PATCH)"
+            },
+            "timeout": {
+              "type": "integer",
+              "description": "Timeout in milliseconds (default: 30000)",
+              "default": 30000
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "calculate",
+        "description": "Perform mathematical calculations. Supports basic arithmetic and common math functions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string",
+              "description": "The mathematical expression to evaluate (e.g., \"2 + 2\", \"Math.sqrt(16)\", \"Math.PI * 2\")"
+            }
+          },
+          "required": [
+            "expression"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_time",
+        "description": "Get the current date and time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "timezone": {
+              "type": "string",
+              "description": "Timezone (e.g., \"Asia/Shanghai\", \"UTC\"). Default: local timezone"
+            },
+            "format": {
+              "type": "string",
+              "description": "Output format: \"iso\", \"locale\", or \"unix\"",
+              "enum": [
+                "iso",
+                "locale",
+                "unix"
+              ],
+              "default": "locale"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "stream": true
+}
+2026-03-20 02:14:30  [INFO]
+ [qwen/qwen3.5-9b] Running chat completion on conversation with 4 messages.
+2026-03-20 02:14:30  [INFO]
+ [qwen/qwen3.5-9b] Streaming response...
+2026-03-20 02:14:30  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 0.0%
+2026-03-20 02:14:31  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 29.1%
+2026-03-20 02:14:31  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 58.2%
+2026-03-20 02:14:31  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 70.9%
+2026-03-20 02:14:31  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 100.0%
+2026-03-20 02:14:37  [INFO]
+ [qwen/qwen3.5-9b] Finished streaming response

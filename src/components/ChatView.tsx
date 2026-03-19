@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import { 
   Cpu, ShieldAlert, CheckCircle, XCircle, Wrench, Bot, Database, Globe, Shield, Layout, Terminal, Brain, Search, FileEdit, AlertTriangle, ChevronDown, ChevronUp, User, Edit2,
-  Copy, RotateCcw, ChevronLeft, ChevronRight, Check, FileText, PanelLeftOpen, PanelLeftClose, ArrowUp, ArrowDown
+  Copy, RotateCcw, ChevronLeft, ChevronRight, Check, FileText, PanelLeftOpen, PanelLeftClose, ArrowUp, ArrowDown, Loader2, Eye
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { McpTool, PendingAction, Message, TodoItem, AppMode } from '../types';
+import { AgentStatus, ReasoningStep, ToolCallRecord } from '../agent/types';
 import { useGlobalState } from '../context/GlobalStateContext';
 import { TodoContainer } from './TodoCard';
 
@@ -106,6 +107,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [canScrollUp, setCanScrollUp] = useState(false);
   const [canScrollDown, setCanScrollDown] = useState(false);
 
+  // Use ref to store latest messages to avoid re-creating scroll handler
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
@@ -121,7 +126,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isStreaming, scrollRef]);
+  }, [messages, isStreaming]);
 
   // Scroll tracking for active message
   useEffect(() => {
@@ -132,7 +137,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
       setCanScrollUp(scrollEl.scrollTop > 50);
       setCanScrollDown(scrollEl.scrollTop + scrollEl.clientHeight < scrollEl.scrollHeight - 50);
       
-      const userMessages = messages.filter(m => m.role === 'user');
+      const userMessages = messagesRef.current.filter(m => m.role === 'user');
       if (userMessages.length === 0) return;
 
       let currentActiveId = userMessages[0].id;
@@ -146,14 +151,15 @@ export const ChatView: React.FC<ChatViewProps> = ({
           break;
         }
       }
-      setActiveMessageId(currentActiveId);
+      setActiveMessageId(prev => prev !== currentActiveId ? currentActiveId : prev);
     };
 
     scrollEl.addEventListener('scroll', handleScroll);
-    // Initial check
-    handleScroll();
+    // Initial check - use requestAnimationFrame to avoid sync setState
+    requestAnimationFrame(handleScroll);
     return () => scrollEl.removeEventListener('scroll', handleScroll);
-  }, [messages, scrollRef]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const scrollToPreviousMessage = () => {
     if (!scrollRef.current) return;
@@ -430,7 +436,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">
-                  {msg.thinking && (
+                  {(msg.thinking || msg.agentExecution) && (
                     <CollapsibleSection 
                       title={
                         <div className="flex items-center gap-2">
@@ -442,25 +448,119 @@ export const ChatView: React.FC<ChatViewProps> = ({
                               <span className="w-1 h-1 bg-purple-500 rounded-full animate-bounce"></span>
                             </span>
                           )}
+                          {msg.agentExecution && (
+                            <span className="text-xs opacity-60 ml-2">
+                              步骤 {msg.agentExecution.iterationCount}
+                            </span>
+                          )}
                         </div>
                       }
                       icon={<Brain size={16} className="text-purple-500" />} 
                       isDarkMode={isDarkMode}
-                      contentClassName={isDarkMode ? "bg-zinc-700/50 cursor-pointer" : "bg-zinc-200/50 cursor-pointer"}
+                      contentClassName={isDarkMode ? "bg-zinc-700/50" : "bg-zinc-200/50"}
                       defaultOpen={isStreaming && msg.id === messages[messages.length - 1]?.id}
                     >
-                      <div 
-                        className={cn(
-                          "prose prose-sm max-w-none opacity-80 text-xs",
-                          isDarkMode ? "prose-invert" : ""
+                      <div className="space-y-3">
+                        {msg.thinking && (
+                          <div 
+                            className={cn(
+                              "prose prose-sm max-w-none opacity-80 text-xs",
+                              isDarkMode ? "prose-invert" : ""
+                            )}
+                          >
+                            <ReactMarkdown>{msg.thinking}</ReactMarkdown>
+                          </div>
                         )}
-                        onClick={(e) => {
-                          // Find the button in the parent and click it to toggle
-                          const button = e.currentTarget.closest('.rounded-xl')?.querySelector('button');
-                          if (button) (button as HTMLButtonElement).click();
-                        }}
-                      >
-                        <ReactMarkdown>{msg.thinking}</ReactMarkdown>
+                        
+                        {msg.agentExecution && msg.agentExecution.reasoningSteps.length > 0 && (
+                          <div className={cn(
+                            "rounded-lg p-3 space-y-2",
+                            isDarkMode ? "bg-black/20" : "bg-white/50"
+                          )}>
+                            <div className="text-xs font-medium opacity-60 mb-2">推理步骤</div>
+                            <div className="max-h-40 overflow-y-auto space-y-2">
+                              {msg.agentExecution.reasoningSteps.map((step) => {
+                                const getStepIcon = (type: ReasoningStep['type']) => {
+                                  switch (type) {
+                                    case 'thought':
+                                      return <Brain className="w-3.5 h-3.5 text-blue-500" />;
+                                    case 'action':
+                                      return <Wrench className="w-3.5 h-3.5 text-amber-500" />;
+                                    case 'observation':
+                                      return <Eye className="w-3.5 h-3.5 text-purple-500" />;
+                                  }
+                                };
+                                
+                                return (
+                                  <div key={step.id} className="flex items-start gap-2 text-xs">
+                                    <div className="mt-0.5 shrink-0">{getStepIcon(step.type)}</div>
+                                    <div className="flex-1 min-w-0">
+                                      <span className={cn(
+                                        "text-[10px] uppercase font-medium",
+                                        step.type === 'thought' ? 'text-blue-500' :
+                                        step.type === 'action' ? 'text-amber-500' : 'text-purple-500'
+                                      )}>
+                                        {step.type === 'thought' ? '思考' : 
+                                         step.type === 'action' ? '行动' : '观察'}
+                                      </span>
+                                      <p className="opacity-80 line-clamp-3 mt-0.5">{step.content}</p>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {msg.agentExecution && msg.agentExecution.toolCalls.length > 0 && (
+                          <div className={cn(
+                            "rounded-lg p-3",
+                            isDarkMode ? "bg-black/20" : "bg-white/50"
+                          )}>
+                            <div className="text-xs font-medium opacity-60 mb-2">
+                              工具调用 ({msg.agentExecution.toolCalls.length})
+                            </div>
+                            <div className="space-y-1.5">
+                              {msg.agentExecution.toolCalls.map((tc) => {
+                                const getToolCallStatusIcon = (record: ToolCallRecord) => {
+                                  switch (record.status) {
+                                    case 'pending':
+                                    case 'executing':
+                                      return <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin" />;
+                                    case 'waiting_auth':
+                                      return <AlertTriangle className="w-3.5 h-3.5 text-orange-500" />;
+                                    case 'success':
+                                      return <CheckCircle className="w-3.5 h-3.5 text-green-500" />;
+                                    case 'error':
+                                      return <XCircle className="w-3.5 h-3.5 text-red-500" />;
+                                  }
+                                };
+                                
+                                return (
+                                  <div key={tc.id} className="flex items-center gap-2 text-xs">
+                                    {getToolCallStatusIcon(tc)}
+                                    <span className={cn(
+                                      "font-mono text-[10px] px-1.5 py-0.5 rounded",
+                                      isDarkMode ? "bg-zinc-700" : "bg-zinc-200"
+                                    )}>
+                                      {tc.toolName}
+                                    </span>
+                                    <span className={cn(
+                                      "text-[10px]",
+                                      tc.status === 'success' ? 'text-green-500' : 
+                                      tc.status === 'error' ? 'text-red-500' :
+                                      tc.status === 'waiting_auth' ? 'text-orange-500' : 'text-blue-500'
+                                    )}>
+                                      {tc.status === 'success' ? '成功' : 
+                                       tc.status === 'error' ? '失败' :
+                                       tc.status === 'waiting_auth' ? '待授权' : '执行中'}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </CollapsibleSection>
                   )}
@@ -513,7 +613,19 @@ export const ChatView: React.FC<ChatViewProps> = ({
                     <TodoContainer todos={msg.todos} />
                   )}
 
-                  {(msg.content || (msg.role === 'assistant' && !msg.thinking && (isWaitingForResponse || isSearching) && msg.id === messages[messages.length - 1]?.id)) && (
+                  {msg.error && (
+                    <div className={cn(
+                      "inline-flex items-start gap-2 px-4 py-3 rounded-xl border text-sm",
+                      isDarkMode 
+                        ? "bg-red-500/10 border-red-500/30 text-red-400" 
+                        : "bg-red-50 border-red-200 text-red-600"
+                    )}>
+                      <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+                      <span>{msg.error}</span>
+                    </div>
+                  )}
+
+                  {(msg.content || (msg.role === 'assistant' && !msg.thinking && !msg.error && (isWaitingForResponse || isSearching) && msg.id === messages[messages.length - 1]?.id)) && (
                     <div className={cn(
                       "inline-block relative group break-words",
                       msg.role === 'user' 
