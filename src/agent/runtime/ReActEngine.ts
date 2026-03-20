@@ -89,12 +89,6 @@ export class ReActEngine {
 
         const response = await this.callLLMStream(messages);
 
-        if (response.reasoningContent) {
-          this.addReasoningStep('thought', response.reasoningContent);
-        } else if (response.content) {
-          this.addReasoningStep('thought', response.content);
-        }
-
         if (!response.toolCalls || response.toolCalls.length === 0) {
           this.updateStatus('completed');
           return response.content || 'Task completed.';
@@ -174,6 +168,9 @@ export class ReActEngine {
     let accumulatedContent = '';
     let accumulatedReasoningContent = '';
     const toolCallsMap = new Map<string, ToolCallRequest>();
+    let currentThoughtStepId: string | null = null;
+    let hasToolCalls = false;
+    let isResponding = false;
 
     try {
       const stream = streamLLMWithTools(config, messages);
@@ -185,13 +182,26 @@ export class ReActEngine {
 
         if (chunk.type === 'reasoning_content' && typeof chunk.data === 'string') {
           accumulatedReasoningContent += chunk.data;
+          if (!currentThoughtStepId) {
+            currentThoughtStepId = this.addReasoningStep('thought', accumulatedReasoningContent, { isStreaming: true });
+          } else {
+            this.updateReasoningStep(currentThoughtStepId, accumulatedReasoningContent, true);
+          }
         } else if (chunk.type === 'content' && typeof chunk.data === 'string') {
           accumulatedContent += chunk.data;
+          if (!hasToolCalls && !isResponding) {
+            isResponding = true;
+            this.updateStatus('responding');
+          }
           this.context.onContentChunk?.(chunk.data);
         } else if (chunk.type === 'tool_call' && typeof chunk.data === 'object' && 'id' in chunk.data) {
+          hasToolCalls = true;
           const tc = chunk.data as ToolCallRequest;
           toolCallsMap.set(tc.id, tc);
         } else if (chunk.type === 'done' && typeof chunk.data === 'object') {
+          if (currentThoughtStepId) {
+            this.finalizeReasoningStep(currentThoughtStepId);
+          }
           const finalResponse = chunk.data as LLMResponse;
           return {
             content: accumulatedContent || finalResponse.content,
@@ -202,6 +212,10 @@ export class ReActEngine {
         }
       }
 
+      if (currentThoughtStepId) {
+        this.finalizeReasoningStep(currentThoughtStepId);
+      }
+
       return {
         content: accumulatedContent,
         reasoningContent: accumulatedReasoningContent,
@@ -210,6 +224,9 @@ export class ReActEngine {
       };
     } catch (error) {
       console.error('Stream error:', error);
+      if (currentThoughtStepId) {
+        this.finalizeReasoningStep(currentThoughtStepId);
+      }
       return {
         content: accumulatedContent,
         reasoningContent: accumulatedReasoningContent,
@@ -244,7 +261,6 @@ export class ReActEngine {
     };
 
     this.state.toolCallHistory.push(record);
-    this.context.onToolCall?.(record);
     this.updateStatus('acting');
 
     if (requiresAuth && !DEFAULT_AGENT_CONFIG.enableAutoAuth) {
@@ -263,7 +279,7 @@ export class ReActEngine {
     }
 
     record.status = 'executing';
-    this.addReasoningStep('action', `Calling tool: ${toolName}(${JSON.stringify(params)})`);
+    const actionStepId = this.addReasoningStep('action', '', { toolName, toolParams: params, executionStatus: 'executing' });
 
     try {
       const result = await executeToolCall({
@@ -279,7 +295,27 @@ export class ReActEngine {
       };
       record.status = result.success ? 'success' : 'error';
 
-      this.addReasoningStep('observation', result.success ? result.output : `Error: ${result.error}`);
+      this.updateActionStepStatus(actionStepId, 'completed');
+
+      let observationData: Array<{ title: string; url: string; snippet?: string }> | undefined;
+      if (result.success && result.output && toolName === 'web_search') {
+        try {
+          const parsed = JSON.parse(result.output);
+          if (Array.isArray(parsed)) {
+            observationData = parsed.map((item: any) => ({
+              title: item.title || item.name || 'Unknown',
+              url: item.url || item.link || '',
+              snippet: item.snippet || item.description || item.content || '',
+            }));
+          }
+        } catch {
+          // If parsing fails, fall back to raw output
+        }
+      }
+
+      this.addReasoningStep('observation', result.success ? '' : `Error: ${result.error}`, { observationData });
+
+      this.context.onToolCall?.(record);
 
       return { output: result.output, error: result.error };
     } catch (error) {
@@ -287,22 +323,69 @@ export class ReActEngine {
       record.status = 'error';
       record.result = { success: false, output: '', error: errorMessage };
       
+      this.updateActionStepStatus(actionStepId, 'completed');
       this.addReasoningStep('observation', `Error: ${errorMessage}`);
+      
+      this.context.onToolCall?.(record);
+      
       return { output: '', error: errorMessage };
     }
   }
 
-  private addReasoningStep(type: ReasoningStep['type'], content: string): void {
+  private addReasoningStep(
+    type: ReasoningStep['type'], 
+    content: string, 
+    options?: { 
+      customId?: string; 
+      isStreaming?: boolean;
+      toolName?: string;
+      toolParams?: Record<string, unknown>;
+      observationData?: Array<{ title: string; url: string; snippet?: string }>;
+      executionStatus?: 'executing' | 'completed';
+    }
+  ): string {
     this.stepCounter++;
+    const stepId = options?.customId || `step_${this.stepCounter}_${Date.now()}`;
     const step: ReasoningStep = {
-      id: `step_${this.stepCounter}_${Date.now()}`,
+      id: stepId,
       type,
       content,
       timestamp: Date.now(),
+      isStreaming: options?.isStreaming ?? false,
+      toolName: options?.toolName,
+      toolParams: options?.toolParams,
+      observationData: options?.observationData,
+      executionStatus: options?.executionStatus,
     };
 
     this.state.reasoningSteps.push(step);
     this.context.onReasoningStep?.(step);
+    return stepId;
+  }
+
+  private updateActionStepStatus(stepId: string, status: 'executing' | 'completed'): void {
+    const step = this.state.reasoningSteps.find(s => s.id === stepId);
+    if (step && step.type === 'action') {
+      step.executionStatus = status;
+      this.context.onReasoningStepUpdate?.(step);
+    }
+  }
+
+  private updateReasoningStep(stepId: string, content: string, isStreaming: boolean = true): void {
+    const step = this.state.reasoningSteps.find(s => s.id === stepId);
+    if (step) {
+      step.content = content;
+      step.isStreaming = isStreaming;
+      this.context.onReasoningStepUpdate?.(step);
+    }
+  }
+
+  private finalizeReasoningStep(stepId: string): void {
+    const step = this.state.reasoningSteps.find(s => s.id === stepId);
+    if (step) {
+      step.isStreaming = false;
+      this.context.onReasoningStepUpdate?.(step);
+    }
   }
 
   private updateStatus(status: AgentStatus): void {

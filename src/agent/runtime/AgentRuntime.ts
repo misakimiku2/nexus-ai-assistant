@@ -17,8 +17,9 @@ export interface AgentRuntimeOptions {
   agent: Agent;
   config?: Partial<AgentConfig>;
   onStatusChange?: (status: AgentStatus) => void;
-  onToolCall?: (record: { id: string; toolName: string; parameters: Record<string, unknown>; status: string }) => void;
+  onToolCall?: (record: { id: string; toolName: string; parameters: Record<string, unknown>; status: string; result?: { success: boolean; output: string; error?: string } }) => void;
   onReasoningStep?: (step: { type: string; content: string }) => void;
+  onReasoningStepUpdate?: (step: { id: string; type: string; content: string; isStreaming?: boolean }) => void;
   onRequestAuth?: (toolCall: { id: string; toolName: string; parameters: Record<string, unknown>; status: string }) => Promise<boolean>;
   onContentChunk?: (chunk: string) => void;
   onIterationCountChange?: (count: number) => void;
@@ -84,11 +85,16 @@ export class AgentRuntime {
           toolName: record.toolName,
           parameters: record.parameters,
           status: record.status,
+          result: record.result,
         });
       },
       onReasoningStep: (step) => {
         agentStateManager.addReasoningStep(this.agent.id, step);
         this.callbacks.onReasoningStep?.(step);
+      },
+      onReasoningStepUpdate: (step) => {
+        agentStateManager.updateReasoningStep(this.agent.id, step);
+        this.callbacks.onReasoningStepUpdate?.(step);
       },
       onRequestAuth: async (toolCall: ToolCallRecord) => {
         if (this.callbacks.onRequestAuth) {

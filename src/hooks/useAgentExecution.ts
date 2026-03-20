@@ -124,6 +124,11 @@ export function useAgentExecution(
       onReasoningStep: (step) => {
         setReasoningSteps((prev) => [...prev, step as ReasoningStep]);
       },
+      onReasoningStepUpdate: (step) => {
+        setReasoningSteps((prev) =>
+          prev.map(s => s.id === step.id ? step as ReasoningStep : s)
+        );
+      },
       onRequestAuth: async (toolCall) => {
         return new Promise((resolve) => {
           setPendingAuthToolCall(toolCall as ToolCallRecord);

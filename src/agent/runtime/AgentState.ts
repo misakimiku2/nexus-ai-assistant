@@ -106,6 +106,16 @@ export class AgentStateManager {
     }
   }
 
+  updateReasoningStep(agentId: string, step: ReasoningStep): void {
+    const state = this.states.get(agentId);
+    if (state) {
+      const index = state.reasoningSteps.findIndex(s => s.id === step.id);
+      if (index !== -1) {
+        state.reasoningSteps[index] = step;
+      }
+    }
+  }
+
   incrementIteration(agentId: string): number {
     const state = this.states.get(agentId);
     if (state) {

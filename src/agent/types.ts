@@ -1,6 +1,6 @@
 import { Agent } from '../types';
 
-export type AgentStatus = 'idle' | 'thinking' | 'acting' | 'waiting_auth' | 'completed' | 'failed';
+export type AgentStatus = 'idle' | 'thinking' | 'acting' | 'responding' | 'waiting_auth' | 'completed' | 'failed';
 
 export interface ToolCall {
   id: string;
@@ -49,6 +49,11 @@ export interface ReasoningStep {
   content: string;
   timestamp: number;
   toolCallId?: string;
+  isStreaming?: boolean;
+  toolName?: string;
+  toolParams?: Record<string, unknown>;
+  observationData?: Array<{ title: string; url: string; snippet?: string }>;
+  executionStatus?: 'executing' | 'completed';
 }
 
 export interface AgentExecutionState {
@@ -74,6 +79,7 @@ export interface AgentExecutionContext {
   onTaskUpdate?: (task: Task) => void;
   onToolCall?: (record: ToolCallRecord) => void;
   onReasoningStep?: (step: ReasoningStep) => void;
+  onReasoningStepUpdate?: (step: ReasoningStep) => void;
   onRequestAuth?: (toolCall: ToolCallRecord) => Promise<boolean>;
   onContentChunk?: (chunk: string) => void;
   onIterationCountChange?: (count: number) => void;

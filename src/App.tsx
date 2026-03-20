@@ -119,6 +119,7 @@ export default function App() {
 
   // Agent Execution State
   const [currentExecutionMessageId, setCurrentExecutionMessageId] = useState<string | null>(null);
+  const [scrollResetKey, setScrollResetKey] = useState(0);
   
   // Use ref to store currentExecutionMessageId to avoid callback recreation
   const currentExecutionMessageIdRef = useRef<string | null>(null);
@@ -148,6 +149,9 @@ export default function App() {
   }) => {
     const messageId = currentExecutionMessageIdRef.current;
     if (messageId) {
+      if (data.reasoningSteps.length > 0 || data.status === 'responding') {
+        setIsWaitingForResponse(false);
+      }
       setMessages(prev => prev.map(m => {
         if (m.id === messageId) {
           const existingSteps = m.agentExecution?.reasoningSteps || [];
@@ -788,6 +792,7 @@ export default function App() {
 
       addLog(t.logs.aiRequesting.replace('{model}', currentModelName).replace('{temp}', String(temperature)), 'info');
       setIsWaitingForResponse(true);
+      setScrollResetKey(k => k + 1);
       const response = await fetch(currentApiUrl, {
         method: 'POST',
         headers,
@@ -1035,6 +1040,7 @@ export default function App() {
 
     setIsStreaming(true);
     setIsWaitingForResponse(true);
+    setScrollResetKey(k => k + 1);
 
     try {
       const conversationHistory: ConversationMessage[] = currentMsgs.map(m => ({
@@ -1242,6 +1248,7 @@ export default function App() {
                   modelName={modelName}
                   isSidebarExpanded={isSidebarExpanded}
                   setIsSidebarExpanded={setIsSidebarExpanded}
+                  scrollResetKey={scrollResetKey}
                 />
                 <ChatInput 
                   input={input}

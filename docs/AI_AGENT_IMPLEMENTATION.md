@@ -106,7 +106,7 @@
 ### AgentStatus
 
 ```typescript
-export type AgentStatus = 'idle' | 'thinking' | 'acting' | 'waiting_auth' | 'completed' | 'failed';
+export type AgentStatus = 'idle' | 'thinking' | 'acting' | 'responding' | 'waiting_auth' | 'completed' | 'failed';
 ```
 
 ### ToolCallRecord
@@ -133,6 +133,11 @@ export interface ReasoningStep {
   content: string;
   timestamp: number;
   toolCallId?: string;
+  isStreaming?: boolean;           // 是否正在流式输出
+  toolName?: string;               // 工具名称（action 类型）
+  toolParams?: Record<string, unknown>;  // 工具参数（action 类型）
+  observationData?: Array<{ title: string; url: string; snippet?: string }>;  // 观察数据（observation 类型）
+  executionStatus?: 'executing' | 'completed';  // 执行状态（action 类型）
 }
 ```
 
@@ -347,19 +352,25 @@ Agent 模式下发送消息后：
 3. 如需工具，进入 `acting` 状态执行
 4. 如需授权，进入 `waiting_auth` 状态等待用户确认
 5. 循环执行直到任务完成或达到最大迭代次数
+6. 任务完成后进入 `responding` 状态，流式输出最终回复
+7. 输出完成后进入 `completed` 状态
 
 ### 3. 查看执行过程
 
 Agent 执行过程已集成到 ChatView 的思考折叠面板中，实时显示：
-- 当前状态和迭代次数
-- 推理步骤（Thought/Action/Observation）
-- 工具调用记录和状态
+- 当前状态和实际步骤数
+- 推理步骤（思考/行动/观察）
+- 工具调用记录和执行状态
 - 流式输出内容
 
 思考折叠面板支持：
 - 流式输出时自动展开
 - 实时更新推理步骤和工具调用状态
 - 显示步骤类型图标和颜色区分
+- 行动步骤显示执行状态（执行中/执行完成）
+- 观察步骤显示可点击的搜索结果标题
+- 点击内容区域可折叠/展开
+- 用户向上滚动时停止自动滚动，回到底部时恢复
 
 ### 4. 联网搜索结果同步
 
@@ -402,13 +413,14 @@ export interface AgentConfig {
 
 | 文件路径 | 修改内容 |
 |---------|---------|
-| `src/App.tsx` | 添加 Agent 模式集成、流式输出回调、web_search 结果同步、工具授权弹窗 |
+| `src/App.tsx` | 添加 Agent 模式集成、流式输出回调、web_search 结果同步、工具授权弹窗、scrollResetKey 状态 |
 | `src/types.ts` | 添加 `AgentExecutionData` 类型，扩展 `Message` 接口 |
-| `src/components/ChatView.tsx` | 思考折叠面板集成 Agent 执行视图，支持流式输出显示 |
-| `src/hooks/useAgentExecution.ts` | 添加 `onExecutionUpdate`、`onContentChunk`、`onWebSearchResult` 回调 |
-| `src/agent/runtime/ReActEngine.ts` | 实现流式输出 (`streamLLMWithTools`)，添加 `onContentChunk` 回调 |
-| `src/agent/runtime/AgentRuntime.ts` | 添加 `onContentChunk` 回调支持 |
-| `src/agent/types.ts` | 添加 `ToolCall` 接口，扩展 `AgentExecutionContext` |
+| `src/components/ChatView.tsx` | 思考折叠面板集成 Agent 执行视图，支持流式输出显示，滚动优化，折叠交互优化，外部链接处理 |
+| `src/hooks/useAgentExecution.ts` | 添加 `onExecutionUpdate`、`onContentChunk`、`onWebSearchResult`、`onReasoningStepUpdate` 回调 |
+| `src/agent/runtime/ReActEngine.ts` | 实现流式输出 (`streamLLMWithTools`)，添加 `onContentChunk` 回调，流式推理步骤，执行状态更新 |
+| `src/agent/runtime/AgentRuntime.ts` | 添加 `onContentChunk`、`onReasoningStepUpdate` 回调支持，传递 result 字段 |
+| `src/agent/runtime/AgentState.ts` | 添加 `updateReasoningStep` 方法 |
+| `src/agent/types.ts` | 添加 `ToolCall` 接口，扩展 `AgentExecutionContext`，添加 `responding` 状态，扩展 `ReasoningStep` 字段 |
 | `src-tauri/src/lib.rs` | 注册新的 Rust 工具命令 |
 | `src-tauri/Cargo.toml` | 添加 base64、whoami、dirs 依赖 |
 
