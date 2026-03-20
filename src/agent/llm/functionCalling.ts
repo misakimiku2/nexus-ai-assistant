@@ -176,7 +176,7 @@ export async function callLLMWithTools(
 export async function* streamLLMWithTools(
   config: FunctionCallingConfig,
   messages: ConversationMessage[]
-): AsyncGenerator<{ type: 'content' | 'tool_call' | 'done'; data: string | ToolCallRequest | LLMResponse }> {
+): AsyncGenerator<{ type: 'content' | 'reasoning_content' | 'tool_call' | 'done'; data: string | ToolCallRequest | LLMResponse }> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
@@ -214,6 +214,7 @@ export async function* streamLLMWithTools(
 
   const decoder = new TextDecoder();
   let accumulatedContent = '';
+  let accumulatedReasoningContent = '';
   const toolCallsMap = new Map<string, ToolCallRequest>();
 
   while (true) {
@@ -229,6 +230,7 @@ export async function* streamLLMWithTools(
         if (data === '[DONE]') {
           const finalResponse: LLMResponse = {
             content: accumulatedContent,
+            reasoningContent: accumulatedReasoningContent,
             toolCalls: toolCallsMap.size > 0 ? Array.from(toolCallsMap.values()) : undefined,
             finishReason: toolCallsMap.size > 0 ? 'tool_calls' : 'stop',
           };
@@ -239,6 +241,11 @@ export async function* streamLLMWithTools(
         try {
           const json = JSON.parse(data);
           const delta = json.choices?.[0]?.delta;
+
+          if (delta?.reasoning_content) {
+            accumulatedReasoningContent += delta.reasoning_content;
+            yield { type: 'reasoning_content', data: delta.reasoning_content };
+          }
 
           if (delta?.content) {
             accumulatedContent += delta.content;

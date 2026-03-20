@@ -21,6 +21,7 @@ export interface AgentRuntimeOptions {
   onReasoningStep?: (step: { type: string; content: string }) => void;
   onRequestAuth?: (toolCall: { id: string; toolName: string; parameters: Record<string, unknown>; status: string }) => Promise<boolean>;
   onContentChunk?: (chunk: string) => void;
+  onIterationCountChange?: (count: number) => void;
 }
 
 let toolsInitialized = false;
@@ -102,6 +103,9 @@ export class AgentRuntime {
       },
       onContentChunk: (chunk: string) => {
         this.callbacks.onContentChunk?.(chunk);
+      },
+      onIterationCountChange: (count: number) => {
+        this.callbacks.onIterationCountChange?.(count);
       },
     };
 

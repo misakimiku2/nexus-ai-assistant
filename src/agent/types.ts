@@ -76,6 +76,7 @@ export interface AgentExecutionContext {
   onReasoningStep?: (step: ReasoningStep) => void;
   onRequestAuth?: (toolCall: ToolCallRecord) => Promise<boolean>;
   onContentChunk?: (chunk: string) => void;
+  onIterationCountChange?: (count: number) => void;
 }
 
 export interface ConversationMessage {
@@ -97,6 +98,7 @@ export interface ToolCallRequest {
 
 export interface LLMResponse {
   content?: string;
+  reasoningContent?: string;
   toolCalls?: ToolCallRequest[];
   finishReason: 'stop' | 'tool_calls' | 'length' | 'error';
 }

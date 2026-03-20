@@ -436,7 +436,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">
-                  {(msg.thinking || msg.agentExecution) && (
+                  {(msg.thinking || (msg.agentExecution && msg.agentExecution.reasoningSteps.length > 0)) && (
                     <CollapsibleSection 
                       title={
                         <div className="flex items-center gap-2">
@@ -458,7 +458,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       icon={<Brain size={16} className="text-purple-500" />} 
                       isDarkMode={isDarkMode}
                       contentClassName={isDarkMode ? "bg-zinc-700/50" : "bg-zinc-200/50"}
-                      defaultOpen={isStreaming && msg.id === messages[messages.length - 1]?.id}
+                      defaultOpen={isStreaming && msg.id === messages[messages.length - 1]?.id && (msg.thinking || (msg.agentExecution && msg.agentExecution.reasoningSteps.length > 0))}
                     >
                       <div className="space-y-3">
                         {msg.thinking && (
@@ -511,60 +511,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
                             </div>
                           </div>
                         )}
-                        
-                        {msg.agentExecution && msg.agentExecution.toolCalls.length > 0 && (
-                          <div className={cn(
-                            "rounded-lg p-3",
-                            isDarkMode ? "bg-black/20" : "bg-white/50"
-                          )}>
-                            <div className="text-xs font-medium opacity-60 mb-2">
-                              工具调用 ({msg.agentExecution.toolCalls.length})
-                            </div>
-                            <div className="space-y-1.5">
-                              {msg.agentExecution.toolCalls.map((tc) => {
-                                const getToolCallStatusIcon = (record: ToolCallRecord) => {
-                                  switch (record.status) {
-                                    case 'pending':
-                                    case 'executing':
-                                      return <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin" />;
-                                    case 'waiting_auth':
-                                      return <AlertTriangle className="w-3.5 h-3.5 text-orange-500" />;
-                                    case 'success':
-                                      return <CheckCircle className="w-3.5 h-3.5 text-green-500" />;
-                                    case 'error':
-                                      return <XCircle className="w-3.5 h-3.5 text-red-500" />;
-                                  }
-                                };
-                                
-                                return (
-                                  <div key={tc.id} className="flex items-center gap-2 text-xs">
-                                    {getToolCallStatusIcon(tc)}
-                                    <span className={cn(
-                                      "font-mono text-[10px] px-1.5 py-0.5 rounded",
-                                      isDarkMode ? "bg-zinc-700" : "bg-zinc-200"
-                                    )}>
-                                      {tc.toolName}
-                                    </span>
-                                    <span className={cn(
-                                      "text-[10px]",
-                                      tc.status === 'success' ? 'text-green-500' : 
-                                      tc.status === 'error' ? 'text-red-500' :
-                                      tc.status === 'waiting_auth' ? 'text-orange-500' : 'text-blue-500'
-                                    )}>
-                                      {tc.status === 'success' ? '成功' : 
-                                       tc.status === 'error' ? '失败' :
-                                       tc.status === 'waiting_auth' ? '待授权' : '执行中'}
-                                    </span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </CollapsibleSection>
                   )}
-                  
+
                   {msg.searchResults && msg.searchResults.length > 0 && (
                     <CollapsibleSection title={`网络搜索 (${msg.searchResults.length} 个结果)`} icon={<Search size={16} className="text-blue-500" />} isDarkMode={isDarkMode}>
                       <div className="space-y-3">
@@ -625,7 +575,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                     </div>
                   )}
 
-                  {(msg.content || (msg.role === 'assistant' && !msg.thinking && !msg.error && (isWaitingForResponse || isSearching) && msg.id === messages[messages.length - 1]?.id)) && (
+                  {(msg.content || (msg.role === 'assistant' && !msg.thinking && !msg.error && (isWaitingForResponse || isSearching) && msg.id === messages[messages.length - 1]?.id && !msg.agentExecution?.reasoningSteps?.length)) && (
                     <div className={cn(
                       "inline-block relative group break-words",
                       msg.role === 'user' 
@@ -645,7 +595,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                         </button>
                       )}
                       
-                      {msg.role === 'assistant' && !msg.content && !msg.thinking && (isWaitingForResponse || isSearching) && msg.id === messages[messages.length - 1]?.id && (
+                      {msg.role === 'assistant' && !msg.content && !msg.thinking && !msg.agentExecution?.reasoningSteps?.length && (isWaitingForResponse || isSearching) && msg.id === messages[messages.length - 1]?.id && (
                         <div className="flex flex-col gap-2 min-w-[120px] py-2">
                           {isSearching && (
                             <div className="flex items-center gap-2 text-emerald-500 animate-pulse">

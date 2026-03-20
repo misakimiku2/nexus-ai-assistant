@@ -1,0 +1,862 @@
+2026-03-20 03:53:55  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-03-20 03:53:55 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "local-model",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an intelligent agent that uses the ReAct (... <Truncated in logs> ... continue the conversation based on those results."
+    },
+    {
+      "role": "user",
+      "content": "尘白禁区最近怎么样了？"
+    }
+  ],
+  "temperature": 0.7,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "description": "Search the web for current information. Returns a ... <Truncated in logs> ...\n- Examples of bad queries: \"2026年 北京 天气 预报 明天 后天\"",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query (2-4 keywords, natural language)"
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 5)",
+              "default": 5,
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "http_request",
+        "description": "Make an HTTP request to a URL.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "The URL to request"
+            },
+            "method": {
+              "type": "string",
+              "description": "HTTP method (default: GET)",
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "PATCH"
+              ],
+              "default": "GET"
+            },
+            "headers": {
+              "type": "object",
+              "description": "HTTP headers as key-value pairs"
+            },
+            "body": {
+              "type": "string",
+              "description": "Request body (for POST, PUT, PATCH)"
+            },
+            "timeout": {
+              "type": "integer",
+              "description": "Timeout in milliseconds (default: 30000)",
+              "default": 30000
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "calculate",
+        "description": "Perform mathematical calculations. Supports basic arithmetic and common math functions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string",
+              "description": "The mathematical expression to evaluate (e.g., \"2 + 2\", \"Math.sqrt(16)\", \"Math.PI * 2\")"
+            }
+          },
+          "required": [
+            "expression"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_time",
+        "description": "Get the current date and time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "timezone": {
+              "type": "string",
+              "description": "Timezone (e.g., \"Asia/Shanghai\", \"UTC\"). Default: local timezone"
+            },
+            "format": {
+              "type": "string",
+              "description": "Output format: \"iso\", \"locale\", or \"unix\"",
+              "enum": [
+                "iso",
+                "locale",
+                "unix"
+              ],
+              "default": "locale"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "stream": true
+}
+2026-03-20 03:53:55  [INFO]
+ [zai-org/glm-4.6v-flash] Running chat completion on conversation with 2 messages.
+2026-03-20 03:53:55  [INFO]
+ [zai-org/glm-4.6v-flash] Streaming response...
+2026-03-20 03:53:55 [DEBUG]
+ LlamaV4::predict slot selection: session_id=<empty> server-selected (LCP/LRU)
+2026-03-20 03:53:55 [DEBUG]
+ slot get_availabl: id  3 | task -1 | selected slot by LRU, t_last = -1
+2026-03-20 03:53:55 [DEBUG]
+ slot launch_slot_: id  3 | task -1 | sampler chain: logits -> penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+slot launch_slot_: id  3 | task 0 | processing task, is_child = 0
+slot update_slots: id  3 | task 0 | new prompt, n_ctx_slot = 8192, n_keep = 1457, task.n_tokens = 1457
+slot update_slots: id  3 | task 0 | cache reuse is not supported - ignoring n_cache_reuse = 256
+slot update_slots: id  3 | task 0 | n_tokens = 0, memory_seq_rm [0, end)
+slot update_slots: id  3 | task 0 | prompt processing progress, n_tokens = 512, batch.n_tokens = 512, progress = 0.351407
+2026-03-20 03:53:55  [INFO]
+ [zai-org/glm-4.6v-flash] Prompt processing progress: 0.0%
+2026-03-20 03:53:55 [DEBUG]
+ slot update_slots: id  3 | task 0 | n_tokens = 512, memory_seq_rm [512, end)
+slot update_slots: id  3 | task 0 | prompt processing progress, n_tokens = 1024, batch.n_tokens = 512, progress = 0.702814
+2026-03-20 03:53:55  [INFO]
+ [zai-org/glm-4.6v-flash] Prompt processing progress: 35.1%
+2026-03-20 03:53:55 [DEBUG]
+ slot update_slots: id  3 | task 0 | n_tokens = 1024, memory_seq_rm [1024, end)
+2026-03-20 03:53:55 [DEBUG]
+ slot init_sampler: id  3 | task 0 | init sampler, took 0.18 ms, tokens: text = 1457, total = 1457
+slot update_slots: id  3 | task 0 | prompt processing done, n_tokens = 1457, batch.n_tokens = 433
+2026-03-20 03:53:55  [INFO]
+ [zai-org/glm-4.6v-flash] Prompt processing progress: 70.3%
+2026-03-20 03:53:55  [INFO]
+ [zai-org/glm-4.6v-flash] Prompt processing progress: 100.0%
+2026-03-20 03:53:57 [DEBUG]
+ slot print_timing: id  3 | task 0 | 
+prompt eval time =     376.25 ms /  1457 tokens (    0.26 ms per token,  3872.48 tokens per second)
+       eval time =    1510.40 ms /   148 tokens (   10.21 ms per token,    97.99 tokens per second)
+      total time =    1886.65 ms /  1605 tokens
+2026-03-20 03:53:57 [DEBUG]
+ slot      release: id  3 | task 0 | stop processing: n_tokens = 1604, truncated = 0
+srv  update_slots: all slots are idle
+2026-03-20 03:53:57 [DEBUG]
+ LlamaV4: server assigned slot 3 to task 0
+2026-03-20 03:53:57  [INFO]
+ [zai-org/glm-4.6v-flash] Finished streaming response
+2026-03-20 03:54:01  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-03-20 03:54:01 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "local-model",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an intelligent agent that uses the ReAct (... <Truncated in logs> ... continue the conversation based on those results."
+    },
+    {
+      "role": "user",
+      "content": "尘白禁区最近怎么样了？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n让我为您搜索\"尘白禁区\"的最新信息。\n",
+      "toolCalls": [
+        {
+          "id": "904956553",
+          "type": "function",
+          "function": {
+            "name": "web_search",
+            "arguments": "{\"query\":\"尘白禁区 最新\",\"max_results\":5}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "content": "AI Answer: \"尘白禁区\"最新活动\"自往昔归还\"已开启，新角色和福利发布，游戏版本3.5.1... <Truncated in logs> ... 「分析員，該你上場了！」 《塵白禁\",\n    \"score\": 0.99913067\n  }\n]",
+      "toolCallId": "904956553",
+      "name": "web_search"
+    }
+  ],
+  "temperature": 0.7,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "description": "Search the web for current information. Returns a ... <Truncated in logs> ...\n- Examples of bad queries: \"2026年 北京 天气 预报 明天 后天\"",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query (2-4 keywords, natural language)"
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 5)",
+              "default": 5,
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "http_request",
+        "description": "Make an HTTP request to a URL.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "The URL to request"
+            },
+            "method": {
+              "type": "string",
+              "description": "HTTP method (default: GET)",
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "PATCH"
+              ],
+              "default": "GET"
+            },
+            "headers": {
+              "type": "object",
+              "description": "HTTP headers as key-value pairs"
+            },
+            "body": {
+              "type": "string",
+              "description": "Request body (for POST, PUT, PATCH)"
+            },
+            "timeout": {
+              "type": "integer",
+              "description": "Timeout in milliseconds (default: 30000)",
+              "default": 30000
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "calculate",
+        "description": "Perform mathematical calculations. Supports basic arithmetic and common math functions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string",
+              "description": "The mathematical expression to evaluate (e.g., \"2 + 2\", \"Math.sqrt(16)\", \"Math.PI * 2\")"
+            }
+          },
+          "required": [
+            "expression"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_time",
+        "description": "Get the current date and time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "timezone": {
+              "type": "string",
+              "description": "Timezone (e.g., \"Asia/Shanghai\", \"UTC\"). Default: local timezone"
+            },
+            "format": {
+              "type": "string",
+              "description": "Output format: \"iso\", \"locale\", or \"unix\"",
+              "enum": [
+                "iso",
+                "locale",
+                "unix"
+              ],
+              "default": "locale"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "stream": true
+}
+2026-03-20 03:54:01  [INFO]
+ [zai-org/glm-4.6v-flash] Running chat completion on conversation with 4 messages.
+2026-03-20 03:54:01  [INFO]
+ [zai-org/glm-4.6v-flash] Streaming response...
+2026-03-20 03:54:01 [DEBUG]
+ LlamaV4::predict slot selection: session_id=<empty> server-selected (LCP/LRU)
+2026-03-20 03:54:01 [DEBUG]
+ slot get_availabl: id  3 | task -1 | selected slot by LCP similarity, sim_best = 0.531 (> 0.100 thold), f_keep = 0.909
+2026-03-20 03:54:01 [DEBUG]
+ slot launch_slot_: id  3 | task -1 | sampler chain: logits -> penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+slot launch_slot_: id  3 | task 151 | processing task, is_child = 0
+slot update_slots: id  3 | task 151 | new prompt, n_ctx_slot = 8192, n_keep = 1457, task.n_tokens = 2748
+slot update_slots: id  3 | task 151 | cache reuse is not supported - ignoring n_cache_reuse = 256
+slot update_slots: id  3 | task 151 | n_tokens = 1458, memory_seq_rm [1458, end)
+slot update_slots: id  3 | task 151 | prompt processing progress, n_tokens = 1970, batch.n_tokens = 512, progress = 0.716885
+2026-03-20 03:54:01  [INFO]
+ [zai-org/glm-4.6v-flash] Prompt processing progress: 0.0%
+2026-03-20 03:54:01 [DEBUG]
+ slot update_slots: id  3 | task 151 | n_tokens = 1970, memory_seq_rm [1970, end)
+slot update_slots: id  3 | task 151 | prompt processing progress, n_tokens = 2482, batch.n_tokens = 512, progress = 0.903202
+2026-03-20 03:54:01  [INFO]
+ [zai-org/glm-4.6v-flash] Prompt processing progress: 39.7%
+2026-03-20 03:54:01 [DEBUG]
+ slot update_slots: id  3 | task 151 | n_tokens = 2482, memory_seq_rm [2482, end)
+2026-03-20 03:54:01 [DEBUG]
+ slot init_sampler: id  3 | task 151 | init sampler, took 0.40 ms, tokens: text = 2748, total = 2748
+slot update_slots: id  3 | task 151 | prompt processing done, n_tokens = 2748, batch.n_tokens = 266
+2026-03-20 03:54:01  [INFO]
+ [zai-org/glm-4.6v-flash] Prompt processing progress: 79.4%
+2026-03-20 03:54:01  [INFO]
+ [zai-org/glm-4.6v-flash] Prompt processing progress: 100.0%
+2026-03-20 03:54:06 [DEBUG]
+ slot print_timing: id  3 | task 151 | 
+prompt eval time =     268.66 ms /  1290 tokens (    0.21 ms per token,  4801.57 tokens per second)
+       eval time =    4155.15 ms /   391 tokens (   10.63 ms per token,    94.10 tokens per second)
+      total time =    4423.82 ms /  1681 tokens
+2026-03-20 03:54:06 [DEBUG]
+ slot      release: id  3 | task 151 | stop processing: n_tokens = 3138, truncated = 0
+srv  update_slots: all slots are idle
+2026-03-20 03:54:06 [DEBUG]
+ LlamaV4: server assigned slot 3 to task 151
+2026-03-20 03:54:06  [INFO]
+ [zai-org/glm-4.6v-flash] Finished streaming response
+2026-03-20 03:54:06 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "zai-org/glm-4.6v-flash",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个帮助用户总结对话标题的助手。请根据以下用户的提问和AI的回答，总结出一个能概括讨论内容的对话标题，长度控制在12个字以内。不要包含标点符号、引号或多余的解释。直接输出最终的标题内容。"
+    },
+    {
+      "role": "user",
+      "content": "用户提问：尘白禁区最近怎么样了？\n\nAI回答：\n根据最新的搜索结果，\"尘白禁区\"(也叫\"塵白禁域\")... <Truncated in logs> ...战队参与战斗。\n\n总体来说，\"尘白禁区\"近期更新活跃，推出了丰富的活动和新内容，保持了一定的活跃度。"
+    }
+  ],
+  "temperature": 0.3,
+  "stream": false
+}
+2026-03-20 03:54:06  [INFO]
+ [zai-org/glm-4.6v-flash] Running chat completion on conversation with 2 messages.
+2026-03-20 03:54:06 [DEBUG]
+ LlamaV4::predict slot selection: session_id=<empty> server-selected (LCP/LRU)
+2026-03-20 03:54:06 [DEBUG]
+ slot get_availabl: id  2 | task -1 | selected slot by LRU, t_last = -1
+slot launch_slot_: id  2 | task -1 | sampler chain: logits -> penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+slot launch_slot_: id  2 | task 545 | processing task, is_child = 0
+slot update_slots: id  2 | task 545 | new prompt, n_ctx_slot = 8192, n_keep = 307, task.n_tokens = 307
+slot update_slots: id  2 | task 545 | cache reuse is not supported - ignoring n_cache_reuse = 256
+slot update_slots: id  2 | task 545 | n_tokens = 0, memory_seq_rm [0, end)
+slot init_sampler: id  2 | task 545 | init sampler, took 0.05 ms, tokens: text = 307, total = 307
+slot update_slots: id  2 | task 545 | prompt processing done, n_tokens = 307, batch.n_tokens = 307
+2026-03-20 03:54:06  [INFO]
+ [zai-org/glm-4.6v-flash] Prompt processing progress: 0.0%
+2026-03-20 03:54:06  [INFO]
+ [zai-org/glm-4.6v-flash] Prompt processing progress: 100.0%
+2026-03-20 03:54:06  [INFO]
+ [zai-org/glm-4.6v-flash] Start thinking...
+2026-03-20 03:54:08  [INFO]
+ [zai-org/glm-4.6v-flash] Done reasoning. Reasoned for 2.37 seconds.
+2026-03-20 03:54:08 [DEBUG]
+ slot print_timing: id  2 | task 545 | 
+prompt eval time =      75.00 ms /   307 tokens (    0.24 ms per token,  4093.22 tokens per second)
+       eval time =    2479.35 ms /   229 tokens (   10.83 ms per token,    92.36 tokens per second)
+      total time =    2554.36 ms /   536 tokens
+slot      release: id  2 | task 545 | stop processing: n_tokens = 535, truncated = 0
+srv  update_slots: all slots are idle
+2026-03-20 03:54:08 [DEBUG]
+ LlamaV4: server assigned slot 2 to task 545
+2026-03-20 03:54:08  [INFO]
+ [zai-org/glm-4.6v-flash] Model generated tool calls:  []
+2026-03-20 03:54:08  [INFO]
+ [zai-org/glm-4.6v-flash] Generated prediction:  {
+  "id": "chatcmpl-qvu6a8up6xr1nrte8lutq4",
+  "object": "chat.completion",
+  "created": 1773950046,
+  "model": "zai-org/glm-4.6v-flash",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "\n<|begin_of_box|>尘白禁区的最新动态<|end_of_box|>",
+        "reasoning_content": "用户现在需要总结这个对话的标题，首先看对话内容是关于“尘白禁区”的最新情况，包括最新活动、新角色、版本更新等。所以核心是“尘白禁区的近况”。然后要控制在12字以内，检查长度。\n\n首先分析关键信息：用户问尘白禁区最近怎么样了，AI回答的是其最新动态（活动、角色、更新等）。所以标题需要概括这个讨论内容，即“尘白禁区的近期情况”或者更简洁的。不过要符合要求，比如“尘白禁区的近况更新”。\n\n现在确定最终标题，确保12字以内，没有标点。比如“尘白禁区的最新动态”。检查长度：“尘白禁区”4字，“的最新动态”5字，总共9字，符合要求。\n\n或者更简洁的“尘白禁区的近期情况”？也是9字。“尘白禁区的近况更新”？10字。都可以。但看内容是关于最近的情况和更新，所以最终标题可以是“尘白禁区的最新动态”。",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 307,
+    "completion_tokens": 229,
+    "total_tokens": 536
+  },
+  "stats": {},
+  "system_fingerprint": "zai-org/glm-4.6v-flash"
+}
+2026-03-20 03:54:25  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-03-20 03:54:25 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "local-model",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an intelligent agent that uses the ReAct (... <Truncated in logs> ... continue the conversation based on those results."
+    },
+    {
+      "role": "user",
+      "content": "尘白禁区最近怎么样了？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n根据最新的搜索结果，\"尘白禁区\"(也叫\"塵白禁域\")目前的情况如下：\n\n1. **最新活动**：全... <Truncated in logs> ...战队参与战斗。\n\n总体来说，\"尘白禁区\"近期更新活跃，推出了丰富的活动和新内容，保持了一定的活跃度。"
+    },
+    {
+      "role": "user",
+      "content": "我听说游戏最近停服了"
+    }
+  ],
+  "temperature": 0.7,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "description": "Search the web for current information. Returns a ... <Truncated in logs> ...\n- Examples of bad queries: \"2026年 北京 天气 预报 明天 后天\"",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query (2-4 keywords, natural language)"
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 5)",
+              "default": 5,
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "http_request",
+        "description": "Make an HTTP request to a URL.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "The URL to request"
+            },
+            "method": {
+              "type": "string",
+              "description": "HTTP method (default: GET)",
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "PATCH"
+              ],
+              "default": "GET"
+            },
+            "headers": {
+              "type": "object",
+              "description": "HTTP headers as key-value pairs"
+            },
+            "body": {
+              "type": "string",
+              "description": "Request body (for POST, PUT, PATCH)"
+            },
+            "timeout": {
+              "type": "integer",
+              "description": "Timeout in milliseconds (default: 30000)",
+              "default": 30000
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "calculate",
+        "description": "Perform mathematical calculations. Supports basic arithmetic and common math functions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string",
+              "description": "The mathematical expression to evaluate (e.g., \"2 + 2\", \"Math.sqrt(16)\", \"Math.PI * 2\")"
+            }
+          },
+          "required": [
+            "expression"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_time",
+        "description": "Get the current date and time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "timezone": {
+              "type": "string",
+              "description": "Timezone (e.g., \"Asia/Shanghai\", \"UTC\"). Default: local timezone"
+            },
+            "format": {
+              "type": "string",
+              "description": "Output format: \"iso\", \"locale\", or \"unix\"",
+              "enum": [
+                "iso",
+                "locale",
+                "unix"
+              ],
+              "default": "locale"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "stream": true
+}
+2026-03-20 03:54:25  [INFO]
+ [zai-org/glm-4.6v-flash] Running chat completion on conversation with 4 messages.
+2026-03-20 03:54:25  [INFO]
+ [zai-org/glm-4.6v-flash] Streaming response...
+2026-03-20 03:54:25 [DEBUG]
+ LlamaV4::predict slot selection: session_id=<empty> server-selected (LCP/LRU)
+2026-03-20 03:54:25 [DEBUG]
+ slot get_availabl: id  3 | task -1 | selected slot by LCP similarity, sim_best = 0.857 (> 0.100 thold), f_keep = 0.465
+srv  get_availabl: updating prompt cache
+2026-03-20 03:54:25 [DEBUG]
+ srv   prompt_save:  - saving prompt with length 3138, total state size = 122.639 MiB
+2026-03-20 03:54:25 [DEBUG]
+ srv          load:  - looking for better prompt, base f_keep = 0.465, sim = 0.857
+srv        update:  - cache state: 1 prompts, 122.639 MiB (limits: 8192.000 MiB, 8192 tokens, 209611 est)
+srv        update:    - prompt 0000016799DFA170:    3138 tokens, checkpoints:  0,   122.639 MiB
+srv  get_availabl: prompt cache update took 29.52 ms
+2026-03-20 03:54:25 [DEBUG]
+ slot launch_slot_: id  3 | task -1 | sampler chain: logits -> penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+slot launch_slot_: id  3 | task 775 | processing task, is_child = 0
+slot update_slots: id  3 | task 775 | new prompt, n_ctx_slot = 8192, n_keep = 1457, task.n_tokens = 1704
+slot update_slots: id  3 | task 775 | cache reuse is not supported - ignoring n_cache_reuse = 256
+slot update_slots: id  3 | task 775 | n_tokens = 1460, memory_seq_rm [1460, end)
+slot init_sampler: id  3 | task 775 | init sampler, took 0.27 ms, tokens: text = 1704, total = 1704
+slot update_slots: id  3 | task 775 | prompt processing done, n_tokens = 1704, batch.n_tokens = 244
+2026-03-20 03:54:25  [INFO]
+ [zai-org/glm-4.6v-flash] Prompt processing progress: 0.0%
+2026-03-20 03:54:25  [INFO]
+ [zai-org/glm-4.6v-flash] Prompt processing progress: 100.0%
+2026-03-20 03:54:27 [DEBUG]
+ slot print_timing: id  3 | task 775 | 
+prompt eval time =      67.09 ms /   244 tokens (    0.27 ms per token,  3636.91 tokens per second)
+       eval time =    1786.99 ms /   164 tokens (   10.90 ms per token,    91.77 tokens per second)
+      total time =    1854.08 ms /   408 tokens
+slot      release: id  3 | task 775 | stop processing: n_tokens = 1867, truncated = 0
+2026-03-20 03:54:27 [DEBUG]
+ srv  update_slots: all slots are idle
+2026-03-20 03:54:27 [DEBUG]
+ LlamaV4: server assigned slot 3 to task 775
+2026-03-20 03:54:27  [INFO]
+ [zai-org/glm-4.6v-flash] Finished streaming response
+2026-03-20 03:54:28 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "local-model",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an intelligent agent that uses the ReAct (... <Truncated in logs> ... continue the conversation based on those results."
+    },
+    {
+      "role": "user",
+      "content": "尘白禁区最近怎么样了？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n根据最新的搜索结果，\"尘白禁区\"(也叫\"塵白禁域\")目前的情况如下：\n\n1. **最新活动**：全... <Truncated in logs> ...战队参与战斗。\n\n总体来说，\"尘白禁区\"近期更新活跃，推出了丰富的活动和新内容，保持了一定的活跃度。"
+    },
+    {
+      "role": "user",
+      "content": "我听说游戏最近停服了"
+    },
+    {
+      "role": "assistant",
+      "content": "\n我将调用 web_search 工具，参数 query 的值是 尘白禁区 停服 2026，max_results 的值是 5。\n",
+      "toolCalls": [
+        {
+          "id": "683162616",
+          "type": "function",
+          "function": {
+            "name": "web_search",
+            "arguments": "{\"query\":\"尘白禁区 停服 2026\",\"max_results\":5}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "content": "AI Answer: On March 2, 2026, the game \"尘白禁区\" annou... <Truncated in logs> ...論壓力頻仍，對本土遊戲的信心受到影響。.\",\n    \"score\": 0.998884\n  }\n]",
+      "toolCallId": "683162616",
+      "name": "web_search"
+    }
+  ],
+  "temperature": 0.7,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "description": "Search the web for current information. Returns a ... <Truncated in logs> ...\n- Examples of bad queries: \"2026年 北京 天气 预报 明天 后天\"",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query (2-4 keywords, natural language)"
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 5)",
+              "default": 5,
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "http_request",
+        "description": "Make an HTTP request to a URL.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "The URL to request"
+            },
+            "method": {
+              "type": "string",
+              "description": "HTTP method (default: GET)",
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "PATCH"
+              ],
+              "default": "GET"
+            },
+            "headers": {
+              "type": "object",
+              "description": "HTTP headers as key-value pairs"
+            },
+            "body": {
+              "type": "string",
+              "description": "Request body (for POST, PUT, PATCH)"
+            },
+            "timeout": {
+              "type": "integer",
+              "description": "Timeout in milliseconds (default: 30000)",
+              "default": 30000
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "calculate",
+        "description": "Perform mathematical calculations. Supports basic arithmetic and common math functions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string",
+              "description": "The mathematical expression to evaluate (e.g., \"2 + 2\", \"Math.sqrt(16)\", \"Math.PI * 2\")"
+            }
+          },
+          "required": [
+            "expression"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_time",
+        "description": "Get the current date and time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "timezone": {
+              "type": "string",
+              "description": "Timezone (e.g., \"Asia/Shanghai\", \"UTC\"). Default: local timezone"
+            },
+            "format": {
+              "type": "string",
+              "description": "Output format: \"iso\", \"locale\", or \"unix\"",
+              "enum": [
+                "iso",
+                "locale",
+                "unix"
+              ],
+              "default": "locale"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "stream": true
+}
+2026-03-20 03:54:28  [INFO]
+ [zai-org/glm-4.6v-flash] Running chat completion on conversation with 6 messages.
+2026-03-20 03:54:28  [INFO]
+ [zai-org/glm-4.6v-flash] Streaming response...
+2026-03-20 03:54:28 [DEBUG]
+ LlamaV4::predict slot selection: session_id=<empty> server-selected (LCP/LRU)
+2026-03-20 03:54:28 [DEBUG]
+ slot get_availabl: id  3 | task -1 | selected slot by LCP similarity, sim_best = 0.342 (> 0.100 thold), f_keep = 0.913
+2026-03-20 03:54:28 [DEBUG]
+ slot launch_slot_: id  3 | task -1 | sampler chain: logits -> penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+slot launch_slot_: id  3 | task 940 | processing task, is_child = 0
+slot update_slots: id  3 | task 940 | new prompt, n_ctx_slot = 8192, n_keep = 1457, task.n_tokens = 4979
+slot update_slots: id  3 | task 940 | cache reuse is not supported - ignoring n_cache_reuse = 256
+slot update_slots: id  3 | task 940 | n_tokens = 1705, memory_seq_rm [1705, end)
+slot update_slots: id  3 | task 940 | prompt processing progress, n_tokens = 2217, batch.n_tokens = 512, progress = 0.445270
+2026-03-20 03:54:28  [INFO]
+ [zai-org/glm-4.6v-flash] Prompt processing progress: 0.0%
+2026-03-20 03:54:28 [DEBUG]
+ slot update_slots: id  3 | task 940 | n_tokens = 2217, memory_seq_rm [2217, end)
+slot update_slots: id  3 | task 940 | prompt processing progress, n_tokens = 2729, batch.n_tokens = 512, progress = 0.548102
+2026-03-20 03:54:28  [INFO]
+ [zai-org/glm-4.6v-flash] Prompt processing progress: 15.6%
+2026-03-20 03:54:28 [DEBUG]
+ slot update_slots: id  3 | task 940 | n_tokens = 2729, memory_seq_rm [2729, end)
+slot update_slots: id  3 | task 940 | prompt processing progress, n_tokens = 3241, batch.n_tokens = 512, progress = 0.650934
+2026-03-20 03:54:28  [INFO]
+ [zai-org/glm-4.6v-flash] Prompt processing progress: 31.3%
+2026-03-20 03:54:28 [DEBUG]
+ slot update_slots: id  3 | task 940 | n_tokens = 3241, memory_seq_rm [3241, end)
+slot update_slots: id  3 | task 940 | prompt processing progress, n_tokens = 3753, batch.n_tokens = 512, progress = 0.753766
+2026-03-20 03:54:28  [INFO]
+ [zai-org/glm-4.6v-flash] Prompt processing progress: 46.9%
+2026-03-20 03:54:29 [DEBUG]
+ slot update_slots: id  3 | task 940 | n_tokens = 3753, memory_seq_rm [3753, end)
+slot update_slots: id  3 | task 940 | prompt processing progress, n_tokens = 4265, batch.n_tokens = 512, progress = 0.856598
+2026-03-20 03:54:29  [INFO]
+ [zai-org/glm-4.6v-flash] Prompt processing progress: 62.6%
+2026-03-20 03:54:29 [DEBUG]
+ slot update_slots: id  3 | task 940 | n_tokens = 4265, memory_seq_rm [4265, end)
+slot update_slots: id  3 | task 940 | prompt processing progress, n_tokens = 4777, batch.n_tokens = 512, progress = 0.959430
+2026-03-20 03:54:29  [INFO]
+ [zai-org/glm-4.6v-flash] Prompt processing progress: 78.2%
+2026-03-20 03:54:29 [DEBUG]
+ slot update_slots: id  3 | task 940 | n_tokens = 4777, memory_seq_rm [4777, end)
+2026-03-20 03:54:29 [DEBUG]
+ slot init_sampler: id  3 | task 940 | init sampler, took 0.62 ms, tokens: text = 4979, total = 4979
+slot update_slots: id  3 | task 940 | prompt processing done, n_tokens = 4979, batch.n_tokens = 202
+2026-03-20 03:54:29  [INFO]
+ [zai-org/glm-4.6v-flash] Prompt processing progress: 93.8%
+2026-03-20 03:54:29  [INFO]
+ [zai-org/glm-4.6v-flash] Prompt processing progress: 100.0%
+2026-03-20 03:54:33 [DEBUG]
+ slot print_timing: id  3 | task 940 | 
+prompt eval time =     639.13 ms /  3274 tokens (    0.20 ms per token,  5122.55 tokens per second)
+       eval time =    4293.64 ms /   386 tokens (   11.12 ms per token,    89.90 tokens per second)
+      total time =    4932.78 ms /  3660 tokens
+2026-03-20 03:54:33 [DEBUG]
+ slot      release: id  3 | task 940 | stop processing: n_tokens = 5364, truncated = 0
+srv  update_slots: all slots are idle
+2026-03-20 03:54:33 [DEBUG]
+ LlamaV4: server assigned slot 3 to task 940
+2026-03-20 03:54:33  [INFO]
+ [zai-org/glm-4.6v-flash] Finished streaming response

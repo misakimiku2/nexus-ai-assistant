@@ -85,10 +85,13 @@ export class ReActEngine {
 
         this.state.iterationCount++;
         this.state.lastUpdateTime = Date.now();
+        this.context.onIterationCountChange?.(this.state.iterationCount);
 
         const response = await this.callLLMStream(messages);
 
-        if (response.content) {
+        if (response.reasoningContent) {
+          this.addReasoningStep('thought', response.reasoningContent);
+        } else if (response.content) {
           this.addReasoningStep('thought', response.content);
         }
 
@@ -169,17 +172,20 @@ export class ReActEngine {
     };
 
     let accumulatedContent = '';
+    let accumulatedReasoningContent = '';
     const toolCallsMap = new Map<string, ToolCallRequest>();
 
     try {
       const stream = streamLLMWithTools(config, messages);
-      
+
       for await (const chunk of stream) {
         if (this.abortController?.signal.aborted) {
           break;
         }
 
-        if (chunk.type === 'content' && typeof chunk.data === 'string') {
+        if (chunk.type === 'reasoning_content' && typeof chunk.data === 'string') {
+          accumulatedReasoningContent += chunk.data;
+        } else if (chunk.type === 'content' && typeof chunk.data === 'string') {
           accumulatedContent += chunk.data;
           this.context.onContentChunk?.(chunk.data);
         } else if (chunk.type === 'tool_call' && typeof chunk.data === 'object' && 'id' in chunk.data) {
@@ -189,6 +195,7 @@ export class ReActEngine {
           const finalResponse = chunk.data as LLMResponse;
           return {
             content: accumulatedContent || finalResponse.content,
+            reasoningContent: accumulatedReasoningContent || finalResponse.reasoningContent,
             toolCalls: toolCallsMap.size > 0 ? Array.from(toolCallsMap.values()) : finalResponse.toolCalls,
             finishReason: finalResponse.finishReason,
           };
@@ -197,6 +204,7 @@ export class ReActEngine {
 
       return {
         content: accumulatedContent,
+        reasoningContent: accumulatedReasoningContent,
         toolCalls: toolCallsMap.size > 0 ? Array.from(toolCallsMap.values()) : undefined,
         finishReason: toolCallsMap.size > 0 ? 'tool_calls' : 'stop',
       };
@@ -204,6 +212,7 @@ export class ReActEngine {
       console.error('Stream error:', error);
       return {
         content: accumulatedContent,
+        reasoningContent: accumulatedReasoningContent,
         finishReason: 'error',
       };
     }

@@ -133,6 +133,9 @@ export function useAgentExecution(
       onContentChunk: (chunk: string) => {
         callbacksRef.current?.onContentChunk?.(chunk);
       },
+      onIterationCountChange: (count: number) => {
+        setIterationCount(count);
+      },
     });
 
     runtime.initialize();
