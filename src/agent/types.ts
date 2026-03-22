@@ -73,8 +73,10 @@ export interface AgentExecutionState {
 export interface AgentExecutionContext {
   agent: Agent;
   userInput: string;
+  originalUserInput?: string;
   conversationHistory: ConversationMessage[];
   availableTools: string[];
+  preprocessedUrls?: Map<string, string>;
   onStatusChange?: (status: AgentStatus) => void;
   onTaskUpdate?: (task: Task) => void;
   onToolCall?: (record: ToolCallRecord) => void;

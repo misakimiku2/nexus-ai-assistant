@@ -4,8 +4,10 @@ import {
   ToolExecutionResult,
   BuiltinToolConfig,
   DEFAULT_BUILTIN_TOOL_CONFIG,
+  FetchResult,
 } from './types';
 import { ToolRegistry, createTool } from './ToolRegistry';
+import { fetchMemoryManager } from '../memory';
 
 export function initializeBuiltinTools(config: Partial<BuiltinToolConfig> = {}): void {
   const finalConfig = { ...DEFAULT_BUILTIN_TOOL_CONFIG, ...config };
@@ -28,7 +30,7 @@ export function initializeBuiltinTools(config: Partial<BuiltinToolConfig> = {}):
   }
 
   if (finalConfig.networkEnabled) {
-    ToolRegistry.register(createHttpRequestTool());
+    ToolRegistry.register(createFetchUrlTool());
   }
 
   ToolRegistry.register(createCalculateTool());
@@ -91,7 +93,9 @@ IMPORTANT: Write concise, natural search queries like a human would.
 - Do NOT include year numbers unless specifically asked about a specific year
 - Do NOT stack multiple similar keywords
 - Examples of good queries: "Python教程", "北京天气", "iPhone价格"
-- Examples of bad queries: "2026年 北京 天气 预报 明天 后天"`,
+- Examples of bad queries: "2026年 北京 天气 预报 明天 后天"
+
+**注意**：如果用户消息中包含 URL 或 URL 占位符（如 \`__URL_PLACEHOLDER_1__\`），请使用 \`fetch_url\` 工具获取网页内容，而不是 \`web_search\`。`,
     category: 'network',
     parameters: {
       type: 'object',
@@ -693,77 +697,138 @@ function createExecuteShellTool(config: BuiltinToolConfig): ToolDefinition {
   });
 }
 
-function createHttpRequestTool(): ToolDefinition {
+function createFetchUrlTool(): ToolDefinition {
   return createTool({
-    name: 'http_request',
-    description: 'Make an HTTP request to a URL.',
+    name: 'fetch_url',
+    description: `获取网页或 PDF 文档内容并提取正文。
+
+**重要：URL 处理规则**
+- URL 必须使用用户提供的原始 URL，不做任何修改
+- 禁止对 URL 进行：解码、修改路径、替换关键词、重新拼接
+- 如果用户消息中包含 URL 占位符（如 __URL_PLACEHOLDER_1__），必须原样使用该占位符
+- 后端会自动处理 URL 编码，无需前端干预
+
+支持的内容类型：
+- HTML 网页：自动提取正文，去除广告、导航等噪音
+- PDF 文档：提取文本内容
+
+用于：
+- 获取网页的主要文本内容
+- 阅读文章、博客、文档等
+- 提取网页核心信息
+- 读取 PDF 文档内容
+
+**自动分块**：
+- 当内容超过 8000 字符时，自动分块返回完整内容
+- 每块约 4000 字符，在句子边界处切分
+- 所有内容块用分隔线连接，一次性返回
+
+**缓存机制**：
+- 默认启用缓存，相同 URL 30 分钟内不会重复请求
+- 使用 force_refresh: true 可强制刷新缓存`,
     category: 'network',
     parameters: {
       type: 'object',
       properties: {
         url: {
           type: 'string',
-          description: 'The URL to request',
+          description: '要获取的网页或 PDF URL。必须是用户提供的原始 URL 或 URL 占位符，禁止任何修改。',
         },
-        method: {
-          type: 'string',
-          description: 'HTTP method (default: GET)',
-          enum: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-          default: 'GET',
+        use_cache: {
+          type: 'boolean',
+          description: '是否使用缓存（默认 true）',
+          default: true,
         },
-        headers: {
-          type: 'object',
-          description: 'HTTP headers as key-value pairs',
+        force_refresh: {
+          type: 'boolean',
+          description: '是否强制刷新缓存（默认 false）',
+          default: false,
         },
-        body: {
-          type: 'string',
-          description: 'Request body (for POST, PUT, PATCH)',
-        },
-        timeout: {
-          type: 'integer',
-          description: 'Timeout in milliseconds (default: 30000)',
-          default: 30000,
+        render_js: {
+          type: 'boolean',
+          description: '是否启用 JS 渲染（用于 SPA 页面，默认 false）',
+          default: false,
         },
       },
       required: ['url'],
     },
     execute: async (params): Promise<ToolExecutionResult> => {
       try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), (params.timeout as number) || 30000);
-
-        const response = await fetch(params.url as string, {
-          method: (params.method as string) || 'GET',
-          headers: params.headers as Record<string, string>,
-          body: params.body as string,
-          signal: controller.signal,
+        console.log('[fetch_url] Invoking with params:', params);
+        const result = await invoke<FetchResult>('fetch_url', {
+          url: params.url,
+          options: {
+            use_cache: params.use_cache,
+            force_refresh: params.force_refresh,
+            render_js: params.render_js,
+          },
         });
+        console.log('[fetch_url] Result:', result);
 
-        clearTimeout(timeout);
-
-        const contentType = response.headers.get('content-type') || '';
-        let output: string;
-
-        if (contentType.includes('application/json')) {
-          output = JSON.stringify(await response.json(), null, 2);
-        } else {
-          output = await response.text();
+        if (!result.success) {
+          return {
+            success: false,
+            output: '',
+            error: result.error || 'Failed to fetch URL',
+          };
         }
 
+        let output = `## ${result.title}\n`;
+        output += `来源: ${result.metadata.domain}\n`;
+        output += `内容类型: ${result.metadata.content_type}\n`;
+        output += `提取方式: ${result.metadata.extraction_method}\n`;
+        output += `原文长度: ${result.metadata.length} 字符\n`;
+
+        if (result.metadata.page_count) {
+          output += `页数: ${result.metadata.page_count} 页\n`;
+        }
+
+        if (result.metadata.chunk_count > 1) {
+          output += `分块数量: ${result.metadata.chunk_count} 块\n`;
+        }
+
+        if (result.metadata.cached) {
+          output += `(来自缓存)\n`;
+        }
+
+        output += `\n---\n\n${result.content}`;
+
+        fetchMemoryManager.add({
+          url: params.url as string,
+          title: result.title,
+          content: result.content,
+          contentType: result.metadata.content_type,
+          pageCount: result.metadata.page_count,
+        });
+
         return {
-          success: response.ok,
+          success: true,
           output,
           metadata: {
-            status: response.status,
-            statusText: response.statusText,
-            headers: Object.fromEntries(response.headers.entries()),
+            title: result.title,
+            domain: result.metadata.domain,
+            contentLength: result.content.length,
+            originalLength: result.metadata.length,
+            extractionMethod: result.metadata.extraction_method,
+            chunkCount: result.metadata.chunk_count,
+            contentType: result.metadata.content_type,
+            pageCount: result.metadata.page_count,
+            cached: result.metadata.cached,
           },
         };
       } catch (error) {
+        console.error('[fetch_url] Error:', error);
+        console.error('[fetch_url] Error type:', typeof error);
+        console.error('[fetch_url] Error constructor:', error?.constructor?.name);
+        const errorMessage = error instanceof Error 
+          ? error.message 
+          : typeof error === 'string' 
+            ? error 
+            : JSON.stringify(error);
         return {
           success: false,
           output: '',
-          error: `HTTP request failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          error: `Fetch failed: ${errorMessage}`,
         };
       }
     },
@@ -891,7 +956,7 @@ export {
   createWriteFileTool,
   createListDirectoryTool,
   createExecuteShellTool,
-  createHttpRequestTool,
+  createFetchUrlTool,
   createCalculateTool,
   createGetCurrentTimeTool,
 };

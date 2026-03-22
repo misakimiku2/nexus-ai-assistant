@@ -14,11 +14,12 @@ import { ToolRegistry } from '../tools/ToolRegistry';
 import {
   callLLMWithTools,
   streamLLMWithTools,
-  executeToolCall,
   parseToolCallArguments,
   createSystemPromptForTools,
   FunctionCallingConfig,
 } from '../llm/functionCalling';
+import { isUrlPlaceholder, getOriginalUrl } from '../preprocess/urlDetector';
+import { fetchMemoryManager } from '../memory';
 
 const REACT_SYSTEM_PROMPT = `You are an intelligent agent that uses the ReAct (Reasoning + Acting) framework to solve problems.
 
@@ -41,7 +42,22 @@ Important rules:
 - When searching for news or recent information, ALWAYS include the current year {{CURRENT_YEAR}} in your search query
 - If a tool call fails, try a different approach
 - Be concise in your thoughts
-- When you have the answer, respond directly to the user`;
+- When you have the answer, respond directly to the user
+
+## 工具使用规则（非常重要）
+
+**优先级规则**：
+1. 如果网页内容已在上下文中提供 → **直接使用，禁止再次调用工具**
+2. 如果用户询问已获取内容的相关问题 → **基于已有内容回答，不要再调用 search**
+3. 只有在以下情况才允许调用 fetch_url 或 web_search：
+   - 用户明确要求获取新内容
+   - 信息明显缺失且不在上下文中
+   - 用户要求刷新/更新信息
+
+**禁止重复调用**：
+- 如果某个 URL 的内容已在上下文中，禁止再次调用 fetch_url
+- 如果用户问题是关于已获取内容的总结/分析，禁止调用 web_search
+- 每次调用工具前，先检查上下文中是否已有相关信息`;
 
 export class ReActEngine {
   private context: AgentExecutionContext;
@@ -136,6 +152,11 @@ export class ReActEngine {
     systemPrompt = systemPrompt.replace(/\{\{CURRENT_DATE\}\}/g, currentDate);
     systemPrompt = systemPrompt.replace(/\{\{CURRENT_YEAR\}\}/g, String(currentYear));
     systemPrompt = createSystemPromptForTools(systemPrompt);
+
+    const memoryContext = fetchMemoryManager.generateContextPrompt();
+    if (memoryContext) {
+      systemPrompt = `${systemPrompt}\n\n${memoryContext}`;
+    }
 
     const messages: ConversationMessage[] = [
       { role: 'system', content: systemPrompt },
@@ -248,8 +269,50 @@ export class ReActEngine {
 
   private async handleToolCall(toolCall: ToolCallRequest): Promise<{ output: string; error?: string }> {
     const toolName = toolCall.function.name;
-    const params = parseToolCallArguments(toolCall.function.arguments);
+    let params = parseToolCallArguments(toolCall.function.arguments);
     const requiresAuth = ToolRegistry.requiresAuth(toolName);
+
+    console.log('[ReActEngine] Tool call:', toolName, 'params:', params);
+    console.log('[ReActEngine] preprocessedUrls:', this.context.preprocessedUrls ? Object.fromEntries(this.context.preprocessedUrls) : 'undefined');
+
+    if (this.context.preprocessedUrls && params.url && typeof params.url === 'string') {
+      console.log('[ReActEngine] Checking if URL is placeholder:', params.url, 'isPlaceholder:', isUrlPlaceholder(params.url));
+      if (isUrlPlaceholder(params.url)) {
+        const originalUrl = getOriginalUrl(params.url, this.context.preprocessedUrls);
+        console.log('[ReActEngine] Original URL from map:', originalUrl);
+        if (originalUrl) {
+          console.log(`[ReActEngine] Replacing URL placeholder: ${params.url} -> ${originalUrl}`);
+          params = { ...params, url: originalUrl };
+        }
+      }
+    }
+
+    if (this.context.preprocessedUrls && params.query && typeof params.query === 'string') {
+      if (isUrlPlaceholder(params.query)) {
+        const originalUrl = getOriginalUrl(params.query, this.context.preprocessedUrls);
+        if (originalUrl) {
+          console.log(`[ReActEngine] Detected URL placeholder in query, redirecting to fetch_url: ${originalUrl}`);
+          return { 
+            output: '', 
+            error: `检测到 URL 占位符 "${params.query}"，请使用 fetch_url 工具获取网页内容，而不是 web_search。正确的调用方式：fetch_url(url: "${params.query}")` 
+          };
+        }
+      }
+    }
+
+    if (toolName === 'fetch_url' && params.url && typeof params.url === 'string') {
+      const forceRefresh = params.force_refresh === true;
+      if (!forceRefresh && fetchMemoryManager.has(params.url)) {
+        const cached = fetchMemoryManager.get(params.url);
+        if (cached) {
+          console.log(`[ReActEngine] Returning cached content for: ${params.url}`);
+          const output = `## ${cached.title}\n来源: ${cached.url}\n类型: ${cached.contentType}\n\n---\n\n${cached.content}\n\n(来自内存缓存)`;
+          this.addReasoningStep('action', '', { toolName, toolParams: params, executionStatus: 'completed' });
+          this.addReasoningStep('observation', '从内存缓存返回内容');
+          return { output };
+        }
+      }
+    }
 
     const record: ToolCallRecord = {
       id: toolCall.id,
@@ -282,11 +345,7 @@ export class ReActEngine {
     const actionStepId = this.addReasoningStep('action', '', { toolName, toolParams: params, executionStatus: 'executing' });
 
     try {
-      const result = await executeToolCall({
-        id: toolCall.id,
-        type: 'function',
-        function: toolCall.function,
-      });
+      const result = await ToolRegistry.execute(toolName, params);
 
       record.result = {
         success: result.success,
@@ -311,6 +370,23 @@ export class ReActEngine {
         } catch {
           // If parsing fails, fall back to raw output
         }
+      }
+
+      if (result.success && toolName === 'fetch_url' && params.url && result.metadata) {
+        const metadata = result.metadata as {
+          title?: string;
+          domain?: string;
+          contentLength?: number;
+          contentType?: string;
+          pageCount?: number;
+        };
+        fetchMemoryManager.add({
+          url: params.url as string,
+          title: metadata.title || 'Untitled',
+          content: result.output || '',
+          contentType: metadata.contentType,
+          pageCount: metadata.pageCount,
+        });
       }
 
       this.addReasoningStep('observation', result.success ? '' : `Error: ${result.error}`, { observationData });

@@ -68,3 +68,41 @@ export const DEFAULT_BUILTIN_TOOL_CONFIG: BuiltinToolConfig = {
   allowedPaths: [],
   blockedCommands: ['rm -rf', 'format', 'del /s', 'shutdown', 'reboot'],
 };
+
+export interface ContentChunk {
+  index: number;
+  content: string;
+  is_last: boolean;
+}
+
+export interface FetchMetadata {
+  length: number;
+  domain: string;
+  extraction_method: 'readability' | 'scraper' | 'fallback' | 'pdf-extract';
+  chunk_count: number;
+  truncated: boolean;
+  content_type: string;
+  page_count?: number;
+  cached: boolean;
+}
+
+export interface FetchResult {
+  success: boolean;
+  title: string;
+  content: string;
+  summary?: string;
+  content_chunks?: ContentChunk[];
+  metadata: FetchMetadata;
+  error?: string;
+}
+
+export interface FetchOptions {
+  max_length?: number;
+  timeout?: number;
+  user_agent?: string;
+  chunk_size?: number;
+  use_cache?: boolean;
+  force_refresh?: boolean;
+  render_js?: boolean;
+  js_render_timeout?: number;
+}

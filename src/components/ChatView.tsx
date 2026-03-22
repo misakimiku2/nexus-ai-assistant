@@ -506,7 +506,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       icon={<Brain size={16} className="text-purple-500" />} 
                       isDarkMode={isDarkMode}
                       contentClassName={isDarkMode ? "bg-zinc-700/50" : "bg-zinc-200/50"}
-                      defaultOpen={isStreaming && msg.id === messages[messages.length - 1]?.id && (msg.thinking || (msg.agentExecution && msg.agentExecution.reasoningSteps.length > 0))}
+                      defaultOpen={!!(isStreaming && msg.id === messages[messages.length - 1]?.id && (msg.thinking || (msg.agentExecution && msg.agentExecution.reasoningSteps.length > 0)))}
                     >
                       <div className="space-y-2">
                         {msg.thinking && (
@@ -564,7 +564,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                                   <div className="mt-1 flex items-center gap-2">
                                     <span>
                                       使用<span className="text-blue-500 font-medium mx-1">{getToolDisplayName(step.toolName)}</span>：
-                                      <span className="opacity-80">{step.toolParams?.query || step.toolParams?.url || JSON.stringify(step.toolParams)}</span>
+                                      <span className="opacity-80">{(step.toolParams?.query || step.toolParams?.url || JSON.stringify(step.toolParams)) as string}</span>
                                     </span>
                                     {step.executionStatus && (
                                       <span className={cn(

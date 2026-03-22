@@ -91,6 +91,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             search::search,
+            tools::fetch::fetch_url,
             tools::filesystem::read_file,
             tools::filesystem::write_file,
             tools::filesystem::list_directory,

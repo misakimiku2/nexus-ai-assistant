@@ -12,6 +12,7 @@ import { ReActEngine } from './ReActEngine';
 import { agentStateManager } from './AgentState';
 import { initializeBuiltinTools } from '../tools/builtin';
 import { ToolRegistry } from '../tools/ToolRegistry';
+import { preprocessConversation, resetUrlPlaceholderCounter, PreprocessedConversation } from '../preprocess/urlDetector';
 
 export interface AgentRuntimeOptions {
   agent: Agent;
@@ -69,11 +70,24 @@ export class AgentRuntime {
     userInput: string,
     conversationHistory: ConversationMessage[] = []
   ): Promise<string> {
+    resetUrlPlaceholderCounter();
+    const preprocessed = preprocessConversation(userInput, conversationHistory);
+    
+    const hasUrls = preprocessed.urlMap.size > 0;
+    
+    console.log('[AgentRuntime] Preprocessed conversation:', {
+      hasUrls,
+      urlCount: preprocessed.urlMap.size,
+      urls: Object.fromEntries(preprocessed.urlMap),
+    });
+    
     const context: AgentExecutionContext = {
       agent: this.agent,
-      userInput,
-      conversationHistory,
+      userInput: preprocessed.processedUserInput,
+      originalUserInput: userInput,
+      conversationHistory: preprocessed.messages as ConversationMessage[],
       availableTools: ToolRegistry.getEnabledToolNames(),
+      preprocessedUrls: preprocessed.urlMap,
       onStatusChange: (status) => {
         agentStateManager.updateStatus(this.agent.id, status);
         this.callbacks.onStatusChange?.(status);
@@ -116,7 +130,7 @@ export class AgentRuntime {
     };
 
     this.engine = new ReActEngine(context);
-    return this.engine.run(userInput);
+    return this.engine.run(preprocessed.processedUserInput);
   }
 
   abort(): void {
