@@ -3,6 +3,7 @@ import { useTranslation } from '../hooks/useTranslation';
 import { Message, LogEntry, ChatSession, ChatFolder, Agent, TodoItem, SearchGroup, SearchResult, McpServer } from '../types';
 import { AGENTS as INITIAL_AGENTS } from '../data/agents';
 import { generateMockConversation, generateClusterMockConversation } from '../utils/mockData';
+import { fetchMemoryManager } from '../agent/memory';
 
 interface GlobalState {
   messages: Message[];
@@ -334,6 +335,7 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     setSessions(prev => [newSession, ...prev]);
     setCurrentSessionId(newSession.id);
     setMessages([]);
+    fetchMemoryManager.clear();
   };
 
   const createNewSessionWithAgent = (agentId: string) => {
@@ -355,6 +357,7 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     setSessions(prev => [newSession, ...prev]);
     setCurrentSessionId(newSession.id);
     setMessages([]);
+    fetchMemoryManager.clear();
   };
 
   const switchSession = (id: string) => {

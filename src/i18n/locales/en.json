@@ -186,6 +186,7 @@
     "onlineAgents": "Online Agents",
     "theme": "Toggle Theme",
     "settings": "Settings",
+    "memory": "Memory Panel",
     "deleteFolder": "Delete Folder",
     "deleteSession": "Delete Chat",
     "batchDeleteConfirm": "Batch Delete Chats",
@@ -463,5 +464,114 @@
   },
   "image": {
     "placeholder": "[Image]"
+  },
+  "memory": {
+    "title": "Memory Panel",
+    "debugOn": "Debug ON",
+    "debugOff": "Debug OFF",
+    "refresh": "Refresh",
+    "tabs": {
+      "list": "Memory List",
+      "hits": "This Turn Hits",
+      "logs": "Debug Logs",
+      "operations": "Operations"
+    },
+    "stats": {
+      "total": "Total",
+      "active": "Active",
+      "inactive": "Inactive",
+      "avgScore": "Avg Score",
+      "avgDecay": "Avg Decay",
+      "byType": "By Type"
+    },
+    "list": {
+      "search": "Search memories...",
+      "sort": "Sort",
+      "sortScore": "Score",
+      "sortType": "Type",
+      "sortCreated": "Created",
+      "sortAccessed": "Accessed",
+      "sortCount": "Count",
+      "memories": "memories",
+      "selected": "selected",
+      "deleteSelected": "Delete Selected",
+      "clear": "Clear",
+      "noMemories": "No memories found",
+      "accesses": "accesses",
+      "active": "active",
+      "inactive": "inactive"
+    },
+    "hits": {
+      "title": "This Turn Memory Hits",
+      "memoriesRetrieved": "memories retrieved",
+      "noHits": "No Memory Hits This Turn",
+      "noHitsDesc": "Memory hits will appear here when you send a message and the system retrieves relevant memories.",
+      "finalScore": "Final Score",
+      "similarity": "Similarity",
+      "memoryScore": "Memory Score",
+      "rank": "Rank"
+    },
+    "logs": {
+      "title": "Memory Debug Log",
+      "logEntries": "log entries",
+      "export": "Export",
+      "clear": "Clear",
+      "noLogs": "No Debug Logs",
+      "noLogsDesc": "Debug logs will appear here as memory operations occur.",
+      "types": {
+        "retrieval_start": "Retrieval Start",
+        "retrieval_candidates": "Get Candidates",
+        "retrieval_filtered": "Filter Results",
+        "retrieval_complete": "Retrieval Complete",
+        "reinforce": "Reinforce Trigger",
+        "reinforce_complete": "Reinforce Complete",
+        "decay": "Decay Execute",
+        "decay_complete": "Decay Complete",
+        "prune": "Prune Execute",
+        "prune_complete": "Prune Complete",
+        "add_memory": "Add Memory",
+        "delete_memory": "Delete Memory"
+      }
+    },
+    "operations": {
+      "title": "Memory Operations",
+      "selectedMemories": "Selected Memories",
+      "reinforceSelected": "Reinforce Selected",
+      "reduceScore": "Reduce Score",
+      "deleteSelected": "Delete Selected",
+      "selectFromList": "Select memories from the Memory List tab to perform batch operations",
+      "evolutionControls": "Evolution Controls",
+      "runDecay": "Run Decay",
+      "runPrune": "Run Prune",
+      "fullEvolutionCycle": "Full Evolution Cycle",
+      "whatHappens": "What happens",
+      "decayDesc": "score = score × exp(-decay × days)",
+      "pruneDesc": "Mark inactive if score < 0.3, delete after 7 days if score < 0.1",
+      "quickActions": "Quick Actions",
+      "lowScore": "Low Score (<0.3)",
+      "memories": "memories",
+      "inactiveMemories": "Inactive memories",
+      "clear": "Clear",
+      "lockMemory": "Lock Memory (Coming Soon)",
+      "lockSelected": "Lock Selected",
+      "unlockSelected": "Unlock Selected",
+      "lockedDesc": "Locked memories are protected from automatic pruning",
+      "reinforced": "Reinforced {{count}} memories (+0.05 score each)",
+      "deleted": "Deleted {{count}} memories",
+      "decayComplete": "Decay complete: processed {{processed}}, updated {{updated}}",
+      "pruneComplete": "Prune complete: marked {{marked}} inactive, deleted {{deleted}}",
+      "evolutionComplete": "Evolution complete: decay({{decayUpdated}}), prune({{pruneMarked}} marked, {{pruneDeleted}} deleted)",
+      "noLowScore": "No low-score memories to clear",
+      "noInactive": "No inactive memories to clear",
+      "reduceScoreNotImplemented": "Reduce score not yet implemented"
+    },
+    "types": {
+      "identity": "Identity",
+      "fact": "Fact",
+      "preference": "Preference",
+      "task": "Task",
+      "constraint": "Constraint",
+      "skill": "Skill"
+    }
   }
 }

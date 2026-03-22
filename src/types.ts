@@ -139,3 +139,113 @@ export interface Agent {
   knowledgeFolders?: string[];
 }
 
+export type MemoryType = 'identity' | 'fact' | 'preference' | 'task' | 'constraint' | 'skill';
+
+export type TaskStatus = 'pending' | 'in_progress' | 'done' | 'cancelled';
+
+export interface TaskMetadata {
+  status: TaskStatus;
+  progress?: string;
+  next_step?: string;
+}
+
+export interface MemoryItem {
+  id: string;
+  content: string;
+  memoryType: MemoryType;
+  importance: number;
+  score: number;
+  decay: number;
+  isActive: boolean;
+  markedInactiveAt?: number;
+  embedding?: number[];
+  sourceSessionId?: string;
+  createdAt: number;
+  lastAccessedAt: number;
+  accessCount: number;
+  metadata?: TaskMetadata;
+}
+
+export interface ExtractedItem {
+  content: string;
+  importance: number;
+}
+
+export interface ExtractedTask {
+  content: string;
+  status: TaskStatus;
+  progress?: string;
+  next_step?: string;
+  importance: number;
+}
+
+export interface ExtractedMemory {
+  identity: ExtractedItem[];
+  facts: ExtractedItem[];
+  preferences: ExtractedItem[];
+  tasks: ExtractedTask[];
+  constraints: ExtractedItem[];
+  skills: ExtractedItem[];
+}
+
+export type ModelType = 'local' | 'online';
+
+export interface RetrievalOptions {
+  topK: number;
+  memoryTypes?: MemoryType[];
+  minImportance?: number;
+  sessionId?: string;
+  modelType?: ModelType;
+}
+
+export interface ScoreComponents {
+  similarity: number;
+  memoryScore: number;
+}
+
+export interface RetrievedMemory {
+  item: MemoryItem;
+  score: number;
+  components: ScoreComponents;
+}
+
+export interface MemoryStats {
+  totalCount: number;
+  byType: Record<string, number>;
+  avgImportance: number;
+}
+
+export interface DecayResult {
+  processed: number;
+  updated: number;
+}
+
+export interface PruneResult {
+  markedInactive: number;
+  deleted: number;
+}
+
+export interface EvolutionStats {
+  activeCount: number;
+  inactiveCount: number;
+  avgScore: number;
+  avgDecay: number;
+}
+
+export interface AgentConfig {
+  autoMemory?: boolean;
+  autoMemoryExtraction?: boolean;
+  extractionInterval?: number;
+  autoTaskTracking?: boolean;
+  taskDetectionPatterns?: string[];
+  autoRouting?: boolean;
+  customRoutingRules?: RoutingRule[];
+  maxMemoryInjection?: number;
+  minImportanceThreshold?: number;
+}
+
+export interface RoutingRule {
+  keywords: string[];
+  memoryTypes: MemoryType[];
+}
+

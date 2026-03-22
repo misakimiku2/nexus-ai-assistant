@@ -1,0 +1,93 @@
+urlDetector.ts:67 [preprocessConversation] Total URLs in map: 1
+urlDetector.ts:68 [preprocessConversation] URL Map: {__URL_PLACEHOLDER_1__: 'https://mzh.moegirl.org.cn/%E7%88%B1%E5%BC%A5%E6%96%AF'}
+AgentRuntime.ts:78 [AgentRuntime] Preprocessed conversation: {hasUrls: true, urlCount: 1, urls: {…}}
+ReActEngine.ts:163 [ReActEngine] 开始检索认知记忆, 模型类型: local
+TauriMemoryClient.ts:13 [TauriMemoryClient] 开始检索记忆, query: 帮我看看这个网址说了啥__URL_PLACEHOLDER_1__ options: {topK: 10, minImportance: 0.3, modelType: 'local'}
+TauriMemoryClient.ts:19 [TauriMemoryClient] 检索失败: Embedding service not initialized
+retrieveMemories @ TauriMemoryClient.ts:19
+await in retrieveMemories
+buildInitialMessages @ ReActEngine.ts:164
+run @ ReActEngine.ts:93
+execute @ AgentRuntime.ts:133
+(匿名) @ useAgentExecution.ts:202
+handleAgentExecution @ App.tsx:1051
+handleSendMessage @ App.tsx:1016
+onSend @ ChatInput.tsx:150
+onKeyDown @ ChatInput.tsx:370
+executeDispatch @ react-dom-client.development.js:19116
+runWithFiberInDEV @ react-dom-client.development.js:871
+processDispatchQueue @ react-dom-client.development.js:19166
+(匿名) @ react-dom-client.development.js:19767
+batchedUpdates$1 @ react-dom-client.development.js:3255
+dispatchEventForPluginEventSystem @ react-dom-client.development.js:19320
+dispatchEvent @ react-dom-client.development.js:23585
+dispatchDiscreteEvent @ react-dom-client.development.js:23553
+ReActEngine.ts:185 [ReActEngine] 检索记忆失败: Embedding service not initialized
+buildInitialMessages @ ReActEngine.ts:185
+await in buildInitialMessages
+run @ ReActEngine.ts:93
+execute @ AgentRuntime.ts:133
+(匿名) @ useAgentExecution.ts:202
+handleAgentExecution @ App.tsx:1051
+handleSendMessage @ App.tsx:1016
+onSend @ ChatInput.tsx:150
+onKeyDown @ ChatInput.tsx:370
+executeDispatch @ react-dom-client.development.js:19116
+runWithFiberInDEV @ react-dom-client.development.js:871
+processDispatchQueue @ react-dom-client.development.js:19166
+(匿名) @ react-dom-client.development.js:19767
+batchedUpdates$1 @ react-dom-client.development.js:3255
+dispatchEventForPluginEventSystem @ react-dom-client.development.js:19320
+dispatchEvent @ react-dom-client.development.js:23585
+dispatchDiscreteEvent @ react-dom-client.development.js:23553
+ReActEngine.ts:310 [ReActEngine] Tool call: fetch_url params: {url: '__URL_PLACEHOLDER_1__'}
+ReActEngine.ts:311 [ReActEngine] preprocessedUrls: {__URL_PLACEHOLDER_1__: 'https://mzh.moegirl.org.cn/%E7%88%B1%E5%BC%A5%E6%96%AF'}
+ReActEngine.ts:314 [ReActEngine] Checking if URL is placeholder: __URL_PLACEHOLDER_1__ isPlaceholder: true
+ReActEngine.ts:317 [ReActEngine] Original URL from map: https://mzh.moegirl.org.cn/%E7%88%B1%E5%BC%A5%E6%96%AF
+ReActEngine.ts:319 [ReActEngine] Replacing URL placeholder: __URL_PLACEHOLDER_1__ -> https://mzh.moegirl.org.cn/%E7%88%B1%E5%BC%A5%E6%96%AF
+builtin.ts:757 [fetch_url] Invoking with params: {url: 'https://mzh.moegirl.org.cn/%E7%88%B1%E5%BC%A5%E6%96%AF'}
+builtin.ts:766 [fetch_url] Result: {success: true, title: '爱弥斯 - 萌娘百科 万物皆可萌的百科全书', content: '简介\n角色经历\n角色相关\n长航的星辉——爱弥斯(热熔·迅刀)\n技能\n共鸣链\n角色档案\n角色故事\n注释…升至60层。爱弥斯施放共鸣技能光翼共奏期间，对范围内目标附加10层震谐轨迹/聚爆轨迹，持续30秒。', summary: null, content_chunks: Array(7), …}content: "简介\n角色经历\n角色相关\n长航的星辉——爱弥斯(热熔·迅刀)\n技能\n共鸣链\n角色档案\content_chunks: (7) [{…}, {…}, {…}, {…}, {…}, {…}, {…}]error: nullmetadata: {length: 26665, domain: 'mzh.moegirl.org.cn', extraction_method: 'scraper', chunk_count: 7, truncated: false, …}success: truesummary: nulltitle: "爱弥斯 - 萌娘百科 万物皆可萌的百科全书"[[Prototype]]: Object
+FetchMemory.ts:54 [FetchMemory] Added content for: https://mzh.moegirl.org.cn/%E7%88%B1%E5%BC%A5%E6%96%AF, content length: 26707, total entries: 1
+FetchMemory.ts:35 [FetchMemory] URL already exists, skipping: https://mzh.moegirl.org.cn/%E7%88%B1%E5%BC%A5%E6%96%AF
+urlDetector.ts:67 [preprocessConversation] Total URLs in map: 1
+urlDetector.ts:68 [preprocessConversation] URL Map: {__URL_PLACEHOLDER_1__: 'https://mzh.moegirl.org.cn/%E7%88%B1%E5%BC%A5%E6%96%AF'}
+AgentRuntime.ts:78 [AgentRuntime] Preprocessed conversation: {hasUrls: true, urlCount: 1, urls: {…}}
+ReActEngine.ts:163 [ReActEngine] 开始检索认知记忆, 模型类型: local
+TauriMemoryClient.ts:13 [TauriMemoryClient] 开始检索记忆, query: 我想了解她的背景故事是怎么样的？ options: {topK: 10, minImportance: 0.3, modelType: 'local'}
+TauriMemoryClient.ts:19 [TauriMemoryClient] 检索失败: Embedding service not initialized
+retrieveMemories @ TauriMemoryClient.ts:19
+await in retrieveMemories
+buildInitialMessages @ ReActEngine.ts:164
+run @ ReActEngine.ts:93
+execute @ AgentRuntime.ts:133
+(匿名) @ useAgentExecution.ts:202
+handleAgentExecution @ App.tsx:1051
+handleSendMessage @ App.tsx:1016
+onSend @ ChatInput.tsx:150
+onKeyDown @ ChatInput.tsx:370
+executeDispatch @ react-dom-client.development.js:19116
+runWithFiberInDEV @ react-dom-client.development.js:871
+processDispatchQueue @ react-dom-client.development.js:19166
+(匿名) @ react-dom-client.development.js:19767
+batchedUpdates$1 @ react-dom-client.development.js:3255
+dispatchEventForPluginEventSystem @ react-dom-client.development.js:19320
+dispatchEvent @ react-dom-client.development.js:23585
+dispatchDiscreteEvent @ react-dom-client.development.js:23553
+ReActEngine.ts:185 [ReActEngine] 检索记忆失败: Embedding service not initialized
+buildInitialMessages @ ReActEngine.ts:185
+await in buildInitialMessages
+run @ ReActEngine.ts:93
+execute @ AgentRuntime.ts:133
+(匿名) @ useAgentExecution.ts:202
+handleAgentExecution @ App.tsx:1051
+handleSendMessage @ App.tsx:1016
+onSend @ ChatInput.tsx:150
+onKeyDown @ ChatInput.tsx:370
+executeDispatch @ react-dom-client.development.js:19116
+runWithFiberInDEV @ react-dom-client.development.js:871
+processDispatchQueue @ react-dom-client.development.js:19166
+(匿名) @ react-dom-client.development.js:19767
+batchedUpdates$1 @ react-dom-client.development.js:3255
+dispatchEventForPluginEventSystem @ react-dom-client.development.js:19320
+dispatchEvent @ react-dom-client.development.js:23585
+dispatchDiscreteEvent @ react-dom-client.development.js:23553

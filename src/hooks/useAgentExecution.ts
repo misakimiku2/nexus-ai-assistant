@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Agent, SearchResult } from '../types';
+import { Agent, SearchResult, RetrievedMemory } from '../types';
 import {
   AgentRuntime,
   initializeDefaultRuntime,
@@ -45,6 +45,7 @@ interface AgentExecutionCallbacks {
     status: AgentStatus;
   }) => void;
   onContentChunk?: (chunk: string) => void;
+  onMemoryRetrieved?: (memories: RetrievedMemory[]) => void;
 }
 
 function parseWebSearchResults(output: string): SearchResult[] {
@@ -140,6 +141,9 @@ export function useAgentExecution(
       },
       onIterationCountChange: (count: number) => {
         setIterationCount(count);
+      },
+      onMemoryRetrieved: (memories: RetrievedMemory[]) => {
+        callbacksRef.current?.onMemoryRetrieved?.(memories);
       },
     });
 

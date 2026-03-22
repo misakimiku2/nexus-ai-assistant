@@ -19,7 +19,8 @@ import {
   FunctionCallingConfig,
 } from '../llm/functionCalling';
 import { isUrlPlaceholder, getOriginalUrl } from '../preprocess/urlDetector';
-import { fetchMemoryManager } from '../memory';
+import { fetchMemoryManager, TauriMemoryClient, defaultAgentLayer } from '../memory';
+import { RetrievedMemory } from '../../types';
 
 const REACT_SYSTEM_PROMPT = `You are an intelligent agent that uses the ReAct (Reasoning + Acting) framework to solve problems.
 
@@ -64,6 +65,7 @@ export class ReActEngine {
   private state: AgentExecutionState;
   private abortController: AbortController | null = null;
   private stepCounter: number = 0;
+  private retrievedMemories: RetrievedMemory[] = [];
 
   constructor(context: AgentExecutionContext) {
     this.context = context;
@@ -89,8 +91,9 @@ export class ReActEngine {
     this.abortController = new AbortController();
     this.updateStatus('thinking');
     this.state.startTime = Date.now();
+    this.retrievedMemories = [];
 
-    const messages: ConversationMessage[] = this.buildInitialMessages(userInput);
+    const messages: ConversationMessage[] = await this.buildInitialMessages(userInput);
 
     try {
       while (this.state.iterationCount < this.state.maxIterations) {
@@ -107,6 +110,7 @@ export class ReActEngine {
 
         if (!response.toolCalls || response.toolCalls.length === 0) {
           this.updateStatus('completed');
+          await this.reinforceUsedMemories(response.content || '');
           return response.content || 'Task completed.';
         }
 
@@ -138,7 +142,42 @@ export class ReActEngine {
     }
   }
 
-  private buildInitialMessages(userInput: string): ConversationMessage[] {
+  private async reinforceUsedMemories(responseContent: string): Promise<void> {
+    if (this.retrievedMemories.length === 0) {
+      return;
+    }
+
+    const usedMemoryIds = this.detectUsedMemories(responseContent, this.retrievedMemories);
+    
+    if (usedMemoryIds.length > 0) {
+      try {
+        console.log('[ReActEngine] 强化被使用的记忆:', usedMemoryIds.length, '条');
+        await TauriMemoryClient.reinforceMemories(usedMemoryIds);
+      } catch (error) {
+        console.warn('[ReActEngine] 强化记忆失败:', error);
+      }
+    }
+  }
+
+  private detectUsedMemories(response: string, memories: RetrievedMemory[]): string[] {
+    const usedIds: string[] = [];
+    
+    for (const memory of memories) {
+      const content = memory.item.content;
+      const keywords = content.split(/[\s,，。！？、]+/).filter(w => w.length >= 3).slice(0, 5);
+      
+      if (keywords.length > 0) {
+        const matchCount = keywords.filter(kw => response.includes(kw)).length;
+        if (matchCount >= Math.min(2, keywords.length)) {
+          usedIds.push(memory.item.id);
+        }
+      }
+    }
+    
+    return usedIds;
+  }
+
+  private async buildInitialMessages(userInput: string): Promise<ConversationMessage[]> {
     const basePrompt = this.context.agent.systemPrompt || '';
     const currentDate = new Date().toLocaleDateString('zh-CN', { 
       year: 'numeric', 
@@ -156,6 +195,39 @@ export class ReActEngine {
     const memoryContext = fetchMemoryManager.generateContextPrompt();
     if (memoryContext) {
       systemPrompt = `${systemPrompt}\n\n${memoryContext}`;
+    }
+
+    try {
+      const modelType = this.getModelType();
+      console.log('[ReActEngine] 开始检索认知记忆, 模型类型:', modelType);
+      const memories = await TauriMemoryClient.retrieveMemories(userInput, {
+        topK: 10,
+        minImportance: 0.3,
+        modelType,
+      });
+
+      console.log('[ReActEngine] 检索到', memories.length, '条认知记忆');
+      this.retrievedMemories = memories;
+      
+      if (this.context.onMemoryRetrieved) {
+        this.context.onMemoryRetrieved(memories);
+      }
+      
+      if (memories.length > 0) {
+        const memoryPrompt = defaultAgentLayer.formatMemoriesForPrompt(memories);
+        if (memoryPrompt) {
+          console.log('[ReActEngine] 注入记忆提示, 长度:', memoryPrompt.length);
+          systemPrompt = `${systemPrompt}\n\n${memoryPrompt}`;
+        }
+
+        const constraints = memories.filter(m => m.item.memoryType === 'constraint');
+        if (constraints.length > 0) {
+          const constraintPrompt = defaultAgentLayer.getConstraintAwarenessPrompt(constraints);
+          systemPrompt = `${systemPrompt}\n\n${constraintPrompt}`;
+        }
+      }
+    } catch (error) {
+      console.warn('[ReActEngine] 检索记忆失败:', error);
     }
 
     const messages: ConversationMessage[] = [
@@ -176,6 +248,14 @@ export class ReActEngine {
     }
 
     return messages;
+  }
+
+  private getModelType(): 'local' | 'online' {
+    const provider = this.context.agent.modelProvider;
+    if (provider === 'online') {
+      return 'online';
+    }
+    return 'local';
   }
 
   private async callLLMStream(messages: ConversationMessage[]): Promise<LLMResponse> {

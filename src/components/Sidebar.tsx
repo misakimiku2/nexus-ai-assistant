@@ -26,7 +26,8 @@ import {
   Layout,
   ChevronRight,
   ChevronDown,
-  FileText
+  FileText,
+  Brain
 } from 'lucide-react';
 import { NexusLogo } from './NexusLogo';
 import { cn } from '../lib/utils';
@@ -43,6 +44,7 @@ interface SidebarProps {
   toggleDarkMode: () => void;
   isExpanded: boolean;
   openSettings: () => void;
+  openMemoryPanel: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
@@ -51,7 +53,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isDarkMode, 
   toggleDarkMode,
   isExpanded,
-  openSettings
+  openSettings,
+  openMemoryPanel
 }) => {
   const { t } = useTranslation();
   const { 
@@ -609,6 +612,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
 
         <div className="flex flex-col gap-2 mt-auto pt-4 border-t border-zinc-700/50">
+          <button 
+            onClick={openMemoryPanel}
+            className={cn(
+              "p-2.5 rounded-xl hover:bg-zinc-800 transition-colors flex items-center gap-3 text-zinc-400 hover:text-zinc-200",
+              isExpanded ? "justify-start px-3" : "justify-center"
+            )}
+            title={!isExpanded ? t('sidebar.memory') : undefined}
+          >
+            <Brain size={20} className="shrink-0" />
+            {isExpanded && <span className="text-sm font-medium whitespace-nowrap">{t('sidebar.memory')}</span>}
+          </button>
+          
           <button 
             onClick={toggleDarkMode} 
             className={cn(

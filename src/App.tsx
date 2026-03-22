@@ -17,7 +17,9 @@ import { CanvasWorkspace } from './components/CanvasWorkspace';
 import { CloseConfirmModal } from './components/CloseConfirmModal';
 import { WindowControls } from './components/WindowControls';
 import { ToolAuthModal } from './components/AgentExecutionView';
+import { MemoryPanel } from './components/MemoryPanel';
 import { useGlobalState } from './context/GlobalStateContext';
+import { MemoryUIProvider, useMemoryUI } from './context/MemoryUIContext';
 import { useAgentExecution } from './hooks/useAgentExecution';
 import { motion, AnimatePresence } from 'motion/react';
 import { listen } from '@tauri-apps/api/event';
@@ -26,8 +28,10 @@ import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from './hooks/useTranslation';
 import { ConversationMessage, ReasoningStep, ToolCallRecord, AgentStatus } from './agent/types';
 import { DEFAULT_AGENT } from './data/agents';
+import { RetrievedMemory } from './types';
 
-export default function App() {
+function AppContent() {
+  const { setCurrentHits } = useMemoryUI();
   const { t, i18n } = useTranslation();
   const { 
     messages, setMessages, 
@@ -117,6 +121,9 @@ export default function App() {
   // Close Confirm Modal State
   const [isCloseConfirmModalOpen, setIsCloseConfirmModalOpen] = useState(false);
 
+  // Memory Panel State
+  const [isMemoryPanelOpen, setIsMemoryPanelOpen] = useState(false);
+
   // Agent Execution State
   const [currentExecutionMessageId, setCurrentExecutionMessageId] = useState<string | null>(null);
   const [scrollResetKey, setScrollResetKey] = useState(0);
@@ -201,6 +208,11 @@ export default function App() {
     }
   }, [setMessages]);
 
+  const handleMemoryRetrieved = useCallback((memories: RetrievedMemory[]) => {
+    console.log('[App] Memory retrieved:', memories.length, 'memories');
+    setCurrentHits(memories);
+  }, [setCurrentHits]);
+
   const agentExecution = useAgentExecution(
     useMemo(() => ({
       apiUrl: lmStudioUrl,
@@ -211,7 +223,8 @@ export default function App() {
       onWebSearchResult: handleWebSearchResult,
       onExecutionUpdate: handleExecutionUpdate,
       onContentChunk: handleContentChunk,
-    }), [handleWebSearchResult, handleExecutionUpdate, handleContentChunk])
+      onMemoryRetrieved: handleMemoryRetrieved,
+    }), [handleWebSearchResult, handleExecutionUpdate, handleContentChunk, handleMemoryRetrieved])
   );
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -1181,6 +1194,7 @@ export default function App() {
         toggleDarkMode={toggleDarkMode} 
         isExpanded={isSidebarExpanded}
         openSettings={() => setIsSettingsOpen(true)}
+        openMemoryPanel={() => setIsMemoryPanelOpen(true)}
       />
 
       <main className="flex-1 flex flex-col min-w-0 relative overflow-hidden">
@@ -1415,7 +1429,21 @@ export default function App() {
         onApprove={agentExecution.approveToolCall}
         onReject={agentExecution.rejectToolCall}
       />
+
+      <MemoryPanel
+        isOpen={isMemoryPanelOpen}
+        onClose={() => setIsMemoryPanelOpen(false)}
+        isDarkMode={isDarkMode}
+      />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <MemoryUIProvider>
+      <AppContent />
+    </MemoryUIProvider>
   );
 }
 

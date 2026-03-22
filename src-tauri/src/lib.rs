@@ -1,17 +1,43 @@
 mod search;
 mod tools;
+mod models;
+mod memory;
+mod commands;
 
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Emitter, Listener, Manager, WindowEvent,
 };
+use commands::{MemoryState, SessionState};
+use memory::{MemoryStorage, MemoryEvolutionManager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let app_data_dir = dirs::data_local_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("nexus-ai-assistant");
+    
+    log::info!("========================================");
+    log::info!("[MemorySystem] 正在初始化认知记忆系统...");
+    log::info!("[MemorySystem] 数据存储位置: {:?}", app_data_dir);
+    
+    let db_path = app_data_dir.join("memory.db");
+    log::info!("[MemorySystem] 数据库文件: {:?}", db_path);
+    
+    let storage = MemoryStorage::new(app_data_dir).expect("Failed to initialize memory storage");
+    log::info!("[MemorySystem] 数据库初始化成功");
+    
+    let memory_state = MemoryState::new(storage.clone());
+    let session_state = SessionState::new(storage);
+    log::info!("[MemorySystem] 认知记忆系统初始化完成");
+    log::info!("========================================");
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .setup(|app| {
+        .manage(memory_state.clone())
+        .manage(session_state)
+        .setup(move |app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
@@ -87,6 +113,20 @@ pub fn run() {
                 app_handle_for_exit.exit(0);
             });
 
+            let evolution_manager = MemoryEvolutionManager::new(memory_state.storage.blocking_lock().clone());
+            tauri::async_runtime::spawn(async move {
+                log::info!("[MemoryEvolution] 启动时执行演化周期...");
+                match evolution_manager.run_evolution_cycle().await {
+                    Ok((decay_result, prune_result)) => {
+                        log::info!("[MemoryEvolution] 演化周期完成: 衰减处理 {} 条, 标记不活跃 {} 条, 删除 {} 条",
+                            decay_result.processed, prune_result.marked_inactive, prune_result.deleted);
+                    }
+                    Err(e) => {
+                        log::error!("[MemoryEvolution] 演化周期执行失败: {}", e);
+                    }
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -101,7 +141,30 @@ pub fn run() {
             tools::filesystem::get_file_info,
             tools::shell::execute_command,
             tools::shell::execute_powershell,
-            tools::shell::get_system_info
+            tools::shell::get_system_info,
+            commands::memory::retrieve_memories,
+            commands::memory::add_memory,
+            commands::memory::get_all_memories,
+            commands::memory::get_memories_by_type,
+            commands::memory::update_task_status,
+            commands::memory::delete_memory,
+            commands::memory::prune_memories,
+            commands::memory::get_memory_stats,
+            commands::memory::initialize_embedding_service,
+            commands::memory::get_embedding_dimension,
+            commands::memory::reinforce_memories,
+            commands::memory::decay_memories,
+            commands::memory::prune_memories_v2,
+            commands::memory::run_evolution_cycle,
+            commands::memory::get_evolution_stats,
+            commands::session::save_session,
+            commands::session::load_sessions,
+            commands::session::delete_session,
+            commands::session::save_messages,
+            commands::session::load_messages,
+            commands::session::save_folder,
+            commands::session::load_folders,
+            commands::session::delete_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

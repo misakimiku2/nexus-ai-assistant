@@ -1,4 +1,4 @@
-import { Agent } from '../../types';
+import { Agent, RetrievedMemory } from '../../types';
 import {
   AgentExecutionContext,
   AgentExecutionState,
@@ -24,6 +24,7 @@ export interface AgentRuntimeOptions {
   onRequestAuth?: (toolCall: { id: string; toolName: string; parameters: Record<string, unknown>; status: string }) => Promise<boolean>;
   onContentChunk?: (chunk: string) => void;
   onIterationCountChange?: (count: number) => void;
+  onMemoryRetrieved?: (memories: RetrievedMemory[]) => void;
 }
 
 let toolsInitialized = false;
@@ -126,6 +127,9 @@ export class AgentRuntime {
       },
       onIterationCountChange: (count: number) => {
         this.callbacks.onIterationCountChange?.(count);
+      },
+      onMemoryRetrieved: (memories: RetrievedMemory[]) => {
+        this.callbacks.onMemoryRetrieved?.(memories);
       },
     };
 

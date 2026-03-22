@@ -85,6 +85,7 @@ export interface AgentExecutionContext {
   onRequestAuth?: (toolCall: ToolCallRecord) => Promise<boolean>;
   onContentChunk?: (chunk: string) => void;
   onIterationCountChange?: (count: number) => void;
+  onMemoryRetrieved?: (memories: import('../types').RetrievedMemory[]) => void;
 }
 
 export interface ConversationMessage {

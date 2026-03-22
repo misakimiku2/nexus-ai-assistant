@@ -186,6 +186,7 @@
     "onlineAgents": "在线 Agents",
     "theme": "切换主题",
     "settings": "设置",
+    "memory": "记忆面板",
     "deleteFolder": "删除文件夹",
     "deleteSession": "删除对话",
     "batchDeleteConfirm": "批量删除对话",
@@ -463,5 +464,114 @@
   },
   "image": {
     "placeholder": "[图片]"
+  },
+  "memory": {
+    "title": "记忆面板",
+    "debugOn": "调试开",
+    "debugOff": "调试关",
+    "refresh": "刷新",
+    "tabs": {
+      "list": "记忆列表",
+      "hits": "本轮命中",
+      "logs": "调试日志",
+      "operations": "操作面板"
+    },
+    "stats": {
+      "total": "总计",
+      "active": "活跃",
+      "inactive": "不活跃",
+      "avgScore": "平均分数",
+      "avgDecay": "平均衰减",
+      "byType": "按类型"
+    },
+    "list": {
+      "search": "搜索记忆...",
+      "sort": "排序",
+      "sortScore": "分数",
+      "sortType": "类型",
+      "sortCreated": "创建时间",
+      "sortAccessed": "访问时间",
+      "sortCount": "访问次数",
+      "memories": "条记忆",
+      "selected": "已选择",
+      "deleteSelected": "删除选中",
+      "clear": "清除",
+      "noMemories": "未找到记忆",
+      "accesses": "次访问",
+      "active": "活跃",
+      "inactive": "不活跃"
+    },
+    "hits": {
+      "title": "本轮命中的记忆",
+      "memoriesRetrieved": "条记忆被检索",
+      "noHits": "本轮无命中记忆",
+      "noHitsDesc": "发送消息后，检索到的记忆将显示在这里",
+      "finalScore": "最终分数",
+      "similarity": "语义相似度",
+      "memoryScore": "记忆分数",
+      "rank": "排名"
+    },
+    "logs": {
+      "title": "调试日志",
+      "logEntries": "条日志",
+      "export": "导出",
+      "clear": "清空",
+      "noLogs": "暂无调试日志",
+      "noLogsDesc": "记忆操作日志将显示在这里",
+      "types": {
+        "retrieval_start": "检索开始",
+        "retrieval_candidates": "获取候选",
+        "retrieval_filtered": "过滤结果",
+        "retrieval_complete": "检索完成",
+        "reinforce": "强化触发",
+        "reinforce_complete": "强化完成",
+        "decay": "衰减执行",
+        "decay_complete": "衰减完成",
+        "prune": "淘汰执行",
+        "prune_complete": "淘汰完成",
+        "add_memory": "添加记忆",
+        "delete_memory": "删除记忆"
+      }
+    },
+    "operations": {
+      "title": "记忆操作",
+      "selectedMemories": "已选择记忆",
+      "reinforceSelected": "强化选中",
+      "reduceScore": "降低分数",
+      "deleteSelected": "删除选中",
+      "selectFromList": "从记忆列表中选择记忆以执行批量操作",
+      "evolutionControls": "演化控制",
+      "runDecay": "执行衰减",
+      "runPrune": "执行淘汰",
+      "fullEvolutionCycle": "完整演化周期",
+      "whatHappens": "执行说明",
+      "decayDesc": "分数 = 分数 × exp(-衰减率 × 天数)",
+      "pruneDesc": "分数 < 0.3 标记为不活跃，7天后分数 < 0.1 则删除",
+      "quickActions": "快捷操作",
+      "lowScore": "低分数 (<0.3)",
+      "memories": "条记忆",
+      "inactiveMemories": "不活跃记忆",
+      "clear": "清除",
+      "lockMemory": "锁定记忆 (即将推出)",
+      "lockSelected": "锁定选中",
+      "unlockSelected": "解锁选中",
+      "lockedDesc": "锁定的记忆将受保护，不会被自动淘汰",
+      "reinforced": "已强化 {{count}} 条记忆 (每条 +0.05 分)",
+      "deleted": "已删除 {{count}} 条记忆",
+      "decayComplete": "衰减完成: 处理 {{processed}} 条, 更新 {{updated}} 条",
+      "pruneComplete": "淘汰完成: 标记 {{marked}} 条不活跃, 删除 {{deleted}} 条",
+      "evolutionComplete": "演化完成: 衰减({{decayUpdated}}), 淘汰({{pruneMarked}} 标记, {{pruneDeleted}} 删除)",
+      "noLowScore": "没有低分数记忆需要清除",
+      "noInactive": "没有不活跃记忆需要清除",
+      "reduceScoreNotImplemented": "降低分数功能尚未实现"
+    },
+    "types": {
+      "identity": "身份特征",
+      "fact": "已知事实",
+      "preference": "用户偏好",
+      "task": "进行中任务",
+      "constraint": "限制条件",
+      "skill": "用户能力"
+    }
   }
 }
