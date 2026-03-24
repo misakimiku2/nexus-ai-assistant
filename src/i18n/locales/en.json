@@ -474,7 +474,8 @@
       "list": "Memory List",
       "hits": "This Turn Hits",
       "logs": "Debug Logs",
-      "operations": "Operations"
+      "operations": "Operations",
+      "candidates": "Candidates"
     },
     "stats": {
       "total": "Total",

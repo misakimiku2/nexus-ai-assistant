@@ -249,3 +249,36 @@ export interface RoutingRule {
   memoryTypes: MemoryType[];
 }
 
+export type CandidateStatus = 'pending' | 'accepted' | 'rejected' | 'merged';
+
+export interface CandidateMemory {
+  id: string;
+  content: string;
+  memoryType: MemoryType;
+  confidence: number;
+  sourceSessionId: string;
+  sourceMessageIds: string[];
+  createdAt: number;
+  status: CandidateStatus;
+  importance: number;
+}
+
+export interface ExtractionResult {
+  candidates: CandidateMemory[];
+  extractionTimeMs: number;
+  modelUsed: string;
+}
+
+export interface ExtractionConfig {
+  minMessageCount: number;
+  minConversationLength: number;
+  skipToolCallMessages: boolean;
+}
+
+export interface ConversationMessage {
+  id: string;
+  role: string;
+  content: string;
+  isToolCall: boolean;
+}
+

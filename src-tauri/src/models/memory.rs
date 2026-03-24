@@ -221,6 +221,7 @@ impl Default for RetrievalOptions {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScoreComponents {
     pub similarity: f32,
+    #[serde(rename = "memoryScore")]
     pub memory_score: f32,
 }
 
@@ -264,4 +265,112 @@ pub struct EvolutionStats {
     pub avg_score: f32,
     #[serde(rename = "avgDecay")]
     pub avg_decay: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum CandidateStatus {
+    Pending,
+    Accepted,
+    Rejected,
+    Merged,
+}
+
+impl CandidateStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            CandidateStatus::Pending => "pending",
+            CandidateStatus::Accepted => "accepted",
+            CandidateStatus::Rejected => "rejected",
+            CandidateStatus::Merged => "merged",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "pending" => Some(CandidateStatus::Pending),
+            "accepted" => Some(CandidateStatus::Accepted),
+            "rejected" => Some(CandidateStatus::Rejected),
+            "merged" => Some(CandidateStatus::Merged),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CandidateMemory {
+    pub id: String,
+    pub content: String,
+    #[serde(rename = "memoryType")]
+    pub memory_type: MemoryType,
+    pub confidence: f32,
+    #[serde(rename = "sourceSessionId")]
+    pub source_session_id: String,
+    #[serde(rename = "sourceMessageIds")]
+    pub source_message_ids: Vec<String>,
+    #[serde(rename = "createdAt")]
+    pub created_at: i64,
+    pub status: CandidateStatus,
+    pub importance: f32,
+}
+
+impl CandidateMemory {
+    pub fn new(
+        content: String,
+        memory_type: MemoryType,
+        confidence: f32,
+        source_session_id: String,
+        source_message_ids: Vec<String>,
+        importance: f32,
+    ) -> Self {
+        Self {
+            id: uuid::Uuid::new_v4().to_string(),
+            content,
+            memory_type,
+            confidence,
+            source_session_id,
+            source_message_ids,
+            created_at: chrono::Utc::now().timestamp(),
+            status: CandidateStatus::Pending,
+            importance,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExtractionResult {
+    pub candidates: Vec<CandidateMemory>,
+    #[serde(rename = "extractionTimeMs")]
+    pub extraction_time_ms: u64,
+    #[serde(rename = "modelUsed")]
+    pub model_used: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExtractionConfig {
+    #[serde(rename = "minMessageCount")]
+    pub min_message_count: usize,
+    #[serde(rename = "minConversationLength")]
+    pub min_conversation_length: usize,
+    #[serde(rename = "skipToolCallMessages")]
+    pub skip_tool_call_messages: bool,
+}
+
+impl Default for ExtractionConfig {
+    fn default() -> Self {
+        Self {
+            min_message_count: 4,
+            min_conversation_length: 200,
+            skip_tool_call_messages: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConversationMessage {
+    pub id: String,
+    pub role: String,
+    pub content: String,
+    #[serde(rename = "isToolCall")]
+    pub is_tool_call: bool,
 }

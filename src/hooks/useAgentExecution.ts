@@ -20,7 +20,7 @@ interface UseAgentExecutionResult {
   iterationCount: number;
   pendingAuthToolCall: ToolCallRecord | null;
   isAgentMode: boolean;
-  execute: (input: string, conversationHistory: ConversationMessage[]) => Promise<string>;
+  execute: (input: string, conversationHistory: ConversationMessage[], sessionId?: string) => Promise<string>;
   approveToolCall: () => void;
   rejectToolCall: () => void;
   abort: () => void;
@@ -187,7 +187,8 @@ export function useAgentExecution(
 
   const execute = useCallback(async (
     input: string,
-    conversationHistory: ConversationMessage[]
+    conversationHistory: ConversationMessage[],
+    sessionId?: string
   ): Promise<string> => {
     if (!runtimeRef.current) {
       if (currentAgent) {
@@ -203,7 +204,7 @@ export function useAgentExecution(
     setIterationCount(0);
 
     try {
-      const result = await runtimeRef.current!.execute(input, conversationHistory);
+      const result = await runtimeRef.current!.execute(input, conversationHistory, sessionId);
       return result;
     } catch (error) {
       setStatus('failed');

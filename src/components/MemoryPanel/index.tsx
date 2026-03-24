@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, Bug, BugOff, List, Target, FileText, Settings2, RefreshCw } from 'lucide-react';
+import { X, Bug, BugOff, List, Target, FileText, Settings2, RefreshCw, Brain } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useMemoryUI } from '../../context/MemoryUIContext';
 import { useMemoryState } from '../../hooks/useMemoryState';
@@ -10,6 +10,7 @@ import { MemoryHits } from './MemoryHits';
 import { MemoryDebugLog } from './MemoryDebugLog';
 import { MemoryOperations } from './MemoryOperations';
 import { MemoryStats } from './MemoryStats';
+import { CandidateMemories } from './CandidateMemories';
 
 interface MemoryPanelProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ export const MemoryPanel: React.FC<MemoryPanelProps> = ({ isOpen, onClose, isDar
   const [activeTab, setActiveTab] = useState<MemoryPanelTab>('list');
 
   const tabs: { id: MemoryPanelTab; label: string; icon: React.ElementType }[] = [
+    { id: 'candidates', label: t('memory.tabs.candidates'), icon: Brain },
     { id: 'list', label: t('memory.tabs.list'), icon: List },
     { id: 'hits', label: t('memory.tabs.hits'), icon: Target },
     { id: 'logs', label: t('memory.tabs.logs'), icon: FileText },
@@ -134,6 +136,7 @@ export const MemoryPanel: React.FC<MemoryPanelProps> = ({ isOpen, onClose, isDar
           )}
           
           <div className="h-full overflow-auto p-4">
+            {activeTab === 'candidates' && <CandidateMemories />}
             {activeTab === 'list' && <MemoryList isDarkMode={isDarkMode} debugMode={debugMode} />}
             {activeTab === 'hits' && <MemoryHits isDarkMode={isDarkMode} debugMode={debugMode} />}
             {activeTab === 'logs' && <MemoryDebugLog isDarkMode={isDarkMode} />}

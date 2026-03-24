@@ -31,6 +31,10 @@ impl MemoryStorage {
         Ok(storage)
     }
 
+    pub fn get_connection(&self) -> Arc<Mutex<Connection>> {
+        self.conn.clone()
+    }
+
     fn initialize_database(&self) -> Result<(), Box<dyn std::error::Error>> {
         log::info!("[MemoryStorage] 正在初始化数据库表结构...");
         let conn = self.conn.blocking_lock();
@@ -126,7 +130,7 @@ impl MemoryStorage {
     pub async fn add_memory(&self, item: MemoryItem) -> Result<(), Box<dyn std::error::Error>> {
         log::info!("[MemoryStorage] 添加记忆: type={}, importance={:.2}, score={:.2}, decay={:.3}, content={}", 
             item.memory_type.as_str(), item.importance, item.score, item.decay,
-            if item.content.len() > 50 { &item.content[..50] } else { &item.content });
+            item.content.chars().take(50).collect::<String>());
         let conn = self.conn.lock().await;
         let embedding_blob = item.embedding.as_ref().map(|e| {
             let bytes: Vec<u8> = e.iter()

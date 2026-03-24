@@ -28,7 +28,7 @@ pub fn run() {
     let storage = MemoryStorage::new(app_data_dir).expect("Failed to initialize memory storage");
     log::info!("[MemorySystem] 数据库初始化成功");
     
-    let memory_state = MemoryState::new(storage.clone());
+    let memory_state = MemoryState::new(storage.clone(), db_path);
     let session_state = SessionState::new(storage);
     log::info!("[MemorySystem] 认知记忆系统初始化完成");
     log::info!("========================================");
@@ -157,6 +157,13 @@ pub fn run() {
             commands::memory::prune_memories_v2,
             commands::memory::run_evolution_cycle,
             commands::memory::get_evolution_stats,
+            commands::memory::should_extract_memories,
+            commands::memory::get_pending_candidates,
+            commands::memory::accept_candidate,
+            commands::memory::reject_candidate,
+            commands::memory::accept_all_candidates,
+            commands::memory::add_candidate_memory,
+            commands::memory::clear_old_candidates,
             commands::session::save_session,
             commands::session::load_sessions,
             commands::session::delete_session,

@@ -9,6 +9,11 @@ import {
   DecayResult,
   PruneResult,
   EvolutionStats,
+  CandidateMemory,
+  CandidateStatus,
+  ExtractionResult,
+  ExtractionConfig,
+  ConversationMessage,
 } from '../../types';
 
 export class TauriMemoryClient {
@@ -121,6 +126,57 @@ export class TauriMemoryClient {
   static async getEvolutionStats(): Promise<EvolutionStats> {
     console.log('[TauriMemoryClient] 获取演化统计');
     return invoke('get_evolution_stats');
+  }
+
+  static async shouldExtractMemories(
+    messages: ConversationMessage[],
+    config?: Partial<ExtractionConfig>
+  ): Promise<boolean> {
+    const defaultConfig: ExtractionConfig = {
+      minMessageCount: 4,
+      minConversationLength: 200,
+      skipToolCallMessages: true,
+    };
+    return invoke('should_extract_memories', { 
+      messages, 
+      config: { ...defaultConfig, ...config } 
+    });
+  }
+
+  static async getPendingCandidates(): Promise<CandidateMemory[]> {
+    console.log('[TauriMemoryClient] 获取待审核候选记忆');
+    return invoke('get_pending_candidates');
+  }
+
+  static async acceptCandidate(id: string): Promise<MemoryItem> {
+    console.log('[TauriMemoryClient] 接受候选记忆:', id);
+    return invoke('accept_candidate', { id });
+  }
+
+  static async rejectCandidate(id: string): Promise<void> {
+    console.log('[TauriMemoryClient] 拒绝候选记忆:', id);
+    return invoke('reject_candidate', { id });
+  }
+
+  static async acceptAllCandidates(): Promise<MemoryItem[]> {
+    console.log('[TauriMemoryClient] 接受所有候选记忆');
+    return invoke('accept_all_candidates');
+  }
+
+  static async addCandidateMemory(candidate: Omit<CandidateMemory, 'id' | 'createdAt' | 'status'>): Promise<string> {
+    const fullCandidate: CandidateMemory = {
+      id: crypto.randomUUID(),
+      createdAt: Date.now(),
+      status: 'pending',
+      ...candidate,
+    };
+    console.log('[TauriMemoryClient] 添加候选记忆:', fullCandidate.memoryType, fullCandidate.content.substring(0, 50));
+    return invoke('add_candidate_memory', { candidate: fullCandidate });
+  }
+
+  static async clearOldCandidates(maxAgeHours: number): Promise<number> {
+    console.log('[TauriMemoryClient] 清理旧候选记忆, maxAgeHours:', maxAgeHours);
+    return invoke('clear_old_candidates', { maxAgeHours });
   }
 }
 

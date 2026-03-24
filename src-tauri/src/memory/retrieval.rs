@@ -20,8 +20,8 @@ impl MemoryRetriever {
         query: &str,
         options: RetrievalOptions,
     ) -> Result<Vec<RetrievedMemory>, Box<dyn std::error::Error>> {
-        log::info!("[MemoryRetriever] 开始检索记忆, query={:?}, top_k={}", 
-            if query.len() > 50 { &query[..50] } else { query }, options.top_k);
+        log::info!("[MemoryRetriever] 开始检索记忆, query={:?}..., top_k={}", 
+            query.chars().take(50).collect::<String>(), options.top_k);
         
         let query_embedding = self.embedding.embed(query).await?;
 

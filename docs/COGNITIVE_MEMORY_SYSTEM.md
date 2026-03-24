@@ -4,13 +4,14 @@
 
 本文档记录了认知记忆系统（Cognitive Memory System）的实现细节，该系统为 AI 助手提供长期记忆能力，支持6类认知记忆类型的存储、检索和生命周期管理。
 
-**最新更新**：2026-03-23 新增 Memory UI 可视化面板
+**最新更新**：2026-03-23 阶段一：记忆提取集成（候选记忆机制）
 
 ## 实现日期
 
 - 2026-03-23：认知记忆系统核心实现
 - 2026-03-23：记忆演化能力（Memory Evolution）
 - 2026-03-23：Memory UI 可视化面板
+- 2026-03-23：阶段一 - 记忆提取集成（候选记忆机制）
 
 ## 文件存储位置
 
@@ -597,3 +598,89 @@ thiserror = "1"
 支持中英文切换，翻译键位于：
 - `src/i18n/locales/zh.json` - `memory.*`
 - `src/i18n/locales/en.json` - `memory.*`
+
+## 阶段一：记忆提取集成（2026-03-23）
+
+### 核心功能
+
+将记忆提取功能接入对话流程，实现**候选记忆（Candidate Memories）**机制，让用户可以审核、接受或拒绝提取的记忆。
+
+### 架构流程
+
+```
+对话结束 → LLM 提取 → Candidate Memories（候选）→ 用户审核 → 写入 memory.db
+                                    ↓
+                              用户可在 UI 查看
+```
+
+### 新增文件
+
+| 文件 | 功能 |
+|------|------|
+| `src-tauri/src/memory/candidate_storage.rs` | 候选记忆存储（SQLite 表、CRUD 操作） |
+| `src/agent/memory/MemoryExtractionService.ts` | 记忆提取服务（异步触发、LLM 调用） |
+| `src/components/MemoryPanel/CandidateMemories.tsx` | 候选记忆 UI 组件 |
+
+### 新增 Tauri Commands
+
+| Command | 功能 |
+|---------|------|
+| `should_extract_memories` | 判断是否满足提取条件 |
+| `get_pending_candidates` | 获取待审核的候选记忆 |
+| `accept_candidate` | 接受单条候选记忆 |
+| `reject_candidate` | 拒绝单条候选记忆 |
+| `accept_all_candidates` | 批量接受所有候选记忆（含去重） |
+| `add_candidate_memory` | 添加候选记忆 |
+| `clear_old_candidates` | 清理旧的候选记忆 |
+
+### 提取触发条件
+
+```rust
+pub struct ExtractionConfig {
+    pub min_message_count: usize,      // 最少消息数（默认 4）
+    pub min_conversation_length: usize, // 最少对话长度（默认 200 字符）
+    pub skip_tool_call_messages: bool,  // 跳过工具调用消息
+}
+```
+
+**触发时机**：第 2 轮对话结束后（用户→AI→用户→AI = 4 条消息）
+
+### 简单去重机制
+
+```rust
+pub fn check_duplicate_simple(content: &str, existing: &[MemoryItem]) -> Option<String> {
+    // 1. 精确匹配
+    // 2. 包含匹配（现有记忆包含候选内容）
+    // 3. 反向包含匹配（候选内容包含现有记忆，且 > 20 字符）
+    // 4. 关键词重叠匹配（重叠率 > 80%）
+}
+```
+
+### 数据库表
+
+```sql
+CREATE TABLE candidate_memories (
+    id TEXT PRIMARY KEY,
+    content TEXT NOT NULL,
+    memory_type TEXT NOT NULL,
+    confidence REAL NOT NULL,
+    source_session_id TEXT NOT NULL,
+    source_message_ids TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    status TEXT NOT NULL,  -- pending/accepted/rejected/merged
+    importance REAL NOT NULL
+);
+```
+
+### 验收标准
+
+- [x] 对话结束后能自动提取记忆到候选列表
+- [x] 候选记忆不直接写入 memory.db
+- [x] 用户可以在 UI 查看、接受、拒绝候选记忆
+- [x] 提取过程异步，不影响对话体验
+- [x] 简单去重生效（不添加重复记忆）
+- [x] 第 2 轮对话后触发提取
+
+### 详细文档
+
+参见 [PHASE1_MEMORY_EXTRACTION.md](./PHASE1_MEMORY_EXTRACTION.md)

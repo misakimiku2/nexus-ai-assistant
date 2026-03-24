@@ -25,6 +25,7 @@ export interface AgentRuntimeOptions {
   onContentChunk?: (chunk: string) => void;
   onIterationCountChange?: (count: number) => void;
   onMemoryRetrieved?: (memories: RetrievedMemory[]) => void;
+  sessionId?: string;
 }
 
 let toolsInitialized = false;
@@ -69,7 +70,8 @@ export class AgentRuntime {
 
   async execute(
     userInput: string,
-    conversationHistory: ConversationMessage[] = []
+    conversationHistory: ConversationMessage[] = [],
+    sessionId?: string
   ): Promise<string> {
     resetUrlPlaceholderCounter();
     const preprocessed = preprocessConversation(userInput, conversationHistory);
@@ -89,6 +91,7 @@ export class AgentRuntime {
       conversationHistory: preprocessed.messages as ConversationMessage[],
       availableTools: ToolRegistry.getEnabledToolNames(),
       preprocessedUrls: preprocessed.urlMap,
+      sessionId: sessionId,
       onStatusChange: (status) => {
         agentStateManager.updateStatus(this.agent.id, status);
         this.callbacks.onStatusChange?.(status);

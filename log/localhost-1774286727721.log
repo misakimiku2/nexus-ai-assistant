@@ -1,0 +1,154 @@
+urlDetector.ts:67 [preprocessConversation] Total URLs in map: 0
+urlDetector.ts:68 [preprocessConversation] URL Map: {}
+AgentRuntime.ts:81 [AgentRuntime] Preprocessed conversation: {hasUrls: false, urlCount: 0, urls: {…}}
+ReActEngine.ts?t=1774283529589:168 [ReActEngine] 开始检索认知记忆, 模型类型: local
+TauriMemoryClient.ts:21 [TauriMemoryClient] 开始检索记忆, query: 我打算开发一个AI助手的软件，用tauri+rust+react，你觉得怎么样 options: {topK: 10, minImportance: 0.3, modelType: 'local'}
+TauriMemoryClient.ts:24 [TauriMemoryClient] 检索完成, 返回 0 条记忆
+ReActEngine.ts?t=1774283529589:174 [ReActEngine] 检索到 0 条认知记忆
+App.tsx:212 [App] Memory retrieved: 0 memories
+MemoryExtractionService.ts:36 [MemoryExtraction] 检查提取条件: {messageCount: 1, minMessageCount: 4, totalLength: 39, minLength: 200}messageCount: 1minLength: 200minMessageCount: 4totalLength: 39[[Prototype]]: Object
+MemoryExtractionService.ts:47 [MemoryExtraction] 不满足提取条件，跳过
+urlDetector.ts:67 [preprocessConversation] Total URLs in map: 0
+urlDetector.ts:68 [preprocessConversation] URL Map: {}
+AgentRuntime.ts:81 [AgentRuntime] Preprocessed conversation: {hasUrls: false, urlCount: 0, urls: {…}}
+ReActEngine.ts?t=1774283529589:168 [ReActEngine] 开始检索认知记忆, 模型类型: local
+TauriMemoryClient.ts:21 [TauriMemoryClient] 开始检索记忆, query: 好吧，其实我不会编程，我是看现在AI编程挺火的，我想试试能不能让AI来帮我做这个事情 options: {topK: 10, minImportance: 0.3, modelType: 'local'}
+TauriMemoryClient.ts:24 [TauriMemoryClient] 检索完成, 返回 0 条记忆
+ReActEngine.ts?t=1774283529589:174 [ReActEngine] 检索到 0 条认知记忆
+App.tsx:212 [App] Memory retrieved: 0 memories
+MemoryExtractionService.ts:36 [MemoryExtraction] 检查提取条件: {messageCount: 3, minMessageCount: 4, totalLength: 2046, minLength: 200}messageCount: 3minLength: 200minMessageCount: 4totalLength: 2046[[Prototype]]: Object
+MemoryExtractionService.ts:47 [MemoryExtraction] 不满足提取条件，跳过
+urlDetector.ts:67 [preprocessConversation] Total URLs in map: 2
+urlDetector.ts:68 [preprocessConversation] URL Map: {__URL_PLACEHOLDER_1__: 'https://react.dev', __URL_PLACEHOLDER_2__: 'https://tauri.app'}
+AgentRuntime.ts:81 [AgentRuntime] Preprocessed conversation: {hasUrls: true, urlCount: 2, urls: {…}}
+ReActEngine.ts?t=1774283529589:168 [ReActEngine] 开始检索认知记忆, 模型类型: local
+TauriMemoryClient.ts:21 [TauriMemoryClient] 开始检索记忆, query: 我想先了解一下现在有哪一些AI模型在编程领域比较强的 options: {topK: 10, minImportance: 0.3, modelType: 'local'}
+TauriMemoryClient.ts:24 [TauriMemoryClient] 检索完成, 返回 0 条记忆
+ReActEngine.ts?t=1774283529589:174 [ReActEngine] 检索到 0 条认知记忆
+App.tsx:212 [App] Memory retrieved: 0 memories
+ReActEngine.ts?t=1774283529589:302 [ReActEngine] Tool call: web_search params: {query: '编程AI模型 2026 评测对比', max_results: 8}
+ReActEngine.ts?t=1774283529589:303 [ReActEngine] preprocessedUrls: {__URL_PLACEHOLDER_1__: 'https://react.dev', __URL_PLACEHOLDER_2__: 'https://tauri.app'}
+builtin.ts:125 [web_search] Query: "编程AI模型 2026 评测对比", Engine: "auto", Tavily Enabled: false
+builtin.ts:161 [web_search] Using backend search
+builtin.ts:167 [web_search] Results from backend: {results: Array(9), source: 'baidu'}
+MemoryExtractionService.ts:36 [MemoryExtraction] 检查提取条件: {messageCount: 6, minMessageCount: 4, totalLength: 3500, minLength: 200}messageCount: 6minLength: 200minMessageCount: 4totalLength: 3500[[Prototype]]: Object
+MemoryExtractionService.ts:52 [MemoryExtraction] 开始提取记忆...
+TauriMemoryClient.ts:63 [TauriMemoryClient] 获取所有记忆
+TauriMemoryClient.ts:93 [TauriMemoryClient] 获取记忆统计
+TauriMemoryClient.ts:127 [TauriMemoryClient] 获取演化统计
+TauriMemoryClient.ts:63 [TauriMemoryClient] 获取所有记忆
+TauriMemoryClient.ts:93 [TauriMemoryClient] 获取记忆统计
+TauriMemoryClient.ts:127 [TauriMemoryClient] 获取演化统计
+TauriMemoryClient.ts:147 [TauriMemoryClient] 获取待审核候选记忆
+TauriMemoryClient.ts:147 [TauriMemoryClient] 获取待审核候选记忆
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: identity 非编程背景的技术探索者
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: identity AI 应用开发者
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: fact 计划开发基于本地运行的 AI 助手软件
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: fact 关注 AI 模型在编程领域的应用能力
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: preference 偏好使用 AI 工具辅助完成代码编写与开发
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: preference 倾向简化技术栈以降低学习门槛
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: task 开发本地 AI 助手软件
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: constraint 当前不具备独立编程能力
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: constraint 需要依赖 AI 进行代码生成与调试
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: skill 具备利用 AI 工具进行开发的能力
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: skill 具备技术调研与学习能力
+MemoryExtractionService.ts:76 [MemoryExtraction] 提取完成，添加了 11 条候选记忆
+TauriMemoryClient.ts:147 [TauriMemoryClient] 获取待审核候选记忆
+TauriMemoryClient.ts:147 [TauriMemoryClient] 获取待审核候选记忆
+TauriMemoryClient.ts:162 [TauriMemoryClient] 接受所有候选记忆
+TauriMemoryClient.ts:63 [TauriMemoryClient] 获取所有记忆
+TauriMemoryClient.ts:93 [TauriMemoryClient] 获取记忆统计
+TauriMemoryClient.ts:127 [TauriMemoryClient] 获取演化统计
+TauriMemoryClient.ts:63 [TauriMemoryClient] 获取所有记忆
+TauriMemoryClient.ts:93 [TauriMemoryClient] 获取记忆统计
+TauriMemoryClient.ts:127 [TauriMemoryClient] 获取演化统计
+urlDetector.ts:67 [preprocessConversation] Total URLs in map: 2
+urlDetector.ts:68 [preprocessConversation] URL Map: {__URL_PLACEHOLDER_1__: 'https://react.dev', __URL_PLACEHOLDER_2__: 'https://tauri.app'}
+AgentRuntime.ts:81 [AgentRuntime] Preprocessed conversation: {hasUrls: true, urlCount: 2, urls: {…}}
+ReActEngine.ts?t=1774283529589:168 [ReActEngine] 开始检索认知记忆, 模型类型: local
+TauriMemoryClient.ts:21 [TauriMemoryClient] 开始检索记忆, query: 国内是否有一些大模型？国外的这些模型的订阅感觉挺麻烦的，而且我是个学生，没什么钱 options: {topK: 10, minImportance: 0.3, modelType: 'local'}
+TauriMemoryClient.ts:24 [TauriMemoryClient] 检索完成, 返回 5 条记忆
+ReActEngine.ts?t=1774283529589:174 [ReActEngine] 检索到 5 条认知记忆
+App.tsx:212 [App] Memory retrieved: 5 memories
+ReActEngine.ts?t=1774283529589:182 [ReActEngine] 注入记忆提示, 长度: 185
+ReActEngine.ts?t=1774283529589:302 [ReActEngine] Tool call: web_search params: {query: '国内大模型 免费 2026', max_results: 8}
+ReActEngine.ts?t=1774283529589:303 [ReActEngine] preprocessedUrls: {__URL_PLACEHOLDER_1__: 'https://react.dev', __URL_PLACEHOLDER_2__: 'https://tauri.app'}
+builtin.ts:125 [web_search] Query: "国内大模型 免费 2026", Engine: "auto", Tavily Enabled: false
+builtin.ts:161 [web_search] Using backend search
+builtin.ts:167 [web_search] Results from backend: {results: Array(9), source: 'baidu'}
+MemoryExtractionService.ts:36 [MemoryExtraction] 检查提取条件: {messageCount: 8, minMessageCount: 4, totalLength: 4589, minLength: 200}
+MemoryExtractionService.ts:52 [MemoryExtraction] 开始提取记忆...
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: identity 编程初学者
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: identity AI 应用开发者
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: fact 计划开发本地 AI 助手软件
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: fact 技术栈初步选定为 Tauri+Rust+React
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: fact 使用 AI 工具辅助生成代码
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: preference 偏好国内大模型而非国外订阅
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: preference 偏好低成本解决方案
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: preference 偏好 AI 辅助开发而非从零学习编程
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: task 开发 AI 助手软件
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: constraint 预算有限（学生身份）
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: constraint 无编程基础
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: constraint 访问国外订阅服务不便
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: skill 熟练使用 AI 编程助手进行开发
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: skill 具备技术栈调研与选型能力
+MemoryExtractionService.ts:76 [MemoryExtraction] 提取完成，添加了 14 条候选记忆
+urlDetector.ts:67 [preprocessConversation] Total URLs in map: 2
+urlDetector.ts:68 [preprocessConversation] URL Map: {__URL_PLACEHOLDER_1__: 'https://react.dev', __URL_PLACEHOLDER_2__: 'https://tauri.app'}
+AgentRuntime.ts:81 [AgentRuntime] Preprocessed conversation: {hasUrls: true, urlCount: 2, urls: {…}}
+ReActEngine.ts?t=1774283529589:168 [ReActEngine] 开始检索认知记忆, 模型类型: local
+TauriMemoryClient.ts:21 [TauriMemoryClient] 开始检索记忆, query: Deepseek怎么是免费的？我去官网查看的时候API都是要钱的 options: {topK: 10, minImportance: 0.3, modelType: 'local'}
+TauriMemoryClient.ts:24 [TauriMemoryClient] 检索完成, 返回 5 条记忆
+ReActEngine.ts?t=1774283529589:174 [ReActEngine] 检索到 5 条认知记忆
+App.tsx:212 [App] Memory retrieved: 5 memories
+ReActEngine.ts?t=1774283529589:182 [ReActEngine] 注入记忆提示, 长度: 185
+TauriMemoryClient.ts:63 [TauriMemoryClient] 获取所有记忆
+TauriMemoryClient.ts:93 [TauriMemoryClient] 获取记忆统计
+TauriMemoryClient.ts:127 [TauriMemoryClient] 获取演化统计
+TauriMemoryClient.ts:63 [TauriMemoryClient] 获取所有记忆
+TauriMemoryClient.ts:93 [TauriMemoryClient] 获取记忆统计
+TauriMemoryClient.ts:127 [TauriMemoryClient] 获取演化统计
+TauriMemoryClient.ts:147 [TauriMemoryClient] 获取待审核候选记忆
+TauriMemoryClient.ts:147 [TauriMemoryClient] 获取待审核候选记忆
+ReActEngine.ts?t=1774283529589:302 [ReActEngine] Tool call: web_search params: {query: 'DeepSeek API 免费额度 2026', max_results: 5}
+ReActEngine.ts?t=1774283529589:303 [ReActEngine] preprocessedUrls: {__URL_PLACEHOLDER_1__: 'https://react.dev', __URL_PLACEHOLDER_2__: 'https://tauri.app'}
+builtin.ts:125 [web_search] Query: "DeepSeek API 免费额度 2026", Engine: "auto", Tavily Enabled: false
+builtin.ts:161 [web_search] Using backend search
+builtin.ts:167 [web_search] Results from backend: {results: Array(10), source: 'baidu'}
+TauriMemoryClient.ts:162 [TauriMemoryClient] 接受所有候选记忆
+TauriMemoryClient.ts:63 [TauriMemoryClient] 获取所有记忆
+TauriMemoryClient.ts:93 [TauriMemoryClient] 获取记忆统计
+TauriMemoryClient.ts:127 [TauriMemoryClient] 获取演化统计
+TauriMemoryClient.ts:63 [TauriMemoryClient] 获取所有记忆
+TauriMemoryClient.ts:93 [TauriMemoryClient] 获取记忆统计
+TauriMemoryClient.ts:127 [TauriMemoryClient] 获取演化统计
+MemoryExtractionService.ts:36 [MemoryExtraction] 检查提取条件: {messageCount: 10, minMessageCount: 4, totalLength: 5928, minLength: 200}
+MemoryExtractionService.ts:52 [MemoryExtraction] 开始提取记忆...
+TauriMemoryClient.ts:63 [TauriMemoryClient] 获取所有记忆
+TauriMemoryClient.ts:93 [TauriMemoryClient] 获取记忆统计
+TauriMemoryClient.ts:127 [TauriMemoryClient] 获取演化统计
+TauriMemoryClient.ts:63 [TauriMemoryClient] 获取所有记忆
+TauriMemoryClient.ts:93 [TauriMemoryClient] 获取记忆统计
+TauriMemoryClient.ts:127 [TauriMemoryClient] 获取演化统计
+TauriMemoryClient.ts:63 [TauriMemoryClient] 获取所有记忆
+TauriMemoryClient.ts:93 [TauriMemoryClient] 获取记忆统计
+TauriMemoryClient.ts:127 [TauriMemoryClient] 获取演化统计
+TauriMemoryClient.ts:63 [TauriMemoryClient] 获取所有记忆
+TauriMemoryClient.ts:93 [TauriMemoryClient] 获取记忆统计
+TauriMemoryClient.ts:127 [TauriMemoryClient] 获取演化统计
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: identity 用户是编程新手，无编程基础
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: identity 用户身份为学生
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: identity 用户对 AI 开发感兴趣，希望尝试 AI 辅助编程
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: fact 用户计划开发一个本地 AI 助手软件
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: fact 用户首选技术栈为 Tauri + React
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: fact 用户倾向于使用国产或免费大模型
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: preference 偏好免费工具，避免付费订阅
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: preference 偏好 AI 生成代码而非手动编写
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: preference 偏好简单直接的解决方案，避免复杂架构
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: task 开发本地 AI 助手软件
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: constraint 预算约束：无付费能力，需免费/低成本方案
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: constraint 能力约束：无编程基础，需 AI 辅助学习
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: skill 具备使用 AI 工具辅助开发的能力
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: skill 具备通过 AI 学习新技术的能力
+TauriMemoryClient.ts:173 [TauriMemoryClient] 添加候选记忆: skill 具备基本的技术概念理解能力
+MemoryExtractionService.ts:76 [MemoryExtraction] 提取完成，添加了 15 条候选记忆

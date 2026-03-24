@@ -1061,7 +1061,7 @@ function AppContent() {
         content: m.content,
       }));
 
-      const result = await agentExecution.execute(originalInput, conversationHistory);
+      const result = await agentExecution.execute(originalInput, conversationHistory, currentSessionId || undefined);
 
       setMessages(prev => prev.map(m => {
         if (m.id === assistantMessageId) {

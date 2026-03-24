@@ -19,7 +19,7 @@ import {
   FunctionCallingConfig,
 } from '../llm/functionCalling';
 import { isUrlPlaceholder, getOriginalUrl } from '../preprocess/urlDetector';
-import { fetchMemoryManager, TauriMemoryClient, defaultAgentLayer } from '../memory';
+import { fetchMemoryManager, TauriMemoryClient, defaultAgentLayer, memoryExtractionService } from '../memory';
 import { RetrievedMemory } from '../../types';
 
 const REACT_SYSTEM_PROMPT = `You are an intelligent agent that uses the ReAct (Reasoning + Acting) framework to solve problems.
@@ -111,6 +111,11 @@ export class ReActEngine {
         if (!response.toolCalls || response.toolCalls.length === 0) {
           this.updateStatus('completed');
           await this.reinforceUsedMemories(response.content || '');
+          messages.push({
+            role: 'assistant',
+            content: response.content || '',
+          });
+          this.triggerMemoryExtraction(messages, response.content || '');
           return response.content || 'Task completed.';
         }
 
@@ -556,7 +561,30 @@ export class ReActEngine {
 
   abort(): void {
     this.abortController?.abort();
-    this.updateStatus('failed');
+  }
+
+  private triggerMemoryExtraction(messages: ConversationMessage[], _responseContent: string): void {
+    if (!this.context.sessionId) {
+      console.log('[ReActEngine] 没有 sessionId，跳过记忆提取');
+      return;
+    }
+
+    const extractionMessages: import('../../types').ConversationMessage[] = messages
+      .filter(m => m.role === 'user' || m.role === 'assistant')
+      .map(m => ({
+        id: (m as any).id || crypto.randomUUID(),
+        role: m.role,
+        content: m.content,
+        isToolCall: false,
+      }));
+
+    console.log('[ReActEngine] 触发记忆提取, 消息数:', extractionMessages.length, 
+      ', 总长度:', extractionMessages.reduce((sum, m) => sum + m.content.length, 0));
+
+    memoryExtractionService.triggerExtractionAsync(
+      extractionMessages,
+      this.context.sessionId!
+    );
   }
 }
 

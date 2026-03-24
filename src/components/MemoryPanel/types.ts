@@ -39,7 +39,7 @@ export interface MemoryFilterOptions {
   searchQuery?: string;
 }
 
-export type MemoryPanelTab = 'list' | 'hits' | 'logs' | 'operations';
+export type MemoryPanelTab = 'list' | 'hits' | 'logs' | 'operations' | 'candidates';
 
 export const MEMORY_TYPE_LABELS: Record<MemoryType, string> = {
   identity: '身份特征',

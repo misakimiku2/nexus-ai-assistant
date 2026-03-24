@@ -41,7 +41,12 @@ export const MemoryHits: React.FC<MemoryHitsProps> = ({ isDarkMode, debugMode })
       </div>
 
       <div className="space-y-3">
-        {currentHits.map((hit, index) => (
+        {currentHits.map((hit, index) => {
+          const similarity = hit.components?.similarity ?? 0;
+          const memoryScore = hit.components?.memoryScore ?? 0;
+          const score = hit.score ?? 0;
+          
+          return (
           <div
             key={hit.item.id}
             className={cn(
@@ -79,7 +84,7 @@ export const MemoryHits: React.FC<MemoryHitsProps> = ({ isDarkMode, debugMode })
                 <div className="grid grid-cols-3 gap-3">
                   <ScoreCard
                     label={t('memory.hits.finalScore')}
-                    value={hit.score.toFixed(3)}
+                    value={score.toFixed(3)}
                     icon={TrendingUp}
                     color="text-yellow-400"
                     isDarkMode={isDarkMode}
@@ -88,7 +93,7 @@ export const MemoryHits: React.FC<MemoryHitsProps> = ({ isDarkMode, debugMode })
                   />
                   <ScoreCard
                     label={t('memory.hits.similarity')}
-                    value={hit.components.similarity.toFixed(3)}
+                    value={similarity.toFixed(3)}
                     icon={BarChart3}
                     color="text-blue-400"
                     isDarkMode={isDarkMode}
@@ -97,7 +102,7 @@ export const MemoryHits: React.FC<MemoryHitsProps> = ({ isDarkMode, debugMode })
                   />
                   <ScoreCard
                     label={t('memory.hits.memoryScore')}
-                    value={hit.components.memoryScore.toFixed(3)}
+                    value={memoryScore.toFixed(3)}
                     icon={Hash}
                     color="text-green-400"
                     isDarkMode={isDarkMode}
@@ -113,7 +118,7 @@ export const MemoryHits: React.FC<MemoryHitsProps> = ({ isDarkMode, debugMode })
                   )}>
                     <div>ID: {hit.item.id}</div>
                     <div>
-                      Calculation: {hit.components.similarity.toFixed(3)} × 0.6 + {hit.components.memoryScore.toFixed(3)} × 0.4 = {hit.score.toFixed(3)}
+                      Calculation: {similarity.toFixed(3)} × 0.6 + {memoryScore.toFixed(3)} × 0.4 = {score.toFixed(3)}
                     </div>
                     <div>
                       Access Count: {hit.item.accessCount} | Last Accessed: {new Date(hit.item.lastAccessedAt).toLocaleString()}
@@ -123,7 +128,8 @@ export const MemoryHits: React.FC<MemoryHitsProps> = ({ isDarkMode, debugMode })
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

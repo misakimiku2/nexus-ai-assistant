@@ -77,6 +77,7 @@ export interface AgentExecutionContext {
   conversationHistory: ConversationMessage[];
   availableTools: string[];
   preprocessedUrls?: Map<string, string>;
+  sessionId?: string;
   onStatusChange?: (status: AgentStatus) => void;
   onTaskUpdate?: (task: Task) => void;
   onToolCall?: (record: ToolCallRecord) => void;
