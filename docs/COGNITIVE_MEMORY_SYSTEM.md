@@ -4,7 +4,7 @@
 
 本文档记录了认知记忆系统（Cognitive Memory System）的实现细节，该系统为 AI 助手提供长期记忆能力，支持6类认知记忆类型的存储、检索和生命周期管理。
 
-**最新更新**：2026-03-23 阶段一：记忆提取集成（候选记忆机制）
+**最新更新**：2026-03-25 阶段三：Retrieval 稳定性
 
 ## 实现日期
 
@@ -12,6 +12,8 @@
 - 2026-03-23：记忆演化能力（Memory Evolution）
 - 2026-03-23：Memory UI 可视化面板
 - 2026-03-23：阶段一 - 记忆提取集成（候选记忆机制）
+- 2026-03-24：阶段二 - Embedding 模型集成（本地模型推理）
+- 2026-03-25：阶段三 - Retrieval 稳定性（min_similarity、only_active 过滤）
 
 ## 文件存储位置
 
@@ -152,6 +154,18 @@ final_score = similarity × 0.6 + memory_score × 0.4
 
 **设计原则**：当前问题优先匹配，记忆权重作为修正项，避免强记忆被错误优先返回。
 
+#### 检索过滤机制（阶段三新增）
+
+| 过滤条件 | 默认值 | 说明 |
+|---------|--------|------|
+| `min_similarity` | 0.3 | 过滤相似度低于阈值的记忆 |
+| `only_active` | true | 只返回活跃记忆（is_active=1） |
+| `min_importance` | 0.3 | 过滤重要性低于阈值的记忆 |
+
+**过滤流程**：
+1. SQL 层面：`only_active` 和 `min_importance` 在查询时过滤
+2. 计算层面：`min_similarity` 在相似度计算后过滤
+
 ### 4. 跨模型适配
 
 | 模型类型   | Top-K | 说明           |
@@ -202,8 +216,9 @@ if score < 0.1 && !is_active && days_since_marked >= 7 {
 ### 记忆相关
 
 ```typescript
-// 检索记忆
-retrieve_memories(query: string, options: RetrievalOptions): Promise<RetrievedMemory[]>
+// 检索记忆（阶段三更新：支持 minSimilarity、onlyActive）
+retrieve_memories(query: string, options?: Partial<RetrievalOptions>): Promise<RetrievedMemory[]>
+// 默认值: { topK: 10, minImportance: 0.3, minSimilarity: 0.3, onlyActive: true }
 
 // 添加记忆
 add_memory(item: MemoryItem): Promise<void>
@@ -296,9 +311,9 @@ delete_folder(folderId: string): Promise<void>
 ```
 [ReActEngine] 开始检索认知记忆, 模型类型: local
 [TauriMemoryClient] 开始检索记忆, query: ...
-[MemoryRetriever] 开始检索记忆, query=..., top_k=10
+[MemoryRetriever] 开始检索记忆, query=..., top_k=10, min_similarity=0.3, only_active=true
 [MemoryRetriever] 获取到 X 个候选记忆
-[MemoryRetriever] 检索完成, 返回 X 条记忆
+[MemoryRetriever] 检索完成, 返回 X 条记忆 (top_k=X), 过滤 Y 条低相似度记忆
 [ReActEngine] 检索到 X 条认知记忆
 [ReActEngine] 注入记忆提示, 长度: XXX
 [ReActEngine] 强化被使用的记忆: X 条          ← 回答后强化
@@ -391,6 +406,20 @@ interface MemoryItem {
 }
 ```
 
+### RetrievalOptions（阶段三更新）
+
+```typescript
+interface RetrievalOptions {
+  topK: number;                    // 返回数量（默认 10）
+  memoryTypes?: MemoryType[];      // 记忆类型过滤
+  minImportance?: number;          // 最小重要性（默认 0.3）
+  minSimilarity: number;           // 最小相似度（默认 0.3，阶段三新增）
+  onlyActive: boolean;             // 只返回活跃记忆（默认 true，阶段三新增）
+  sessionId?: string;              // 会话 ID
+  modelType?: ModelType;           // 模型类型（local/online）
+}
+```
+
 ### 演化相关类型（新增）
 
 ```typescript
@@ -430,18 +459,21 @@ thiserror = "1"
 
 ## 已知限制
 
-1. **向量计算**：当前使用 dummy 实现（基于字符的简单哈希），后续可替换为真实 embedding 模型
-2. **记忆提取**：认知提取 Prompt 已定义，但尚未集成到对话流程中
+1. ~~**向量计算**：当前使用 dummy 实现（基于字符的简单哈希），后续可替换为真实 embedding 模型~~ ✅ 已在阶段二解决
+2. ~~**记忆提取**：认知提取 Prompt 已定义，但尚未集成到对话流程中~~ ✅ 已在阶段一解决
 3. **全文搜索**：SQLite FTS5 支持已规划但未实现
+4. **阈值固定**：当前 `min_similarity` 阈值固定为 0.3，未提供动态调整 UI
 
 ## 后续计划
 
-1. 集成真实 embedding 模型（如 all-MiniLM-L6-v2）
-2. 实现自动记忆提取流程
+1. ~~集成真实 embedding 模型（如 all-MiniLM-L6-v2）~~ ✅ 已完成（阶段二）
+2. ~~实现自动记忆提取流程~~ ✅ 已完成（阶段一）
 3. 添加全文搜索支持（FTS5）
-4. 实现记忆去重和合并
+4. 实现记忆去重和合并（阶段四 - 向量相似度去重）
 5. 添加记忆导入/导出功能
 6. 定期后台演化（而非仅启动时）
+7. 阈值可配置（在设置中提供 `min_similarity` 调整选项）
+8. 检索缓存（避免重复计算相同查询的向量）
 
 ## Memory UI 可视化面板
 
@@ -684,3 +716,290 @@ CREATE TABLE candidate_memories (
 ### 详细文档
 
 参见 [PHASE1_MEMORY_EXTRACTION.md](./PHASE1_MEMORY_EXTRACTION.md)
+
+## 阶段二：Embedding 模型集成（2026-03-24）
+
+### 核心目标
+
+将 dummy embedding 实现替换为本地 embedding 模型，实现真正的语义相似度计算，同时保留 dummy 作为 fallback。
+
+### 架构设计
+
+```
+用户请求 → EmbeddingService
+              │
+              ├── Local Model (优先)
+              │   ├── ModelScope 下载
+              │   ├── Candle 推理
+              │   └── Mean Pooling + L2 归一化
+              │
+              └── Dummy (Fallback)
+                  └── 字符哈希模拟
+```
+
+### 新增依赖
+
+```toml
+candle-core = "0.9"
+candle-nn = "0.9"
+candle-transformers = "0.9"
+tokenizers = "0.21"
+hf-hub = "0.4"
+ndarray = "0.16"
+rand = "0.9"
+```
+
+### 修改文件清单
+
+#### Rust 后端
+
+| 文件路径 | 修改内容 |
+|---------|---------|
+| `src-tauri/Cargo.toml` | 添加 candle、tokenizers、hf-hub 等依赖 |
+| `src-tauri/src/memory/embedding.rs` | 完全重写，支持本地模型加载、ModelScope 下载、推理计算 |
+| `src-tauri/src/memory/mod.rs` | 导出新的类型 |
+| `src-tauri/src/commands/memory.rs` | 新增 embedding 相关 Commands |
+| `src-tauri/src/memory/storage.rs` | 新增向量维度迁移方法 |
+| `src-tauri/src/lib.rs` | 注册新的 Commands |
+
+#### 前端 TypeScript
+
+| 文件路径 | 修改内容 |
+|---------|---------|
+| `src/agent/memory/TauriMemoryClient.ts` | 新增 embedding 相关 API |
+| `src/components/SettingsView.tsx` | 新增 Embedding 模型设置 UI |
+| `src/i18n/locales/zh.json` | 新增 Embedding 设置中文翻译 |
+| `src/i18n/locales/en.json` | 新增 Embedding 设置英文翻译 |
+
+### 新增 Tauri Commands
+
+| Command | 功能 |
+|---------|------|
+| `get_embedding_provider` | 获取当前使用的 embedding provider |
+| `initialize_embedding_with_model` | 初始化指定的 embedding 模型 |
+| `recompute_all_embeddings` | 重新计算所有记忆的向量 |
+| `get_stored_embedding_dimension` | 获取数据库中存储的向量维度 |
+| `clear_all_embeddings` | 清除所有记忆的向量 |
+| `get_available_embedding_models` | 获取可用的模型列表 |
+
+### 核心功能实现
+
+#### 1. Embedding Provider 枚举
+
+```rust
+pub enum EmbeddingProvider {
+    Dummy,                              // Fallback
+    Local { model_id: String },         // 本地模型
+}
+```
+
+#### 2. ModelScope 镜像下载
+
+```rust
+fn download_from_modelscope(model_id: &str, filename: &str) -> Result<PathBuf, EmbeddingError> {
+    let url = format!(
+        "https://modelscope.cn/models/{}/resolve/master/{}",
+        model_id, filename
+    );
+    // 使用 reqwest 下载文件
+    // 缓存到本地目录
+}
+```
+
+**下载文件**：
+- `model.safetensors` 或 `pytorch_model.bin` - 模型权重
+- `config.json` - 模型配置
+- `tokenizer.json` - 分词器
+
+#### 3. 本地模型推理流程
+
+```rust
+fn local_embed(&self, text: &str, local_model: &LocalModel) -> Result<Vec<f32>, EmbeddingError> {
+    // 1. Tokenize 文本
+    let encoded = tokenizer.encode(text, true)?;
+    
+    // 2. 创建输入张量
+    let input_ids_tensor = Tensor::new(input_ids, device)?.unsqueeze(0)?;
+    let attention_mask_tensor = Tensor::new(attention_mask, device)?.unsqueeze(0)?;
+    
+    // 3. 模型前向传播
+    let embeddings = model.forward(&input_ids_tensor, &token_type_ids_tensor, Some(&attention_mask_tensor))?;
+    
+    // 4. Mean Pooling（带 attention mask 加权）
+    let attention_mask_expanded = attention_mask_float.unsqueeze(2)?.expand((1, seq_len, hidden_dim))?;
+    let weighted = &embeddings * &attention_mask_expanded;
+    let mean_embedding = weighted.sum(1).broadcast_div(&mask_sum)?;
+    
+    // 5. L2 归一化
+    let normalized = mean_embedding.broadcast_div(&norm)?;
+    
+    // 6. 返回向量
+    Ok(normalized.squeeze(0)?.to_vec1::<f32>()?)
+}
+```
+
+#### 4. Fallback 机制
+
+模型加载失败时自动回退到 dummy 模式，日志会显示使用的 provider。
+
+### 可用模型列表
+
+| Model ID | 描述 | 维度 | 推荐 |
+|----------|------|------|------|
+| `BAAI/bge-small-zh-v1.5` | BGE-small-zh-v1.5 (中文, 快速) | 512 | ⭐ 推荐 |
+| `BAAI/bge-base-zh-v1.5` | BGE-base-zh-v1.5 (中文, 平衡) | 768 | |
+| `BAAI/bge-large-zh-v1.5` | BGE-large-zh-v1.5 (中文, 高质量) | 1024 | |
+| `sentence-transformers/all-MiniLM-L6-v2` | MiniLM-L6-v2 (英文, 快速) | 384 | |
+| `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | 多语言 MiniLM | 384 | |
+
+**推荐使用 BGE v1.5 版本**：修复了之前版本在相似度分布上的极端问题，检索效果更稳定。
+
+### 模型缓存位置
+
+| 平台 | 路径 |
+|------|------|
+| Windows | `C:\Users\<用户名>\AppData\Local\Cache\nexus-ai-assistant\embedding-models\` |
+| macOS | `~/Library/Caches/nexus-ai-assistant/embedding-models/` |
+| Linux | `~/.cache/nexus-ai-assistant/embedding-models/` |
+
+### 前端 UI 集成
+
+**设置界面位置**：设置 → AI 模型设置 → Embedding 模型
+
+**UI 功能**：
+1. 当前模型状态显示（绿色=已加载，橙色=Dummy 模式）
+2. 模型选择下拉框（名称 + 维度）
+3. 加载模型按钮（首次会自动下载）
+4. 重新计算向量按钮
+5. 清除向量按钮
+
+### Bug 修复
+
+#### 1. Tensor Shape Mismatch (mul)
+
+**问题**：`Tensor error: shape mismatch in mul, lhs: [1, 29, 512], rhs: [1, 29, 1]`
+
+**原因**：`attention_mask` 未扩展到 hidden_dim
+
+**修复**：使用 `expand((1, seq_len, hidden_dim))` 扩展 attention mask
+
+#### 2. Tensor Rank Error (to_vec1)
+
+**问题**：`Tensor error: unexpected rank, expected: 1, got: 2 ([1, 512])`
+
+**原因**：`normalized` 是 2 维张量，`to_vec1()` 期望 1 维
+
+**修复**：使用 `squeeze(0)` 去掉 batch 维度
+
+### 验收标准
+
+- [x] 本地模型加载成功（首次运行会自动下载）
+- [x] 语义相似度计算正确（使用真实的 BERT embedding）
+- [x] Fallback 机制生效（模型加载失败时使用 dummy）
+- [x] 日志显示使用的 provider
+- [x] 模型从 ModelScope 下载（国内可直接访问）
+- [x] 前端 UI 可查看和切换模型
+- [x] 重新计算向量功能正常
+
+### 详细文档
+
+参见 [PHASE2_EMBEDDING_INTEGRATION.md](./PHASE2_EMBEDDING_INTEGRATION.md)
+
+## 阶段三：Retrieval 稳定性（2026-03-25）
+
+### 核心目标
+
+确保检索结果稳定可用，实现 `min_similarity` 和 `only_active` 过滤机制，过滤低质量检索结果。
+
+### 架构设计
+
+```
+用户查询 → EmbeddingService (向量计算)
+              │
+              ▼
+         MemoryStorage (获取候选)
+              │
+              ├── only_active=true → 只返回活跃记忆
+              │
+              ▼
+         MemoryRetriever (相似度计算)
+              │
+              ├── min_similarity 过滤 → 过滤低相似度记忆
+              │
+              ▼
+         返回高质量结果
+```
+
+### 修改文件清单
+
+#### Rust 后端
+
+| 文件路径 | 修改内容 |
+|---------|---------|
+| `src-tauri/src/models/memory.rs` | `RetrievalOptions` 新增 `min_similarity`、`only_active` 字段 |
+| `src-tauri/src/memory/retrieval.rs` | 实现相似度过滤逻辑，添加日志 |
+| `src-tauri/src/memory/storage.rs` | `get_candidates()` 支持 `only_active` 动态过滤 |
+
+#### 前端 TypeScript
+
+| 文件路径 | 修改内容 |
+|---------|---------|
+| `src/types.ts` | `RetrievalOptions` 新增 `minSimilarity`、`onlyActive` 字段 |
+| `src/agent/memory/TauriMemoryClient.ts` | `retrieveMemories()` 支持默认值 |
+
+### RetrievalOptions 新增字段
+
+```rust
+pub struct RetrievalOptions {
+    pub top_k: usize,
+    pub memory_types: Option<Vec<MemoryType>>,
+    pub min_importance: Option<f32>,
+    pub min_similarity: f32,     // 新增：最小相似度阈值（默认 0.3）
+    pub only_active: bool,       // 新增：只返回活跃记忆（默认 true）
+    pub session_id: Option<String>,
+    pub model_type: Option<ModelType>,
+}
+```
+
+### 核心功能
+
+#### 1. min_similarity 过滤
+
+在计算相似度后，过滤掉低于阈值的记忆：
+
+```rust
+if similarity < min_similarity {
+    return None;  // 过滤低相似度记忆
+}
+```
+
+#### 2. only_active 过滤
+
+在 SQL 查询阶段过滤非活跃记忆：
+
+```rust
+if options.only_active {
+    query.push_str(" AND is_active = 1");
+}
+```
+
+### 日志输出示例
+
+```
+[MemoryRetriever] 开始检索记忆, query="...", top_k=10, min_similarity=0.3, only_active=true
+[MemoryRetriever] 获取到 28 个候选记忆
+[MemoryRetriever] 检索完成, 返回 5 条记忆 (top_k=5), 过滤 23 条低相似度记忆
+```
+
+### 验收标准
+
+- [x] `min_similarity` 过滤生效（默认 0.3）
+- [x] `only_active` 控制生效（默认 true）
+- [x] `top_k` 稳定返回指定数量
+- [x] 低质量结果被过滤
+- [x] Rust 编译通过
+- [x] TypeScript 类型检查通过
+
+### 详细文档
+
+参见 [PHASE3_RETRIEVAL_STABILITY.md](./PHASE3_RETRIEVAL_STABILITY.md)

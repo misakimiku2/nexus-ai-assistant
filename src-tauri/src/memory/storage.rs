@@ -124,6 +124,19 @@ impl MemoryStorage {
             "#,
         )?;
 
+        let version_exists: bool = conn.query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('memory_items') WHERE name = 'version'",
+            [],
+            |row| row.get::<_, i32>(0)
+        )? == 1;
+
+        if !version_exists {
+            log::info!("[MemoryStorage] 添加 version 和 parent_ids 字段...");
+            conn.execute("ALTER TABLE memory_items ADD COLUMN version INTEGER NOT NULL DEFAULT 1", [])?;
+            conn.execute("ALTER TABLE memory_items ADD COLUMN parent_ids TEXT DEFAULT '[]'", [])?;
+            log::info!("[MemoryStorage] 字段添加完成");
+        }
+
         Ok(())
     }
 
@@ -214,9 +227,12 @@ impl MemoryStorage {
                 embedding,
                 source_session_id,
                 created_at,
+                updated_at: created_at,
                 last_accessed_at,
                 access_count,
                 metadata,
+                version: 1,
+                parent_ids: vec![],
             })
         })?;
 
@@ -276,9 +292,12 @@ impl MemoryStorage {
                 embedding,
                 source_session_id,
                 created_at,
+                updated_at: created_at,
                 last_accessed_at,
                 access_count,
                 metadata,
+                version: 1,
+                parent_ids: vec![],
             })
         })?;
 
@@ -293,9 +312,13 @@ impl MemoryStorage {
         let conn = self.conn.lock().await;
         
         let mut query = String::from(
-            "SELECT id, content, type, importance, score, decay, is_active, marked_inactive_at, embedding, source_session_id, created_at, last_accessed_at, access_count, metadata FROM memory_items WHERE is_active = 1"
+            "SELECT id, content, type, importance, score, decay, is_active, marked_inactive_at, embedding, source_session_id, created_at, last_accessed_at, access_count, metadata FROM memory_items WHERE 1=1"
         );
         let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+
+        if options.only_active {
+            query.push_str(" AND is_active = 1");
+        }
 
         if let Some(types) = &options.memory_types {
             let placeholders: Vec<&str> = types.iter().map(|_| "?").collect();
@@ -364,9 +387,12 @@ impl MemoryStorage {
                 embedding,
                 source_session_id,
                 created_at,
+                updated_at: created_at,
                 last_accessed_at,
                 access_count,
                 metadata,
+                version: 1,
+                parent_ids: vec![],
             })
         })?;
 
@@ -718,5 +744,186 @@ impl MemoryStorage {
             avg_score,
             avg_decay,
         })
+    }
+
+    pub async fn get_memories_without_embedding(&self) -> Result<Vec<MemoryItem>, Box<dyn std::error::Error>> {
+        let conn = self.conn.lock().await;
+        let mut stmt = conn.prepare(
+            "SELECT id, content, type, importance, score, decay, is_active, marked_inactive_at, embedding, source_session_id, created_at, last_accessed_at, access_count, metadata FROM memory_items WHERE embedding IS NULL ORDER BY created_at DESC"
+        )?;
+        
+        let items = stmt.query_map([], |row| {
+            let id: String = row.get(0)?;
+            let content: String = row.get(1)?;
+            let type_str: String = row.get(2)?;
+            let importance: f32 = row.get(3)?;
+            let score: f32 = row.get(4)?;
+            let decay: f32 = row.get(5)?;
+            let is_active: i32 = row.get(6)?;
+            let marked_inactive_at: Option<i64> = row.get(7)?;
+            let embedding_blob: Option<Vec<u8>> = row.get(8)?;
+            let source_session_id: Option<String> = row.get(9)?;
+            let created_at: i64 = row.get(10)?;
+            let last_accessed_at: i64 = row.get(11)?;
+            let access_count: i32 = row.get(12)?;
+            let metadata_json: Option<String> = row.get(13)?;
+
+            let embedding = embedding_blob.map(|blob| {
+                let mut vec = Vec::with_capacity(blob.len() / 4);
+                for chunk in blob.chunks(4) {
+                    let bytes: [u8; 4] = chunk.try_into().unwrap_or([0; 4]);
+                    vec.push(f32::from_le_bytes(bytes));
+                }
+                vec
+            });
+
+            let metadata = metadata_json.and_then(|json| {
+                serde_json::from_str::<TaskMetadata>(&json).ok()
+            });
+
+            let memory_type = MemoryType::from_str(&type_str).unwrap_or(MemoryType::Fact);
+
+            Ok(MemoryItem {
+                id,
+                content,
+                memory_type,
+                importance,
+                score,
+                decay,
+                is_active: is_active != 0,
+                marked_inactive_at,
+                embedding,
+                source_session_id,
+                created_at,
+                updated_at: created_at,
+                last_accessed_at,
+                access_count,
+                metadata,
+                version: 1,
+                parent_ids: vec![],
+            })
+        })?;
+
+        let mut result = Vec::new();
+        for item in items {
+            result.push(item?);
+        }
+        Ok(result)
+    }
+
+    pub async fn update_embedding(&self, id: &str, embedding: &[f32]) -> Result<(), Box<dyn std::error::Error>> {
+        let conn = self.conn.lock().await;
+        let embedding_blob: Vec<u8> = embedding.iter()
+            .flat_map(|f| f.to_le_bytes())
+            .collect();
+        
+        conn.execute(
+            "UPDATE memory_items SET embedding = ?1 WHERE id = ?2",
+            params![embedding_blob, id],
+        )?;
+        
+        Ok(())
+    }
+
+    pub async fn clear_all_embeddings(&self) -> Result<usize, Box<dyn std::error::Error>> {
+        let conn = self.conn.lock().await;
+        let count = conn.execute("UPDATE memory_items SET embedding = NULL", [])?;
+        Ok(count)
+    }
+
+    pub async fn get_embedding_dimension(&self) -> Result<Option<usize>, Box<dyn std::error::Error>> {
+        let conn = self.conn.lock().await;
+        let mut stmt = conn.prepare(
+            "SELECT embedding FROM memory_items WHERE embedding IS NOT NULL LIMIT 1"
+        )?;
+        
+        let result = stmt.query_row([], |row| {
+            let blob: Vec<u8> = row.get(0)?;
+            Ok(blob.len() / 4)
+        });
+        
+        match result {
+            Ok(dim) => Ok(Some(dim)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    pub async fn get_memories_by_ids(&self, ids: &[String]) -> Result<Vec<MemoryItem>, Box<dyn std::error::Error>> {
+        if ids.is_empty() {
+            return Ok(vec![]);
+        }
+        
+        let conn = self.conn.lock().await;
+        
+        let placeholders: Vec<String> = ids.iter().map(|_| "?".to_string()).collect();
+        let query = format!(
+            "SELECT id, content, type, importance, score, decay, is_active, marked_inactive_at, embedding, source_session_id, created_at, last_accessed_at, access_count, metadata FROM memory_items WHERE id IN ({}) AND is_active = 1",
+            placeholders.join(",")
+        );
+        
+        let mut stmt = conn.prepare(&query)?;
+        
+        let params_refs: Vec<&dyn rusqlite::ToSql> = ids.iter().map(|id| id as &dyn rusqlite::ToSql).collect();
+        
+        let items = stmt.query_map(params_refs.as_slice(), |row| {
+            let id: String = row.get(0)?;
+            let content: String = row.get(1)?;
+            let type_str: String = row.get(2)?;
+            let importance: f32 = row.get(3)?;
+            let score: f32 = row.get(4)?;
+            let decay: f32 = row.get(5)?;
+            let is_active: i32 = row.get(6)?;
+            let marked_inactive_at: Option<i64> = row.get(7)?;
+            let embedding_blob: Option<Vec<u8>> = row.get(8)?;
+            let source_session_id: Option<String> = row.get(9)?;
+            let created_at: i64 = row.get(10)?;
+            let last_accessed_at: i64 = row.get(11)?;
+            let access_count: i32 = row.get(12)?;
+            let metadata_json: Option<String> = row.get(13)?;
+
+            let embedding = embedding_blob.map(|blob| {
+                let mut vec = Vec::with_capacity(blob.len() / 4);
+                for chunk in blob.chunks(4) {
+                    let bytes: [u8; 4] = chunk.try_into().unwrap_or([0; 4]);
+                    vec.push(f32::from_le_bytes(bytes));
+                }
+                vec
+            });
+
+            let metadata = metadata_json.and_then(|json| {
+                serde_json::from_str::<TaskMetadata>(&json).ok()
+            });
+
+            let memory_type = MemoryType::from_str(&type_str).unwrap_or(MemoryType::Fact);
+
+            Ok(MemoryItem {
+                id,
+                content,
+                memory_type,
+                importance,
+                score,
+                decay,
+                is_active: is_active != 0,
+                marked_inactive_at,
+                embedding,
+                source_session_id,
+                created_at,
+                updated_at: created_at,
+                last_accessed_at,
+                access_count,
+                metadata,
+                version: 1,
+                parent_ids: vec![],
+            })
+        })?;
+        
+        let mut result = Vec::new();
+        for item in items {
+            result.push(item?);
+        }
+        
+        log::info!("[MemoryStorage] 按 ID 获取 {} 条记忆", result.len());
+        Ok(result)
     }
 }

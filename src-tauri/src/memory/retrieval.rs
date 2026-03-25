@@ -5,6 +5,7 @@ use crate::memory::embedding::{EmbeddingService, cosine_similarity};
 const W_SIMILARITY: f32 = 0.6;
 const W_MEMORY_SCORE: f32 = 0.4;
 
+#[derive(Clone)]
 pub struct MemoryRetriever {
     storage: MemoryStorage,
     embedding: EmbeddingService,
@@ -20,21 +21,29 @@ impl MemoryRetriever {
         query: &str,
         options: RetrievalOptions,
     ) -> Result<Vec<RetrievedMemory>, Box<dyn std::error::Error>> {
-        log::info!("[MemoryRetriever] 开始检索记忆, query={:?}..., top_k={}", 
-            query.chars().take(50).collect::<String>(), options.top_k);
+        log::info!("[MemoryRetriever] 开始检索记忆, query={:?}..., top_k={}, min_similarity={}, only_active={}", 
+            query.chars().take(50).collect::<String>(), options.top_k, options.min_similarity, options.only_active);
         
         let query_embedding = self.embedding.embed(query).await?;
 
         let candidates = self.storage.get_candidates(&options).await?;
         log::info!("[MemoryRetriever] 获取到 {} 个候选记忆", candidates.len());
 
+        let candidates_count = candidates.len();
+        let min_similarity = options.min_similarity;
         let mut scored: Vec<RetrievedMemory> = candidates
             .into_iter()
             .filter_map(|item| {
                 let embedding = item.embedding.as_ref()?;
                 let similarity = cosine_similarity(&query_embedding, embedding);
-                let memory_score = item.score;
                 
+                if similarity < min_similarity {
+                    log::debug!("[MemoryRetriever] 过滤低相似度记忆: similarity={:.3} < {:.3}, content={}", 
+                        similarity, min_similarity, item.content.chars().take(30).collect::<String>());
+                    return None;
+                }
+                
+                let memory_score = item.score;
                 let final_score = similarity * W_SIMILARITY + memory_score * W_MEMORY_SCORE;
 
                 Some(RetrievedMemory {
@@ -57,7 +66,8 @@ impl MemoryRetriever {
         };
         scored.truncate(top_k);
 
-        log::info!("[MemoryRetriever] 检索完成, 返回 {} 条记忆 (top_k={})", scored.len(), top_k);
+        log::info!("[MemoryRetriever] 检索完成, 返回 {} 条记忆 (top_k={}), 过滤 {} 条低相似度记忆", 
+            scored.len(), top_k, candidates_count - scored.len());
 
         Ok(scored)
     }

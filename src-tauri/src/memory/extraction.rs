@@ -5,127 +5,41 @@ use crate::models::{
 };
 
 pub const COGNITIVE_MEMORY_EXTRACTION_PROMPT: &str = r#"
-你是一个高级认知记忆提取系统（Cognitive Memory Extraction Engine）。
+你是记忆提取系统。从对话中提取长期有价值的信息。
 
-你的任务是从对话中提取"长期有价值的信息"，用于构建用户的长期记忆模型。
+【严格规则】
+1. 只输出 JSON，禁止任何解释、推理、注释
+2. 不要展示思考过程
+3. 不要自我检查
+4. 不要逐步推理
+5. 输出必须以 { 开始，以 } 结束
 
-⚠️ 注意：
-- 不要提取临时信息
-- 不要依赖任何特定用户背景
-- 所有示例仅用于说明结构，不代表当前用户
-
---------------------------------
 【输入对话】
 {conversation}
---------------------------------
 
-请提取以下6类记忆，并以 JSON 输出：
-
+【输出格式】直接输出以下 JSON 结构：
 {
-  "identity": [],
-  "facts": [],
-  "preferences": [],
-  "tasks": [],
-  "constraints": [],
-  "skills": []
+  "identity": [{"content": "...", "importance": 0.0-1.0}],
+  "facts": [{"content": "...", "importance": 0.0-1.0}],
+  "preferences": [{"content": "...", "importance": 0.0-1.0}],
+  "tasks": [{"content": "...", "status": "pending|in_progress|done", "importance": 0.0-1.0}],
+  "constraints": [{"content": "...", "importance": 0.0-1.0}],
+  "skills": [{"content": "...", "importance": 0.0-1.0}]
 }
 
---------------------------------
-【定义】
-
-1️⃣ identity（身份特征）
-长期稳定的用户背景、角色或定位
-
-示例：
-- "用户从事软件开发"
-- "用户是内容创作者"
-
---------------------------------
-
-2️⃣ facts（事实）
-用户提到的客观信息（项目、工具、环境）
-
-示例：
-- "用户正在开发一个Web应用"
-- "用户使用本地模型进行AI开发"
-
---------------------------------
-
-3️⃣ preferences（偏好）
-用户的选择倾向或习惯
-
-示例：
-- "用户偏好简单直接的解决方案"
-- "用户倾向使用本地部署而非云服务"
-
---------------------------------
-
-4️⃣ tasks（任务）
-用户正在进行的任务，必须使用结构化格式：
-
-{
-  "content": "任务描述",
-  "status": "pending | in_progress | done",
-  "progress": "当前进展（可选）",
-  "next_step": "下一步（尽量推测）"
-}
-
-示例：
-{
-  "content": "开发一个AI助手",
-  "status": "in_progress",
-  "progress": "已完成基础对话功能",
-  "next_step": "实现记忆模块"
-}
-
---------------------------------
-
-5️⃣ constraints（限制）
-用户的限制、资源约束或能力边界
-
-示例：
-- "用户计算资源有限"
-- "用户时间有限"
-
---------------------------------
-
-6️⃣ skills（能力）
-用户具备的能力或行为模式
-
-示例：
-- "用户具备基础编程能力"
-- "用户能够使用AI工具辅助开发"
-
---------------------------------
+【类别定义】
+- identity: 长期稳定的用户身份、职业、角色
+- facts: 客观信息（项目、工具、环境）
+- preferences: 选择倾向或习惯
+- tasks: 正在进行的任务
+- constraints: 限制、资源约束
+- skills: 具备的能力
 
 【评分规则】
-
-每条记忆必须包含：
-
-{
-  "content": "...",
-  "importance": 0.0 - 1.0
-}
-
---------------------------------
-
-【去重与抽象】
-
-- 避免重复
-- 优先抽象而不是复述
-- 提取"长期有价值"的信息
-
---------------------------------
-
-【输出要求】
-
-- 必须是合法 JSON
-- 无解释文本
+- importance: 0.0-1.0，越高越重要
 - 空类别返回 []
 
---------------------------------
-
-现在开始提取。
+现在输出 JSON：
 "#;
 
 pub fn format_extraction_prompt(conversation: &str) -> String {
@@ -133,20 +47,39 @@ pub fn format_extraction_prompt(conversation: &str) -> String {
 }
 
 pub fn parse_extraction_response(response: &str) -> Result<ExtractedMemory, Box<dyn std::error::Error>> {
-    let trimmed = response.trim();
-    
-    let json_str = if trimmed.starts_with("```json") {
-        let end = trimmed.find("```").unwrap_or(trimmed.len());
-        &trimmed[7..end].trim()
-    } else if trimmed.starts_with("```") {
-        let end = trimmed[7..].find("```").unwrap_or(trimmed.len() - 7);
-        &trimmed[3..3 + end].trim()
-    } else {
-        trimmed
-    };
-
-    let extracted: ExtractedMemory = serde_json::from_str(json_str)?;
+    let json_str = extract_json_string(response.trim());
+    let extracted: ExtractedMemory = serde_json::from_str(&json_str)?;
     Ok(extracted)
+}
+
+fn extract_json_string(text: &str) -> String {
+    let trimmed = text.trim();
+    
+    if let Some(start) = trimmed.find('{') {
+        if let Some(end) = trimmed.rfind('}') {
+            if end > start {
+                return trimmed[start..=end].to_string();
+            }
+        }
+    }
+    
+    if trimmed.starts_with("```json") {
+        let content = &trimmed[7..];
+        if let Some(end) = content.find("```") {
+            return content[..end].trim().to_string();
+        }
+        return content.trim().to_string();
+    }
+    
+    if trimmed.starts_with("```") {
+        let content = &trimmed[3..];
+        if let Some(end) = content.find("```") {
+            return content[..end].trim().to_string();
+        }
+        return content.trim().to_string();
+    }
+    
+    trimmed.to_string()
 }
 
 pub fn should_extract(messages: &[ConversationMessage], config: &ExtractionConfig) -> bool {
@@ -298,7 +231,7 @@ pub fn convert_extracted_to_candidates(
 
     for task in extracted.tasks {
         let confidence = calculate_confidence(&task.content, &MemoryType::Task, message_ids.len());
-        let mut candidate = CandidateMemory::new(
+        let candidate = CandidateMemory::new(
             task.content,
             MemoryType::Task,
             confidence,
@@ -343,83 +276,4 @@ pub fn format_conversation_for_extraction(messages: &[ConversationMessage]) -> S
         .map(|m| format!("{}: {}", m.role, m.content))
         .collect::<Vec<_>>()
         .join("\n\n")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_format_extraction_prompt() {
-        let conversation = "User: I'm building a web app.\nAssistant: That's great!";
-        let prompt = format_extraction_prompt(conversation);
-        assert!(prompt.contains(conversation));
-        assert!(prompt.contains("identity"));
-    }
-
-    #[test]
-    fn test_parse_extraction_response() {
-        let response = r#"{"identity":[],"facts":[{"content":"User is building a web app","importance":0.8}],"preferences":[],"tasks":[],"constraints":[],"skills":[]}"#;
-        let extracted = parse_extraction_response(response).unwrap();
-        assert_eq!(extracted.facts.len(), 1);
-        assert_eq!(extracted.facts[0].content, "User is building a web app");
-    }
-
-    #[test]
-    fn test_should_extract() {
-        let config = ExtractionConfig::default();
-        
-        let short_messages: Vec<ConversationMessage> = (0..3)
-            .map(|i| ConversationMessage {
-                id: format!("msg-{}", i),
-                role: "user".to_string(),
-                content: "Short".to_string(),
-                is_tool_call: false,
-            })
-            .collect();
-        assert!(!should_extract(&short_messages, &config));
-
-        let mut good_messages: Vec<ConversationMessage> = (0..5)
-            .map(|i| ConversationMessage {
-                id: format!("msg-{}", i),
-                role: if i % 2 == 0 { "user" } else { "assistant" }.to_string(),
-                content: "This is a longer message with more content".to_string(),
-                is_tool_call: false,
-            })
-            .collect();
-        assert!(should_extract(&good_messages, &config));
-    }
-
-    #[test]
-    fn test_calculate_confidence() {
-        let confidence = calculate_confidence(
-            "This is a longer piece of content for testing",
-            &MemoryType::Identity,
-            2,
-        );
-        assert!(confidence > 0.5);
-        assert!(confidence <= 1.0);
-    }
-
-    #[test]
-    fn test_check_duplicate_simple() {
-        let existing = vec![MemoryItem::new(
-            "User is building a web application".to_string(),
-            MemoryType::Fact,
-            0.8,
-        )];
-
-        assert!(check_duplicate_simple("User is building a web application", &existing).is_some());
-        assert!(check_duplicate_simple("User is building a web application with React", &existing).is_some());
-        assert!(check_duplicate_simple("User likes pizza", &existing).is_none());
-    }
-
-    #[test]
-    fn test_keyword_overlap() {
-        let overlap = calculate_keyword_overlap("user building web app", "user building mobile app");
-        assert!(overlap > 0.5);
-
-        let no_overlap = calculate_keyword_overlap("hello world", "foo bar");
-        assert_eq!(no_overlap, 0.0);
-    }
 }

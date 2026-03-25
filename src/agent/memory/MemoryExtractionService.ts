@@ -53,9 +53,7 @@ class MemoryExtractionService {
 
       const conversationText = this.formatConversationForExtraction(messages);
       
-      const extractionPrompt = this.buildExtractionPrompt(conversationText);
-      
-      const extracted = await this.callLLMForExtraction(extractionPrompt);
+      const extracted = await this.callLLMForExtraction(conversationText);
       
       if (!extracted) {
         console.log('[MemoryExtraction] LLM 未返回有效结果');
@@ -109,142 +107,49 @@ class MemoryExtractionService {
       .join('\n\n');
   }
 
-  private buildExtractionPrompt(conversation: string): string {
-    return `你是一个高级认知记忆提取系统（Cognitive Memory Extraction Engine）。
-
-你的任务是从对话中提取"长期有价值的信息"，用于构建用户的长期记忆模型。
-
-⚠️ 注意：
-- 不要提取临时信息
-- 不要依赖任何特定用户背景
-- 所有示例仅用于说明结构，不代表当前用户
-
---------------------------------
-【输入对话】
-${conversation}
---------------------------------
-
-请提取以下6类记忆，并以 JSON 输出：
-
-{
-  "identity": [],
-  "facts": [],
-  "preferences": [],
-  "tasks": [],
-  "constraints": [],
-  "skills": []
-}
-
---------------------------------
-【定义】
-
-1️⃣ identity（身份特征）
-长期稳定的用户背景、角色或定位
-
-示例：
-- "用户从事软件开发"
-- "用户是内容创作者"
-
---------------------------------
-
-2️⃣ facts（事实）
-用户提到的客观信息（项目、工具、环境）
-
-示例：
-- "用户正在开发一个Web应用"
-- "用户使用本地模型进行AI开发"
-
---------------------------------
-
-3️⃣ preferences（偏好）
-用户的选择倾向或习惯
-
-示例：
-- "用户偏好简单直接的解决方案"
-- "用户倾向使用本地部署而非云服务"
-
---------------------------------
-
-4️⃣ tasks（任务）
-用户正在进行的任务，必须使用结构化格式：
-
-{
-  "content": "任务描述",
-  "status": "pending | in_progress | done",
-  "progress": "当前进展（可选）",
-  "next_step": "下一步（尽量推测）"
-}
-
-示例：
-{
-  "content": "开发一个AI助手",
-  "status": "in_progress",
-  "progress": "已完成基础对话功能",
-  "next_step": "实现记忆模块"
-}
-
---------------------------------
-
-5️⃣ constraints（限制）
-用户的限制、资源约束或能力边界
-
-示例：
-- "用户计算资源有限"
-- "用户时间有限"
-
---------------------------------
-
-6️⃣ skills（能力）
-用户具备的能力或行为模式
-
-示例：
-- "用户具备基础编程能力"
-- "用户能够使用AI工具辅助开发"
-
---------------------------------
-
-【评分规则】
-
-每条记忆必须包含：
-
-{
-  "content": "...",
-  "importance": 0.0 - 1.0
-}
-
---------------------------------
-
-【去重与抽象】
-
-- 避免重复
-- 优先抽象而不是复述
-- 提取"长期有价值"的信息
-
---------------------------------
-
-【输出要求】
-
-- 必须是合法 JSON
-- 无解释文本
-- 空类别返回 []
-
---------------------------------
-
-现在开始提取。`;
-  }
-
-  private async callLLMForExtraction(prompt: string): Promise<any> {
+  private async callLLMForExtraction(conversation: string): Promise<any> {
     try {
       const apiUrl = localStorage.getItem('lmStudioUrl') || 'http://localhost:1234/v1/chat/completions';
       const modelName = localStorage.getItem('modelName') || 'local-model';
       
+      const systemPrompt = `# 核心指令
+[STRICT] 你是一个高效的数据提取函数，严禁进行任何推理、自检、解释或草拟过程。
+[FORMAT] 你的输出必须以 "{" 开头，以 "}" 结尾。
+[WARNING] 任何 JSON 以外的文字都会导致程序崩溃。跳过思考过程，直接生成 JSON。
+
+OUTPUT JSON ONLY. NO THINKING. NO EXPLANATIONS. NO MARKDOWN. NO REASONING.
+
+Output this exact structure:
+{"identity":[],"facts":[],"preferences":[],"tasks":[],"constraints":[],"skills":[]}
+
+Each array contains objects with: {"content":"中文内容","importance":0.5}
+
+Rules:
+- importance: number 0.0 to 1.0
+- content: Chinese text only
+- Empty categories: []
+- NO other fields
+- NO thinking tags
+- NO markdown
+- Start with { end with }`;
+
+      const userPrompt = `Extract from this conversation. Output JSON now.
+
+${conversation}
+
+JSON:`;
+
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: modelName,
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.3,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          temperature: 0.0,
+          max_tokens: 5000,
           stream: false,
         }),
       });
@@ -256,6 +161,13 @@ ${conversation}
       const data = await response.json();
       const content = data.choices?.[0]?.message?.content || '';
       
+      console.log('[MemoryExtraction] LLM 原始响应长度:', content.length);
+      console.log('[MemoryExtraction] finish_reason:', data.choices?.[0]?.finish_reason);
+      
+      if (data.choices?.[0]?.finish_reason === 'length') {
+        console.warn('[MemoryExtraction] 警告: 输出被 max_tokens 截断');
+      }
+      
       return this.parseExtractionResponse(content);
     } catch (error) {
       console.error('[MemoryExtraction] LLM 调用失败:', error);
@@ -266,21 +178,69 @@ ${conversation}
   private parseExtractionResponse(response: string): any {
     const trimmed = response.trim();
     
-    let jsonStr = trimmed;
-    if (trimmed.startsWith('```json')) {
-      const end = trimmed.indexOf('```', 7);
-      jsonStr = trimmed.substring(7, end > 0 ? end : trimmed.length).trim();
-    } else if (trimmed.startsWith('```')) {
-      const end = trimmed.indexOf('```', 3);
-      jsonStr = trimmed.substring(3, end > 0 ? end : trimmed.length).trim();
-    }
-
-    try {
-      return JSON.parse(jsonStr);
-    } catch (e) {
-      console.error('[MemoryExtraction] JSON 解析失败:', e);
+    console.log('[MemoryExtraction] 尝试解析响应, 前100字符:', trimmed.substring(0, 100));
+    
+    let jsonStr = this.extractJsonString(trimmed);
+    
+    if (!jsonStr || jsonStr.length < 2) {
+      console.error('[MemoryExtraction] 无法提取 JSON 字符串');
       return null;
     }
+    
+    try {
+      const parsed = JSON.parse(jsonStr);
+      
+      if (!parsed.identity) parsed.identity = [];
+      if (!parsed.facts) parsed.facts = [];
+      if (!parsed.preferences) parsed.preferences = [];
+      if (!parsed.tasks) parsed.tasks = [];
+      if (!parsed.constraints) parsed.constraints = [];
+      if (!parsed.skills) parsed.skills = [];
+      
+      return parsed;
+    } catch (e) {
+      console.error('[MemoryExtraction] JSON 解析失败:', e);
+      console.error('[MemoryExtraction] 提取的 JSON 字符串:', jsonStr.substring(0, 500));
+      return null;
+    }
+  }
+
+  private extractJsonString(text: string): string {
+    let trimmed = text.trim();
+    
+    const thinkEnd = trimmed.indexOf('</think');
+    if (thinkEnd !== -1) {
+      const afterThink = trimmed.indexOf('>', thinkEnd);
+      if (afterThink !== -1) {
+        trimmed = trimmed.substring(afterThink + 1).trim();
+      }
+    }
+    
+    const startBrace = trimmed.indexOf('{');
+    const endBrace = trimmed.lastIndexOf('}');
+    if (startBrace !== -1 && endBrace !== -1 && endBrace > startBrace) {
+      return trimmed.substring(startBrace, endBrace + 1);
+    }
+    
+    const startBracket = trimmed.indexOf('[');
+    const endBracket = trimmed.lastIndexOf(']');
+    if (startBracket !== -1 && endBracket !== -1 && endBracket > startBracket) {
+      return trimmed.substring(startBracket, endBracket + 1);
+    }
+    
+    if (trimmed.startsWith('```json')) {
+      const content = trimmed.substring(7);
+      const end = content.indexOf('```');
+      return (end > 0 ? content.substring(0, end) : content).trim();
+    }
+    
+    if (trimmed.startsWith('```')) {
+      const content = trimmed.substring(3);
+      const end = content.indexOf('```');
+      return (end > 0 ? content.substring(0, end) : content).trim();
+    }
+    
+    return trimmed;
   }
 
   private convertToCandidates(
@@ -293,7 +253,7 @@ ${conversation}
 
     const processItems = (items: any[], memoryType: string) => {
       for (const item of items) {
-        if (!item.content || item.content.trim().length < 5) continue;
+        if (!item.content || typeof item.content !== 'string' || item.content.trim().length < 5) continue;
         
         const confidence = this.calculateConfidence(item.content, memoryType, messages.length);
         
@@ -306,17 +266,17 @@ ${conversation}
           sourceMessageIds: messageIds,
           createdAt: Date.now(),
           status: 'pending',
-          importance: item.importance || 0.5,
+          importance: typeof item.importance === 'number' ? item.importance : 0.5,
         });
       }
     };
 
-    if (extracted.identity) processItems(extracted.identity, 'identity');
-    if (extracted.facts) processItems(extracted.facts, 'fact');
-    if (extracted.preferences) processItems(extracted.preferences, 'preference');
-    if (extracted.tasks) {
+    if (Array.isArray(extracted.identity)) processItems(extracted.identity, 'identity');
+    if (Array.isArray(extracted.facts)) processItems(extracted.facts, 'fact');
+    if (Array.isArray(extracted.preferences)) processItems(extracted.preferences, 'preference');
+    if (Array.isArray(extracted.tasks)) {
       for (const task of extracted.tasks) {
-        if (!task.content || task.content.trim().length < 5) continue;
+        if (!task.content || typeof task.content !== 'string' || task.content.trim().length < 5) continue;
         
         const confidence = this.calculateConfidence(task.content, 'task', messages.length);
         
@@ -329,12 +289,12 @@ ${conversation}
           sourceMessageIds: messageIds,
           createdAt: Date.now(),
           status: 'pending',
-          importance: task.importance || 0.6,
+          importance: typeof task.importance === 'number' ? task.importance : 0.6,
         });
       }
     }
-    if (extracted.constraints) processItems(extracted.constraints, 'constraint');
-    if (extracted.skills) processItems(extracted.skills, 'skill');
+    if (Array.isArray(extracted.constraints)) processItems(extracted.constraints, 'constraint');
+    if (Array.isArray(extracted.skills)) processItems(extracted.skills, 'skill');
 
     return candidates;
   }

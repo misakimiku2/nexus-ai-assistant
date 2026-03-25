@@ -14,13 +14,26 @@ import {
   ExtractionResult,
   ExtractionConfig,
   ConversationMessage,
+  DedupDecision,
+  PipelineResult,
+  EvolutionResult,
 } from '../../types';
 
 export class TauriMemoryClient {
-  static async retrieveMemories(query: string, options: RetrievalOptions): Promise<RetrievedMemory[]> {
-    console.log('[TauriMemoryClient] 开始检索记忆, query:', query.substring(0, 50), 'options:', options);
+  static async retrieveMemories(query: string, options?: Partial<RetrievalOptions>): Promise<RetrievedMemory[]> {
+    const defaultOptions: RetrievalOptions = {
+      topK: 10,
+      minImportance: 0.3,
+      minSimilarity: 0.3,
+      onlyActive: true,
+      modelType: undefined,
+      memoryTypes: undefined,
+      sessionId: undefined,
+    };
+    const finalOptions = { ...defaultOptions, ...options };
+    console.log('[TauriMemoryClient] 开始检索记忆, query:', query.substring(0, 50), 'options:', finalOptions);
     try {
-      const result = await invoke<RetrievedMemory[]>('retrieve_memories', { query, options });
+      const result = await invoke<RetrievedMemory[]>('retrieve_memories', { query, options: finalOptions });
       console.log('[TauriMemoryClient] 检索完成, 返回', result.length, '条记忆');
       return result;
     } catch (error) {
@@ -177,6 +190,56 @@ export class TauriMemoryClient {
   static async clearOldCandidates(maxAgeHours: number): Promise<number> {
     console.log('[TauriMemoryClient] 清理旧候选记忆, maxAgeHours:', maxAgeHours);
     return invoke('clear_old_candidates', { maxAgeHours });
+  }
+
+  static async getEmbeddingProvider(): Promise<string> {
+    console.log('[TauriMemoryClient] 获取 Embedding Provider');
+    return invoke('get_embedding_provider');
+  }
+
+  static async recomputeAllEmbeddings(): Promise<number> {
+    console.log('[TauriMemoryClient] 重新计算所有向量');
+    return invoke('recompute_all_embeddings');
+  }
+
+  static async getStoredEmbeddingDimension(): Promise<number | null> {
+    console.log('[TauriMemoryClient] 获取存储的向量维度');
+    return invoke('get_stored_embedding_dimension');
+  }
+
+  static async clearAllEmbeddings(): Promise<number> {
+    console.log('[TauriMemoryClient] 清除所有向量');
+    return invoke('clear_all_embeddings');
+  }
+
+  static async getAvailableEmbeddingModels(): Promise<Array<[string, string, number]>> {
+    console.log('[TauriMemoryClient] 获取可用的 Embedding 模型列表');
+    return invoke('get_available_embedding_models');
+  }
+
+  static async initializeEmbeddingWithModel(modelId: string): Promise<void> {
+    console.log('[TauriMemoryClient] 初始化 Embedding 模型:', modelId);
+    return invoke('initialize_embedding_with_model', { modelId });
+  }
+
+  static async dedupCandidate(id: string): Promise<DedupDecision> {
+    console.log('[TauriMemoryClient] Candidate 阶段去重:', id);
+    return invoke('dedup_candidate', { id });
+  }
+
+  static async dedupAccept(id: string): Promise<DedupDecision> {
+    console.log('[TauriMemoryClient] Accept 阶段去重:', id);
+    return invoke('dedup_accept', { id });
+  }
+
+  static async executeDedupPipeline(id: string, decision: DedupDecision): Promise<PipelineResult> {
+    console.log('[TauriMemoryClient] 执行去重 Pipeline:', id);
+    return invoke('execute_dedup_pipeline', { id, decision });
+  }
+
+  static async runMemoryEvolution(): Promise<EvolutionResult> {
+    console.log('[TauriMemoryClient] 执行完整记忆演化周期');
+    return invoke('run_memory_evolution');
   }
 }
 

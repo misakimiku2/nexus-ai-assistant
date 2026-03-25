@@ -161,9 +161,12 @@ export interface MemoryItem {
   embedding?: number[];
   sourceSessionId?: string;
   createdAt: number;
+  updatedAt: number;
   lastAccessedAt: number;
   accessCount: number;
   metadata?: TaskMetadata;
+  version: number;
+  parentIds: string[];
 }
 
 export interface ExtractedItem {
@@ -171,13 +174,7 @@ export interface ExtractedItem {
   importance: number;
 }
 
-export interface ExtractedTask {
-  content: string;
-  status: TaskStatus;
-  progress?: string;
-  next_step?: string;
-  importance: number;
-}
+export type ExtractedTask = ExtractedItem;
 
 export interface ExtractedMemory {
   identity: ExtractedItem[];
@@ -194,6 +191,8 @@ export interface RetrievalOptions {
   topK: number;
   memoryTypes?: MemoryType[];
   minImportance?: number;
+  minSimilarity: number;
+  onlyActive: boolean;
   sessionId?: string;
   modelType?: ModelType;
 }
@@ -280,5 +279,111 @@ export interface ConversationMessage {
   role: string;
   content: string;
   isToolCall: boolean;
+}
+
+export type DedupStage = 'candidate' | 'accept';
+
+export type ConflictType = 'preference' | 'fact' | 'status';
+
+export interface BoostTarget {
+  memoryId: string;
+  similarity: number;
+  boostAmount: number;
+}
+
+export interface MergeTarget {
+  memoryId: string;
+  similarity: number;
+  memoryType: MemoryType;
+}
+
+export interface ConflictTarget {
+  memoryId: string;
+  similarity: number;
+  conflictType: ConflictType;
+}
+
+export interface SimilarMemory {
+  memory: MemoryItem;
+  similarity: number;
+}
+
+export interface DedupDecision {
+  boostTargets: BoostTarget[];
+  mergeTargets: MergeTarget[];
+  conflictTargets: ConflictTarget[];
+  similarMemories: SimilarMemory[];
+  maxSimilarity: number;
+}
+
+export interface MultiSourceMergeRequest {
+  existingMemories: MemoryItem[];
+  candidate: CandidateMemory;
+}
+
+export interface MergeResult {
+  mergedContent: string;
+  mergedImportance: number;
+  mergeReason: string;
+  isFallback: boolean;
+  parentIds: string[];
+  merged: boolean;
+}
+
+export interface ConflictResolveRequest {
+  existing: MemoryItem;
+  candidate: CandidateMemory;
+  conflictType: ConflictType;
+}
+
+export interface ConflictResolveResult {
+  resolvedContent: string;
+  resolvedImportance: number;
+  resolveReason: string;
+  parentId: string;
+}
+
+export interface ConvergenceConfig {
+  maxMergeRounds: number;
+  convergenceThreshold: number;
+  contentStabilityThreshold: number;
+}
+
+export interface ConflictDetectionConfig {
+  minSimilarity: number;
+  maxCandidates: number;
+}
+
+export interface RecencyConfig {
+  halfLifeDays: number;
+}
+
+export interface DeletionConfig {
+  minImportance: number;
+  maxInactiveDays: number;
+}
+
+export interface BoostConfig {
+  decayFactor: number;
+  boostAmount: number;
+  maxImportance: number;
+}
+
+export interface PipelineResult {
+  conflictsResolved: ConflictResolveResult[];
+  merged?: MergeResult;
+  boosted: MemoryItem[];
+  accepted?: MemoryItem;
+}
+
+export interface DeactivationResult {
+  deactivatedCount: number;
+  deactivatedIds: string[];
+}
+
+export interface EvolutionResult {
+  decay: DecayResult;
+  deactivation: DeactivationResult;
+  prune: PruneResult;
 }
 

@@ -1,11 +1,12 @@
 use tauri::State;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use crate::memory::{MemoryStorage, MemoryRetriever, EmbeddingService, MemoryEvolutionManager, CandidateStorage};
+use crate::memory::{MemoryStorage, MemoryRetriever, EmbeddingService, EmbeddingConfig, EmbeddingProvider, MemoryEvolutionManager, CandidateStorage};
 use crate::models::{
     MemoryItem, MemoryType, TaskStatus, RetrievalOptions, RetrievedMemory,
     MemoryStats, DecayResult, PruneResult, EvolutionStats,
     CandidateMemory, CandidateStatus, ExtractionResult, ExtractionConfig, ConversationMessage,
+    DedupDecision, PipelineResult, EvolutionResult,
 };
 
 #[derive(Clone)]
@@ -20,7 +21,18 @@ pub struct MemoryState {
 impl MemoryState {
     pub fn new(storage: MemoryStorage, db_path: std::path::PathBuf) -> Self {
         log::info!("[MemoryState] 创建记忆状态实例...");
-        let embedding = EmbeddingService::new();
+        
+        let embedding = match EmbeddingService::with_config(EmbeddingConfig::default()) {
+            Ok(service) => {
+                log::info!("[MemoryState] Embedding 服务创建成功, provider: {:?}", service.get_provider());
+                service
+            }
+            Err(e) => {
+                log::warn!("[MemoryState] Embedding 服务创建失败，使用 dummy 模式: {}", e);
+                EmbeddingService::new()
+            }
+        };
+        
         let retriever = MemoryRetriever::new(storage.clone(), embedding.clone());
         let evolution = MemoryEvolutionManager::new(storage.clone());
         
@@ -286,4 +298,194 @@ pub async fn clear_old_candidates(
     let count = candidate_storage.clear_old_candidates(max_age_hours).map_err(|e| e.to_string())?;
     log::info!("[MemoryCommands] 清理旧候选记忆: {} 条", count);
     Ok(count)
+}
+
+#[tauri::command]
+pub async fn get_embedding_provider(
+    state: State<'_, MemoryState>,
+) -> Result<String, String> {
+    let embedding = state.embedding.lock().await;
+    match embedding.get_provider() {
+        EmbeddingProvider::Dummy => Ok("dummy".to_string()),
+        EmbeddingProvider::Local { model_id } => Ok(format!("local:{}", model_id)),
+    }
+}
+
+#[tauri::command]
+pub async fn recompute_all_embeddings(
+    state: State<'_, MemoryState>,
+) -> Result<usize, String> {
+    let storage = state.storage.lock().await;
+    let embedding = state.embedding.lock().await;
+    
+    let memories = storage.get_all_memories().await.map_err(|e| e.to_string())?;
+    let mut updated = 0;
+    
+    for memory in memories {
+        let emb = embedding.embed(&memory.content).await.map_err(|e| e.to_string())?;
+        storage.update_embedding(&memory.id, &emb).await.map_err(|e| e.to_string())?;
+        updated += 1;
+    }
+    
+    log::info!("[MemoryCommands] 重新计算所有向量: {} 条", updated);
+    Ok(updated)
+}
+
+#[tauri::command]
+pub async fn get_stored_embedding_dimension(
+    state: State<'_, MemoryState>,
+) -> Result<Option<usize>, String> {
+    let storage = state.storage.lock().await;
+    storage.get_embedding_dimension().await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn clear_all_embeddings(
+    state: State<'_, MemoryState>,
+) -> Result<usize, String> {
+    let storage = state.storage.lock().await;
+    let count = storage.clear_all_embeddings().await.map_err(|e| e.to_string())?;
+    log::info!("[MemoryCommands] 清除所有向量: {} 条", count);
+    Ok(count)
+}
+
+#[tauri::command]
+pub fn get_available_embedding_models() -> Vec<(String, String, usize)> {
+    crate::memory::get_available_models()
+        .into_iter()
+        .map(|(id, name, dim)| (id.to_string(), name.to_string(), dim))
+        .collect()
+}
+
+#[tauri::command]
+pub async fn initialize_embedding_with_model(
+    model_id: String,
+    state: State<'_, MemoryState>,
+) -> Result<(), String> {
+    let mut embedding = state.embedding.lock().await;
+    
+    let embedding_dim = get_model_dimension(&model_id);
+    let config = crate::memory::EmbeddingConfig {
+        provider: crate::memory::EmbeddingProvider::Local { model_id },
+        embedding_dim,
+        max_seq_length: 256,
+    };
+    
+    match crate::memory::EmbeddingService::with_config(config) {
+        Ok(service) => {
+            *embedding = service;
+            log::info!("[MemoryCommands] Embedding 服务初始化成功");
+            Ok(())
+        }
+        Err(e) => {
+            log::error!("[MemoryCommands] Embedding 服务初始化失败: {}", e);
+            Err(e.to_string())
+        }
+    }
+}
+
+fn get_model_dimension(model_id: &str) -> usize {
+    let models = crate::memory::get_available_models();
+    for (id, _, dim) in models {
+        if id == model_id {
+            return dim;
+        }
+    }
+    384
+}
+
+#[tauri::command]
+pub async fn dedup_candidate(
+    id: String,
+    state: State<'_, MemoryState>,
+) -> Result<DedupDecision, String> {
+    let candidate_storage = state.candidate_storage.lock().await;
+    let retriever = state.retriever.lock().await;
+    let embedding = state.embedding.lock().await;
+    let storage = state.storage.lock().await;
+    
+    let candidate = candidate_storage.get_candidate(&id).map_err(|e| e.to_string())?;
+    
+    let llm_client = crate::memory::LlmClient::from_env();
+    let conflict_detector = crate::memory::ConflictDetector::new(llm_client.clone());
+    let merge_retriever = (*retriever).clone();
+    let merge_embedding = (*embedding).clone();
+    let merge_service = crate::memory::MergeService::new(llm_client, merge_embedding, merge_retriever);
+    
+    let dedup_service = crate::memory::DeduplicationService::new(
+        (*retriever).clone(),
+        (*embedding).clone(),
+        (*storage).clone(),
+        conflict_detector,
+        merge_service,
+    );
+    
+    dedup_service.dedup_candidate(&candidate).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn dedup_accept(
+    id: String,
+    state: State<'_, MemoryState>,
+) -> Result<DedupDecision, String> {
+    let candidate_storage = state.candidate_storage.lock().await;
+    let retriever = state.retriever.lock().await;
+    let embedding = state.embedding.lock().await;
+    let storage = state.storage.lock().await;
+    
+    let candidate = candidate_storage.get_candidate(&id).map_err(|e| e.to_string())?;
+    
+    let llm_client = crate::memory::LlmClient::from_env();
+    let conflict_detector = crate::memory::ConflictDetector::new(llm_client.clone());
+    let merge_retriever = (*retriever).clone();
+    let merge_embedding = (*embedding).clone();
+    let merge_service = crate::memory::MergeService::new(llm_client, merge_embedding, merge_retriever);
+    
+    let dedup_service = crate::memory::DeduplicationService::new(
+        (*retriever).clone(),
+        (*embedding).clone(),
+        (*storage).clone(),
+        conflict_detector,
+        merge_service,
+    );
+    
+    dedup_service.dedup_accept(&candidate).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn execute_dedup_pipeline(
+    id: String,
+    decision: DedupDecision,
+    state: State<'_, MemoryState>,
+) -> Result<PipelineResult, String> {
+    let candidate_storage = state.candidate_storage.lock().await;
+    let retriever = state.retriever.lock().await;
+    let embedding = state.embedding.lock().await;
+    let storage = state.storage.lock().await;
+    
+    let candidate = candidate_storage.get_candidate(&id).map_err(|e| e.to_string())?;
+    
+    let llm_client = crate::memory::LlmClient::from_env();
+    let conflict_detector = crate::memory::ConflictDetector::new(llm_client.clone());
+    let merge_retriever = (*retriever).clone();
+    let merge_embedding = (*embedding).clone();
+    let merge_service = crate::memory::MergeService::new(llm_client, merge_embedding, merge_retriever);
+    
+    let dedup_service = crate::memory::DeduplicationService::new(
+        (*retriever).clone(),
+        (*embedding).clone(),
+        (*storage).clone(),
+        conflict_detector,
+        merge_service,
+    );
+    
+    dedup_service.execute_pipeline(&candidate, decision).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn run_memory_evolution(
+    state: State<'_, MemoryState>,
+) -> Result<EvolutionResult, String> {
+    let evolution = state.evolution.lock().await;
+    evolution.run_full_evolution().await.map_err(|e| e.to_string())
 }

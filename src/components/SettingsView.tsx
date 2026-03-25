@@ -170,6 +170,72 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [tavilyUsage, setTavilyUsage] = useState<TavilyUsage | null>(null);
   const [isFetchingTavilyUsage, setIsFetchingTavilyUsage] = useState(false);
 
+  // Embedding Model State
+  const [embeddingProvider, setEmbeddingProvider] = useState<string>('dummy');
+  const [availableEmbeddingModels, setAvailableEmbeddingModels] = useState<Array<[string, string, number]>>([]);
+  const [selectedEmbeddingModel, setSelectedEmbeddingModel] = useState<string>('sentence-transformers/all-MiniLM-L6-v2');
+  const [isEmbeddingLoading, setIsEmbeddingLoading] = useState(false);
+  const [storedEmbeddingDimension, setStoredEmbeddingDimension] = useState<number | null>(null);
+  const [isRecomputing, setIsRecomputing] = useState(false);
+
+  const fetchEmbeddingStatus = async () => {
+    try {
+      const { TauriMemoryClient } = await import('../agent/memory/TauriMemoryClient');
+      const provider = await TauriMemoryClient.getEmbeddingProvider();
+      setEmbeddingProvider(provider);
+      const models = await TauriMemoryClient.getAvailableEmbeddingModels();
+      setAvailableEmbeddingModels(models);
+      const dim = await TauriMemoryClient.getStoredEmbeddingDimension();
+      setStoredEmbeddingDimension(dim);
+    } catch (error) {
+      console.error('Failed to fetch embedding status:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchEmbeddingStatus();
+  }, []);
+
+  const handleLoadEmbeddingModel = async () => {
+    setIsEmbeddingLoading(true);
+    try {
+      const { TauriMemoryClient } = await import('../agent/memory/TauriMemoryClient');
+      await TauriMemoryClient.initializeEmbeddingWithModel(selectedEmbeddingModel);
+      const provider = await TauriMemoryClient.getEmbeddingProvider();
+      setEmbeddingProvider(provider);
+    } catch (error) {
+      console.error('Failed to load embedding model:', error);
+    } finally {
+      setIsEmbeddingLoading(false);
+    }
+  };
+
+  const handleRecomputeEmbeddings = async () => {
+    setIsRecomputing(true);
+    try {
+      const { TauriMemoryClient } = await import('../agent/memory/TauriMemoryClient');
+      const count = await TauriMemoryClient.recomputeAllEmbeddings();
+      const dim = await TauriMemoryClient.getStoredEmbeddingDimension();
+      setStoredEmbeddingDimension(dim);
+      addLog(`[Embedding] ${t('settings.ai.embedding.recomputeComplete', { count })}`);
+    } catch (error) {
+      console.error('Failed to recompute embeddings:', error);
+    } finally {
+      setIsRecomputing(false);
+    }
+  };
+
+  const handleClearEmbeddings = async () => {
+    try {
+      const { TauriMemoryClient } = await import('../agent/memory/TauriMemoryClient');
+      const count = await TauriMemoryClient.clearAllEmbeddings();
+      setStoredEmbeddingDimension(null);
+      addLog(`[Embedding] ${t('settings.ai.embedding.clearComplete', { count })}`);
+    } catch (error) {
+      console.error('Failed to clear embeddings:', error);
+    }
+  };
+
   const fetchTavilyUsage = async (apiKey: string) => {
     if (!apiKey) return;
     setIsFetchingTavilyUsage(true);
@@ -1251,6 +1317,134 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               <span>1K</span>
                               <span>32K</span>
                               <span>128K</span>
+                            </div>
+                          </div>
+                        </div>
+                      </section>
+
+                      {/* Embedding Model Settings */}
+                      <section className="space-y-4">
+                        <h4 className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>
+                          {t('settings.ai.embedding.title')}
+                        </h4>
+                        <div className={cn(
+                          "p-5 border rounded-2xl space-y-4",
+                          isDarkMode ? "bg-zinc-700/30 border-zinc-600/50" : "bg-zinc-50 border-zinc-200"
+                        )}>
+                          <p className={cn("text-xs", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>
+                            {t('settings.ai.embedding.subtitle')}
+                          </p>
+
+                          {/* Current Model Status */}
+                          <div className={cn(
+                            "p-3 rounded-xl flex items-center justify-between",
+                            isDarkMode ? "bg-zinc-800/50" : "bg-white/50"
+                          )}>
+                            <div className="flex items-center gap-2">
+                              <div className={cn(
+                                "w-2 h-2 rounded-full",
+                                embeddingProvider === 'dummy' ? "bg-amber-500" : "bg-emerald-500"
+                              )} />
+                              <span className={cn("text-sm font-medium", isDarkMode ? "text-zinc-200" : "text-zinc-800")}>
+                                {t('settings.ai.embedding.currentModel')}: 
+                              </span>
+                              <span className={cn("text-sm", isDarkMode ? "text-zinc-400" : "text-zinc-600")}>
+                                {embeddingProvider === 'dummy' 
+                                  ? t('settings.ai.embedding.usingDummy')
+                                  : embeddingProvider.replace('local:', '')}
+                              </span>
+                            </div>
+                            {storedEmbeddingDimension && (
+                              <span className={cn("text-xs", isDarkMode ? "text-zinc-500" : "text-zinc-400")}>
+                                {t('settings.ai.embedding.storedDimension')}: {storedEmbeddingDimension}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Model Selection */}
+                          <div className="space-y-2">
+                            <label htmlFor="embeddingModelSelect" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>
+                              {t('settings.ai.embedding.selectModel')}
+                            </label>
+                            <div className="flex gap-2">
+                              <select
+                                id="embeddingModelSelect"
+                                value={selectedEmbeddingModel}
+                                onChange={(e) => setSelectedEmbeddingModel(e.target.value)}
+                                className={cn(
+                                  "flex-1 border rounded-xl px-4 py-2.5 text-sm focus:ring-1 focus:ring-indigo-500/50 outline-none appearance-none",
+                                  isDarkMode ? "bg-zinc-700 border-zinc-600 text-zinc-200" : "bg-white border-zinc-300 text-zinc-900"
+                                )}
+                              >
+                                {availableEmbeddingModels.map(([id, name, dim]) => (
+                                  <option key={id} value={id}>{name} ({dim}D)</option>
+                                ))}
+                              </select>
+                              <button
+                                onClick={handleLoadEmbeddingModel}
+                                disabled={isEmbeddingLoading}
+                                className={cn(
+                                  "px-4 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-50",
+                                  isDarkMode ? "bg-indigo-600 hover:bg-indigo-500 text-white" : "bg-indigo-500 hover:bg-indigo-600 text-white"
+                                )}
+                              >
+                                {isEmbeddingLoading ? (
+                                  <>
+                                    <RefreshCw size={16} className="animate-spin" />
+                                    {t('settings.ai.embedding.loading')}
+                                  </>
+                                ) : (
+                                  t('settings.ai.embedding.loadModel')
+                                )}
+                              </button>
+                            </div>
+                            <p className={cn("text-[10px] flex items-center gap-1", isDarkMode ? "text-indigo-400" : "text-indigo-600")}>
+                              <span>💡</span> {t('settings.ai.embedding.downloadHint')}
+                            </p>
+                          </div>
+
+                          {/* Actions */}
+                          <div className={cn(
+                            "p-3 rounded-xl space-y-3",
+                            isDarkMode ? "bg-zinc-800/50" : "bg-white/50"
+                          )}>
+                            <h5 className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>
+                              {t('settings.ai.embedding.modelInfo')}
+                            </h5>
+                            
+                            <div className="flex gap-2">
+                              <button
+                                onClick={handleRecomputeEmbeddings}
+                                disabled={isRecomputing || embeddingProvider === 'dummy'}
+                                className={cn(
+                                  "flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all disabled:opacity-50",
+                                  isDarkMode
+                                    ? "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
+                                    : "bg-zinc-200 text-zinc-700 hover:bg-zinc-300"
+                                )}
+                                title={t('settings.ai.embedding.recomputeDesc')}
+                              >
+                                {isRecomputing ? (
+                                  <span className="flex items-center justify-center gap-2">
+                                    <RefreshCw size={14} className="animate-spin" />
+                                    {t('settings.ai.embedding.recomputing')}
+                                  </span>
+                                ) : (
+                                  t('settings.ai.embedding.recomputeEmbeddings')
+                                )}
+                              </button>
+                              <button
+                                onClick={handleClearEmbeddings}
+                                className={cn(
+                                  "py-2 px-3 rounded-lg text-sm font-medium transition-all",
+                                  isDarkMode
+                                    ? "bg-red-900/30 text-red-400 hover:bg-red-900/50"
+                                    : "bg-red-50 text-red-600 hover:bg-red-100"
+                                )}
+                                title={t('settings.ai.embedding.clearEmbeddingsDesc')}
+                              >
+                                {t('settings.ai.embedding.clearEmbeddings')}
+                              </button>
                             </div>
                           </div>
                         </div>

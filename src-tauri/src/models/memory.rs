@@ -102,11 +102,16 @@ pub struct MemoryItem {
     pub source_session_id: Option<String>,
     #[serde(rename = "createdAt")]
     pub created_at: i64,
+    #[serde(rename = "updatedAt")]
+    pub updated_at: i64,
     #[serde(rename = "lastAccessedAt")]
     pub last_accessed_at: i64,
     #[serde(rename = "accessCount")]
     pub access_count: i32,
     pub metadata: Option<TaskMetadata>,
+    pub version: i32,
+    #[serde(rename = "parentIds")]
+    pub parent_ids: Vec<String>,
 }
 
 impl MemoryItem {
@@ -125,9 +130,12 @@ impl MemoryItem {
             embedding: None,
             source_session_id: None,
             created_at: now,
+            updated_at: now,
             last_accessed_at: now,
             access_count: 0,
             metadata: None,
+            version: 1,
+            parent_ids: Vec::new(),
         }
     }
 
@@ -153,14 +161,7 @@ pub struct ExtractedItem {
     pub importance: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ExtractedTask {
-    pub content: String,
-    pub status: TaskStatus,
-    pub progress: Option<String>,
-    pub next_step: Option<String>,
-    pub importance: f32,
-}
+pub type ExtractedTask = ExtractedItem;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExtractedMemory {
@@ -200,6 +201,10 @@ pub struct RetrievalOptions {
     pub memory_types: Option<Vec<MemoryType>>,
     #[serde(rename = "minImportance")]
     pub min_importance: Option<f32>,
+    #[serde(rename = "minSimilarity")]
+    pub min_similarity: f32,
+    #[serde(rename = "onlyActive")]
+    pub only_active: bool,
     #[serde(rename = "sessionId")]
     pub session_id: Option<String>,
     #[serde(rename = "modelType")]
@@ -211,7 +216,9 @@ impl Default for RetrievalOptions {
         Self {
             top_k: 10,
             memory_types: None,
-            min_importance: None,
+            min_importance: Some(0.3),
+            min_similarity: 0.3,
+            only_active: true,
             session_id: None,
             model_type: None,
         }
@@ -373,4 +380,239 @@ pub struct ConversationMessage {
     pub content: String,
     #[serde(rename = "isToolCall")]
     pub is_tool_call: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum DedupStage {
+    Candidate,
+    Accept,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum ConflictType {
+    Preference,
+    Fact,
+    Status,
+}
+
+impl ConflictType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ConflictType::Preference => "preference",
+            ConflictType::Fact => "fact",
+            ConflictType::Status => "status",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "preference" => Some(ConflictType::Preference),
+            "fact" => Some(ConflictType::Fact),
+            "status" => Some(ConflictType::Status),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BoostTarget {
+    #[serde(rename = "memoryId")]
+    pub memory_id: String,
+    pub similarity: f32,
+    #[serde(rename = "boostAmount")]
+    pub boost_amount: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MergeTarget {
+    #[serde(rename = "memoryId")]
+    pub memory_id: String,
+    pub similarity: f32,
+    #[serde(rename = "memoryType")]
+    pub memory_type: MemoryType,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConflictTarget {
+    #[serde(rename = "memoryId")]
+    pub memory_id: String,
+    pub similarity: f32,
+    #[serde(rename = "conflictType")]
+    pub conflict_type: ConflictType,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimilarMemory {
+    pub memory: MemoryItem,
+    pub similarity: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DedupDecision {
+    #[serde(rename = "boostTargets")]
+    pub boost_targets: Vec<BoostTarget>,
+    #[serde(rename = "mergeTargets")]
+    pub merge_targets: Vec<MergeTarget>,
+    #[serde(rename = "conflictTargets")]
+    pub conflict_targets: Vec<ConflictTarget>,
+    #[serde(rename = "similarMemories")]
+    pub similar_memories: Vec<SimilarMemory>,
+    #[serde(rename = "maxSimilarity")]
+    pub max_similarity: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MultiSourceMergeRequest {
+    #[serde(rename = "existingMemories")]
+    pub existing_memories: Vec<MemoryItem>,
+    pub candidate: CandidateMemory,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MergeResult {
+    #[serde(rename = "mergedContent")]
+    pub merged_content: String,
+    #[serde(rename = "mergedImportance")]
+    pub merged_importance: f32,
+    #[serde(rename = "mergeReason")]
+    pub merge_reason: String,
+    #[serde(rename = "isFallback")]
+    pub is_fallback: bool,
+    #[serde(rename = "parentIds")]
+    pub parent_ids: Vec<String>,
+    pub merged: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConflictResolveRequest {
+    pub existing: MemoryItem,
+    pub candidate: CandidateMemory,
+    #[serde(rename = "conflictType")]
+    pub conflict_type: ConflictType,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConflictResolveResult {
+    #[serde(rename = "resolvedContent")]
+    pub resolved_content: String,
+    #[serde(rename = "resolvedImportance")]
+    pub resolved_importance: f32,
+    #[serde(rename = "resolveReason")]
+    pub resolve_reason: String,
+    #[serde(rename = "parentId")]
+    pub parent_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConvergenceConfig {
+    #[serde(rename = "maxMergeRounds")]
+    pub max_merge_rounds: usize,
+    #[serde(rename = "convergenceThreshold")]
+    pub convergence_threshold: f32,
+    #[serde(rename = "contentStabilityThreshold")]
+    pub content_stability_threshold: f32,
+}
+
+impl Default for ConvergenceConfig {
+    fn default() -> Self {
+        Self {
+            max_merge_rounds: 3,
+            convergence_threshold: 0.85,
+            content_stability_threshold: 0.95,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConflictDetectionConfig {
+    #[serde(rename = "minSimilarity")]
+    pub min_similarity: f32,
+    #[serde(rename = "maxCandidates")]
+    pub max_candidates: usize,
+}
+
+impl Default for ConflictDetectionConfig {
+    fn default() -> Self {
+        Self {
+            min_similarity: 0.80,
+            max_candidates: 3,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecencyConfig {
+    #[serde(rename = "halfLifeDays")]
+    pub half_life_days: f32,
+}
+
+impl Default for RecencyConfig {
+    fn default() -> Self {
+        Self {
+            half_life_days: 30.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeletionConfig {
+    #[serde(rename = "minImportance")]
+    pub min_importance: f32,
+    #[serde(rename = "maxInactiveDays")]
+    pub max_inactive_days: i64,
+}
+
+impl Default for DeletionConfig {
+    fn default() -> Self {
+        Self {
+            min_importance: 0.2,
+            max_inactive_days: 30,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BoostConfig {
+    #[serde(rename = "decayFactor")]
+    pub decay_factor: f32,
+    #[serde(rename = "boostAmount")]
+    pub boost_amount: f32,
+    #[serde(rename = "maxImportance")]
+    pub max_importance: f32,
+}
+
+impl Default for BoostConfig {
+    fn default() -> Self {
+        Self {
+            decay_factor: 0.95,
+            boost_amount: 0.1,
+            max_importance: 1.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PipelineResult {
+    #[serde(rename = "conflictsResolved")]
+    pub conflicts_resolved: Vec<ConflictResolveResult>,
+    pub merged: Option<MergeResult>,
+    pub boosted: Vec<MemoryItem>,
+    pub accepted: Option<MemoryItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeactivationResult {
+    #[serde(rename = "deactivatedCount")]
+    pub deactivated_count: usize,
+    #[serde(rename = "deactivatedIds")]
+    pub deactivated_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EvolutionResult {
+    pub decay: DecayResult,
+    pub deactivation: DeactivationResult,
+    pub prune: PruneResult,
 }

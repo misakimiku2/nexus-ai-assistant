@@ -1,5 +1,6 @@
 use crate::memory::storage::MemoryStorage;
-use crate::models::{MemoryItem, MemoryType, TaskStatus, DecayResult, PruneResult};
+use crate::memory::scoring::{calculate_recency_weight, should_deactivate, calculate_score};
+use crate::models::{MemoryItem, MemoryType, TaskStatus, DecayResult, PruneResult, RecencyConfig, DeletionConfig, DeactivationResult, EvolutionResult};
 
 pub struct MemoryLifecycle {
     storage: MemoryStorage,
@@ -160,6 +161,90 @@ impl MemoryEvolutionManager {
         let prune_result = self.prune().await?;
         log::info!("[MemoryEvolution] 演化周期完成");
         Ok((decay_result, prune_result))
+    }
+
+    pub async fn decay_with_recency(&self) -> Result<DecayResult, Box<dyn std::error::Error>> {
+        log::info!("[MemoryEvolution] 开始衰减（含时间维度）");
+        
+        let memories = self.storage.get_all_memories().await?;
+        let recency_config = RecencyConfig::default();
+        let now = chrono::Utc::now().timestamp();
+        
+        let processed = memories.len();
+        let mut updated = 0;
+        
+        for memory in memories {
+            if !memory.is_active {
+                continue;
+            }
+            
+            let recency_weight = calculate_recency_weight(memory.last_accessed_at, &recency_config);
+            let access_factor = 1.0 + (memory.access_count as f32 * 0.05);
+            
+            let new_score = memory.importance * recency_weight * access_factor;
+            let new_importance = memory.importance * 0.995;
+            
+            let mut updated_memory = memory.clone();
+            updated_memory.score = new_score;
+            updated_memory.importance = new_importance;
+            updated_memory.updated_at = now;
+            
+            self.storage.add_memory(updated_memory).await?;
+            updated += 1;
+        }
+        
+        log::info!("[MemoryEvolution] 衰减完成: 处理 {} 条, 更新 {} 条", processed, updated);
+        
+        Ok(DecayResult { processed, updated })
+    }
+
+    pub async fn deactivate_low_value_memories(&self) -> Result<DeactivationResult, Box<dyn std::error::Error>> {
+        log::info!("[MemoryEvolution] 开始逻辑删除低价值记忆");
+        
+        let config = DeletionConfig::default();
+        let memories = self.storage.get_all_memories().await?;
+        
+        let mut deactivated_count = 0;
+        let mut deactivated_ids: Vec<String> = Vec::new();
+        
+        for memory in memories {
+            if should_deactivate(&memory, &config) {
+                let mut deactivated_memory = memory.clone();
+                deactivated_memory.is_active = false;
+                deactivated_memory.updated_at = chrono::Utc::now().timestamp();
+                
+                self.storage.add_memory(deactivated_memory).await?;
+                deactivated_ids.push(memory.id.clone());
+                deactivated_count += 1;
+                log::info!("[MemoryEvolution] 逻辑删除低价值记忆: {} (importance={:.2}, days_inactive={})", 
+                    memory.id, memory.importance, 
+                    (chrono::Utc::now().timestamp() - memory.last_accessed_at) / (24 * 3600));
+            }
+        }
+        
+        log::info!("[MemoryEvolution] 逻辑删除完成: {} 条记忆", deactivated_count);
+        
+        Ok(DeactivationResult {
+            deactivated_count,
+            deactivated_ids,
+        })
+    }
+
+    pub async fn run_full_evolution(&self) -> Result<EvolutionResult, Box<dyn std::error::Error>> {
+        log::info!("[MemoryEvolution] 开始完整演化周期");
+        
+        let decay_result = self.decay_with_recency().await?;
+        let deactivation_result = self.deactivate_low_value_memories().await?;
+        let prune_result = self.prune().await?;
+        
+        log::info!("[MemoryEvolution] 演化周期完成: 衰减 {} 条, 逻辑删除 {} 条, 标记不活跃 {} 条", 
+            decay_result.updated, deactivation_result.deactivated_count, prune_result.marked_inactive);
+        
+        Ok(EvolutionResult {
+            decay: decay_result,
+            deactivation: deactivation_result,
+            prune: prune_result,
+        })
     }
 }
 
