@@ -73,20 +73,6 @@ interface SettingsViewProps {
   isOpen: boolean;
   onClose: () => void;
   isDarkMode: boolean;
-  lmStudioUrl: string;
-  setLmStudioUrl: (url: string) => void;
-  ollamaUrl: string;
-  setOllamaUrl: (url: string) => void;
-  modelName: string;
-  setModelName: (name: string) => void;
-  maxContextLength: number;
-  setMaxContextLength: (length: number) => void;
-  temperature: number;
-  setTemperature: (temp: number) => void;
-  systemPrompt: string;
-  setSystemPrompt: (prompt: string) => void;
-  modelProvider: ModelProvider;
-  setModelProvider: (provider: ModelProvider) => void;
   onReset: () => void;
 }
 
@@ -97,20 +83,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   isOpen,
   onClose,
   isDarkMode,
-  lmStudioUrl,
-  setLmStudioUrl,
-  ollamaUrl,
-  setOllamaUrl,
-  modelName,
-  setModelName,
-  maxContextLength,
-  setMaxContextLength,
-  temperature,
-  setTemperature,
-  systemPrompt,
-  setSystemPrompt,
-  modelProvider,
-  setModelProvider,
   onReset
 }) => {
   const { 
@@ -127,7 +99,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     tavilyApiKey, setTavilyApiKey,
     tavilyEnabled, setTavilyEnabled,
     tavilySearchDepth, setTavilySearchDepth,
-    tavilyIncludeAnswer, setTavilyIncludeAnswer
+    tavilyIncludeAnswer, setTavilyIncludeAnswer,
+    memoryModelConfig, setMemoryModelConfig,
+    lmStudioUrl, setLmStudioUrl,
+    ollamaUrl, setOllamaUrl,
+    modelName, setModelName,
+    modelTemperature, setModelTemperature,
+    maxContextLength, setMaxContextLength,
+    modelProvider, setModelProvider,
+    systemPrompt, setSystemPrompt
   } = useGlobalState();
   const { t } = useTranslation();
   const [activeCategory, setActiveCategory] = useState<SettingsCategory>('user-settings');
@@ -1447,6 +1427,148 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               </button>
                             </div>
                           </div>
+                        </div>
+                      </section>
+
+                      {/* Memory Extraction Model Settings */}
+                      <section className="space-y-4">
+                        <h4 className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>
+                          {t('settings.ai.memoryModel.title')}
+                        </h4>
+                        <div className={cn(
+                          "p-5 border rounded-2xl space-y-4",
+                          isDarkMode ? "bg-zinc-700/30 border-zinc-600/50" : "bg-zinc-50 border-zinc-200"
+                        )}>
+                          <p className={cn("text-xs", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>
+                            {t('settings.ai.memoryModel.subtitle')}
+                          </p>
+
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className={cn("text-sm font-medium", isDarkMode ? "text-zinc-200" : "text-zinc-800")}>
+                                {t('settings.ai.memoryModel.enabled')}
+                              </p>
+                              <p className={cn("text-xs", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>
+                                {t('settings.ai.memoryModel.enabledDesc')}
+                              </p>
+                            </div>
+                            <label htmlFor="memoryModelEnabled" className="relative inline-flex items-center cursor-pointer">
+                              <input 
+                                id="memoryModelEnabled"
+                                name="memoryModelEnabled"
+                                type="checkbox" 
+                                className="sr-only peer" 
+                                checked={memoryModelConfig.enabled}
+                                onChange={(e) => setMemoryModelConfig({ ...memoryModelConfig, enabled: e.target.checked })}
+                              />
+                              <div className={cn(
+                                "w-9 h-5 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500",
+                                isDarkMode ? "bg-zinc-600" : "bg-zinc-300"
+                              )}></div>
+                            </label>
+                          </div>
+
+                          {memoryModelConfig.enabled && (
+                            <>
+                              <div className="space-y-2">
+                                <label htmlFor="memoryModelProvider" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>
+                                  {t('settings.ai.memoryModel.provider')}
+                                </label>
+                                <select
+                                  id="memoryModelProvider"
+                                  value={memoryModelConfig.provider}
+                                  onChange={(e) => setMemoryModelConfig({ ...memoryModelConfig, provider: e.target.value as 'lm-studio' | 'ollama' })}
+                                  className={cn(
+                                    "w-full border rounded-xl px-4 py-2.5 text-sm focus:ring-1 focus:ring-indigo-500/50 outline-none appearance-none",
+                                    isDarkMode ? "bg-zinc-700 border-zinc-600 text-zinc-200" : "bg-white border-zinc-300 text-zinc-900"
+                                  )}
+                                >
+                                  <option value="lm-studio">LM Studio</option>
+                                  <option value="ollama">Ollama</option>
+                                </select>
+                              </div>
+
+                              <div className="space-y-2">
+                                <label htmlFor="memoryModelBaseUrl" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>
+                                  {t('settings.ai.memoryModel.baseUrl')}
+                                </label>
+                                <input
+                                  id="memoryModelBaseUrl"
+                                  type="text"
+                                  value={memoryModelConfig.baseUrl}
+                                  onChange={(e) => setMemoryModelConfig({ ...memoryModelConfig, baseUrl: e.target.value })}
+                                  placeholder="http://localhost:1234/v1"
+                                  className={cn(
+                                    "w-full border rounded-xl px-4 py-2.5 text-sm focus:ring-1 focus:ring-indigo-500/50 outline-none",
+                                    isDarkMode ? "bg-zinc-700 border-zinc-600 text-zinc-200" : "bg-white border-zinc-300 text-zinc-900"
+                                  )}
+                                />
+                                <p className={cn("text-[10px]", isDarkMode ? "text-zinc-500" : "text-zinc-400")}>
+                                  {t('settings.ai.memoryModel.baseUrlHint')}
+                                </p>
+                              </div>
+
+                              <div className="space-y-2">
+                                <label htmlFor="memoryModelName" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>
+                                  {t('settings.ai.memoryModel.modelName')}
+                                </label>
+                                <input
+                                  id="memoryModelName"
+                                  type="text"
+                                  value={memoryModelConfig.modelName}
+                                  onChange={(e) => setMemoryModelConfig({ ...memoryModelConfig, modelName: e.target.value })}
+                                  placeholder="qwen2.5-3b-instruct"
+                                  className={cn(
+                                    "w-full border rounded-xl px-4 py-2.5 text-sm focus:ring-1 focus:ring-indigo-500/50 outline-none",
+                                    isDarkMode ? "bg-zinc-700 border-zinc-600 text-zinc-200" : "bg-white border-zinc-300 text-zinc-900"
+                                  )}
+                                />
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <label htmlFor="memoryModelTemperature" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>
+                                    {t('settings.ai.memoryModel.temperature')}
+                                  </label>
+                                  <input
+                                    id="memoryModelTemperature"
+                                    type="number"
+                                    min="0"
+                                    max="1"
+                                    step="0.1"
+                                    value={memoryModelConfig.temperature}
+                                    onChange={(e) => setMemoryModelConfig({ ...memoryModelConfig, temperature: parseFloat(e.target.value) || 0.2 })}
+                                    className={cn(
+                                      "w-full border rounded-xl px-4 py-2.5 text-sm focus:ring-1 focus:ring-indigo-500/50 outline-none",
+                                      isDarkMode ? "bg-zinc-700 border-zinc-600 text-zinc-200" : "bg-white border-zinc-300 text-zinc-900"
+                                    )}
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <label htmlFor="memoryModelMaxTokens" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>
+                                    {t('settings.ai.memoryModel.maxTokens')}
+                                  </label>
+                                  <input
+                                    id="memoryModelMaxTokens"
+                                    type="number"
+                                    min="100"
+                                    max="4000"
+                                    step="100"
+                                    value={memoryModelConfig.maxTokens}
+                                    onChange={(e) => setMemoryModelConfig({ ...memoryModelConfig, maxTokens: parseInt(e.target.value) || 800 })}
+                                    className={cn(
+                                      "w-full border rounded-xl px-4 py-2.5 text-sm focus:ring-1 focus:ring-indigo-500/50 outline-none",
+                                      isDarkMode ? "bg-zinc-700 border-zinc-600 text-zinc-200" : "bg-white border-zinc-300 text-zinc-900"
+                                    )}
+                                  />
+                                </div>
+                              </div>
+
+                              <p className={cn("text-[10px] flex items-center gap-1", isDarkMode ? "text-indigo-400" : "text-indigo-600")}>
+                                <span>💡</span> {t('settings.ai.memoryModel.hint')}
+                              </p>
+                            </>
+                          )}
                         </div>
                       </section>
                     </motion.div>

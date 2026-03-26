@@ -151,8 +151,11 @@ export class DefaultAgentLayer {
       decay: 0.02,
       isActive: true,
       createdAt: now,
+      updatedAt: now,
       lastAccessedAt: now,
       accessCount: 0,
+      version: 1,
+      parentIds: [],
       metadata: {
         status: 'in_progress',
         progress: '',

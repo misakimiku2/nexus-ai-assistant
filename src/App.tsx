@@ -29,6 +29,7 @@ import { useTranslation } from './hooks/useTranslation';
 import { ConversationMessage, ReasoningStep, ToolCallRecord, AgentStatus } from './agent/types';
 import { DEFAULT_AGENT } from './data/agents';
 import { RetrievedMemory } from './types';
+import { memoryExtractionService, TauriMemoryClient } from './agent/memory';
 
 function AppContent() {
   const { setCurrentHits } = useMemoryUI();
@@ -53,7 +54,22 @@ function AppContent() {
     closeWindowAskEveryTime,
     setCloseWindowAskEveryTime,
     closeWindowAction,
-    setCloseWindowAction
+    setCloseWindowAction,
+    memoryModelConfig,
+    lmStudioUrl,
+    setLmStudioUrl,
+    ollamaUrl,
+    setOllamaUrl,
+    modelName,
+    setModelName,
+    modelTemperature,
+    setModelTemperature,
+    maxContextLength,
+    setMaxContextLength,
+    modelProvider,
+    setModelProvider,
+    systemPrompt,
+    setSystemPrompt,
   } = useGlobalState();
 
   const [isDarkMode, setIsDarkMode] = useState(() => 
@@ -99,15 +115,6 @@ function AppContent() {
     document.addEventListener('mouseup', handleMouseUp);
     document.body.style.cursor = 'col-resize';
   };
-
-  // Settings State
-  const [lmStudioUrl, setLmStudioUrl] = useState('http://localhost:1234/v1/chat/completions');
-  const [ollamaUrl, setOllamaUrl] = useState('http://localhost:11434/api/chat');
-  const [modelName, setModelName] = useState('local-model');
-  const [systemPrompt, setSystemPrompt] = useState(t?.systemPrompts?.defaultAssistant || '你是一个专业、简洁的 AI 助手。');
-  const [temperature, setTemperature] = useState(0.7);
-  const [maxContextLength, setMaxContextLength] = useState(4096);
-  const [modelProvider, setModelProvider] = useState<ModelProvider>('lm-studio');
 
   // MCP State
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
@@ -217,8 +224,8 @@ function AppContent() {
     useMemo(() => ({
       apiUrl: lmStudioUrl,
       modelId: modelName,
-      temperature: temperature,
-    }), [lmStudioUrl, modelName, temperature]),
+      temperature: modelTemperature,
+    }), [lmStudioUrl, modelName, modelTemperature]),
     useMemo(() => ({
       onWebSearchResult: handleWebSearchResult,
       onExecutionUpdate: handleExecutionUpdate,
@@ -251,6 +258,22 @@ function AppContent() {
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
+
+  useEffect(() => {
+    memoryExtractionService.setMemoryModelConfig(memoryModelConfig);
+    
+    memoryExtractionService.setMemoryStoreConfig({
+      generateEmbedding: (content: string) => TauriMemoryClient.generateEmbedding(content),
+      searchSimilarMemories: (embedding: number[], topK: number) => 
+        TauriMemoryClient.searchSimilarMemories(embedding, topK),
+      addMemory: (memory: any) => TauriMemoryClient.addMemory(memory),
+      updateMemory: (id: string, updates: any) => TauriMemoryClient.updateMemory(id, updates),
+      boostMemory: (id: string, amount: number) => TauriMemoryClient.boostMemory(id, amount),
+      getMemoryStats: () => TauriMemoryClient.getMemoryStats(),
+    });
+    
+    console.log('[App] Memory extraction service initialized with config:', memoryModelConfig);
+  }, [memoryModelConfig]);
 
   useEffect(() => {
     let unlisten: (() => void) | null = null;
@@ -630,7 +653,7 @@ function AppContent() {
                 { role: 'system', content: chunkSystemPrompt },
                 ...apiMessages
               ],
-              temperature: temperature,
+              temperature: modelTemperature,
               stream: true
             })
           });
@@ -803,7 +826,7 @@ function AppContent() {
       }
       // -----------------------------------
 
-      addLog(t.logs.aiRequesting.replace('{model}', currentModelName).replace('{temp}', String(temperature)), 'info');
+      addLog(t.logs.aiRequesting.replace('{model}', currentModelName).replace('{temp}', String(modelTemperature)), 'info');
       setIsWaitingForResponse(true);
       setScrollResetKey(k => k + 1);
       const response = await fetch(currentApiUrl, {
@@ -816,7 +839,7 @@ function AppContent() {
             { role: 'system', content: systemPromptToUse },
             ...apiMessages
           ],
-          temperature: temperature,
+          temperature: modelTemperature,
           stream: true
         })
       });
@@ -1028,7 +1051,8 @@ function AppContent() {
     if (agentExecution.isAgentMode && agentExecution.currentAgent) {
       await handleAgentExecution(currentMsgs, originalInput);
     } else {
-      await requestAI(currentMsgs, systemPrompt, originalInput);
+      const promptToUse = systemPrompt || t.systemPrompts.defaultAssistant;
+      await requestAI(currentMsgs, promptToUse, originalInput);
     }
   };
 
@@ -1118,7 +1142,8 @@ function AppContent() {
       const updatedUserMessage = { ...msg, content: newContent };
       let currentMsgs = [...messages.slice(0, msgIndex), updatedUserMessage];
       
-      await requestAI(currentMsgs, systemPrompt, newContent);
+      const promptToUse = systemPrompt || t.systemPrompts.defaultAssistant;
+      await requestAI(currentMsgs, promptToUse, newContent);
     } else {
       setMessages(prev => prev.map(m => m.id === messageId ? { ...m, content: newContent } : m));
       addLog(t.logs.aiReplyEdited, 'info');
@@ -1135,7 +1160,8 @@ function AppContent() {
     if (!lastUserMsg) return;
 
     addLog(t.logs.regenerating, 'info');
-    await requestAI(historyBefore, systemPrompt, lastUserMsg.content, messageId);
+    const promptToUse = systemPrompt || t.systemPrompts.defaultAssistant;
+    await requestAI(historyBefore, promptToUse, lastUserMsg.content, messageId);
   };
 
   const handleSwitchVersion = (messageId: string, index: number) => {
@@ -1366,26 +1392,12 @@ function AppContent() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         isDarkMode={isDarkMode}
-        lmStudioUrl={lmStudioUrl}
-        setLmStudioUrl={setLmStudioUrl}
-        ollamaUrl={ollamaUrl}
-        setOllamaUrl={setOllamaUrl}
-        modelName={modelName}
-        setModelName={setModelName}
-        maxContextLength={maxContextLength}
-        setMaxContextLength={setMaxContextLength}
-        temperature={temperature}
-        setTemperature={setTemperature}
-        systemPrompt={systemPrompt}
-        setSystemPrompt={setSystemPrompt}
-        modelProvider={modelProvider}
-        setModelProvider={setModelProvider}
         onReset={() => {
           setLmStudioUrl('http://localhost:1234/v1/chat/completions');
           setOllamaUrl('http://localhost:11434/api/chat');
-          setModelName('local-model');
+          setModelName('');
           setSystemPrompt(t.systemPrompts.defaultAssistant);
-          setTemperature(0.7);
+          setModelTemperature(0.7);
           setMaxContextLength(4096);
           setModelProvider('lm-studio');
         }}
@@ -1395,10 +1407,6 @@ function AppContent() {
         isOpen={isToolPanelOpen}
         onClose={() => setIsToolPanelOpen(false)}
         isDarkMode={isDarkMode}
-        temperature={temperature}
-        setTemperature={setTemperature}
-        systemPrompt={systemPrompt}
-        setSystemPrompt={setSystemPrompt}
       />
 
       <AddMcpModal 

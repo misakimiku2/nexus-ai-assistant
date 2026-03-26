@@ -107,6 +107,19 @@
         "loadModelFailed": "Failed to load model: {{error}}",
         "firstTimeDownload": "Model files will be downloaded automatically on first use",
         "downloadHint": "Model files are about 90MB, will load automatically after download"
+      },
+      "memoryModel": {
+        "title": "Memory Extraction Model",
+        "subtitle": "Dedicated model for memory extraction, lightweight local model recommended",
+        "enabled": "Enable Dedicated Model",
+        "enabledDesc": "Use dedicated model for memory extraction, separate from chat model",
+        "provider": "Model Provider",
+        "baseUrl": "Base URL",
+        "baseUrlHint": "Without /chat/completions, e.g., http://localhost:1234/v1",
+        "modelName": "Model Name",
+        "temperature": "Temperature",
+        "maxTokens": "Max Output Tokens",
+        "hint": "Recommended: 3B-7B parameter instruct model with temperature 0.2 for stable output"
       }
     },
     "rag": {

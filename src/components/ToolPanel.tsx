@@ -139,10 +139,6 @@ interface ToolPanelProps {
   isOpen: boolean;
   onClose: () => void;
   isDarkMode: boolean;
-  temperature: number;
-  setTemperature: (temp: number) => void;
-  systemPrompt: string;
-  setSystemPrompt: (prompt: string) => void;
 }
 
 type TabType = 'status' | 'params' | 'monitor';
@@ -150,11 +146,7 @@ type TabType = 'status' | 'params' | 'monitor';
 export const ToolPanel: React.FC<ToolPanelProps> = ({
   isOpen,
   onClose,
-  isDarkMode,
-  temperature,
-  setTemperature,
-  systemPrompt,
-  setSystemPrompt
+  isDarkMode
 }) => {
   const { 
     logs, 
@@ -171,7 +163,11 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
     searchGroups,
     setSearchGroups,
     deleteSearchGroup,
-    currentSessionId
+    currentSessionId,
+    modelTemperature,
+    setModelTemperature,
+    systemPrompt,
+    setSystemPrompt
   } = useGlobalState();
 
   // Filter search groups by current session
@@ -577,15 +573,15 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
                       <SlidersHorizontal size={14} />
                       Temperature
                     </label>
-                    <span className="text-xs font-mono text-indigo-500 font-bold">{temperature}</span>
+                    <span className="text-xs font-mono text-indigo-500 font-bold">{modelTemperature}</span>
                   </div>
                   <input 
                     type="range" 
                     min="0" 
                     max="2" 
                     step="0.1"
-                    value={temperature}
-                    onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                    value={modelTemperature}
+                    onChange={(e) => setModelTemperature(parseFloat(e.target.value))}
                     className="w-full h-1.5 bg-zinc-500/20 rounded-lg appearance-none cursor-pointer accent-indigo-500"
                   />
                   <div className="flex justify-between text-[9px] opacity-30 font-mono">

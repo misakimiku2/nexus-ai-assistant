@@ -107,6 +107,19 @@
         "loadModelFailed": "模型加载失败: {{error}}",
         "firstTimeDownload": "首次使用将自动下载模型文件",
         "downloadHint": "模型文件约 90MB，下载完成后将自动加载"
+      },
+      "memoryModel": {
+        "title": "Memory Extraction Model",
+        "subtitle": "用于记忆提取的专用模型，建议使用轻量级本地模型",
+        "enabled": "启用独立模型",
+        "enabledDesc": "使用专用模型进行记忆提取，与对话模型分离",
+        "provider": "模型提供商",
+        "baseUrl": "Base URL",
+        "baseUrlHint": "不包含 /chat/completions，例如 http://localhost:1234/v1",
+        "modelName": "模型名称",
+        "temperature": "Temperature",
+        "maxTokens": "最大输出 Tokens",
+        "hint": "建议使用 3B-7B 参数量的指令模型，temperature 设为 0.2 以获得稳定输出"
       }
     },
     "rag": {

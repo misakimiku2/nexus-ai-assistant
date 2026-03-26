@@ -90,20 +90,29 @@ export function useAgentExecution(
   const callbacksRef = useRef(callbacks);
   callbacksRef.current = callbacks;
 
-  const notifyExecutionUpdate = useCallback(() => {
+  const reasoningStepsRef = useRef<ReasoningStep[]>([]);
+  const toolCallsRef = useRef<ToolCallRecord[]>([]);
+  const iterationCountRef = useRef<number>(0);
+  const statusRef = useRef<AgentStatus>('idle');
+
+  const notifyExecutionUpdateRef = useCallback(() => {
     if (callbacksRef.current?.onExecutionUpdate) {
       callbacksRef.current.onExecutionUpdate({
-        reasoningSteps,
-        toolCalls,
-        iterationCount,
-        status,
+        reasoningSteps: reasoningStepsRef.current,
+        toolCalls: toolCallsRef.current,
+        iterationCount: iterationCountRef.current,
+        status: statusRef.current,
       });
     }
-  }, [reasoningSteps, toolCalls, iterationCount, status]);
+  }, []);
 
   useEffect(() => {
-    notifyExecutionUpdate();
-  }, [reasoningSteps, toolCalls, iterationCount, status, notifyExecutionUpdate]);
+    reasoningStepsRef.current = reasoningSteps;
+    toolCallsRef.current = toolCalls;
+    iterationCountRef.current = iterationCount;
+    statusRef.current = status;
+    notifyExecutionUpdateRef();
+  }, [reasoningSteps, toolCalls, iterationCount, status, notifyExecutionUpdateRef]);
 
   const initializeRuntime = useCallback((agent: Agent) => {
     const runtime = initializeDefaultRuntime(agent, {
@@ -126,9 +135,13 @@ export function useAgentExecution(
         setReasoningSteps((prev) => [...prev, step as ReasoningStep]);
       },
       onReasoningStepUpdate: (step) => {
-        setReasoningSteps((prev) =>
-          prev.map(s => s.id === step.id ? step as ReasoningStep : s)
-        );
+        setReasoningSteps((prev) => {
+          const existing = prev.find(s => s.id === step.id);
+          if (existing && existing.content === step.content && existing.isStreaming === step.isStreaming) {
+            return prev;
+          }
+          return prev.map(s => s.id === step.id ? step as ReasoningStep : s);
+        });
       },
       onRequestAuth: async (toolCall) => {
         return new Promise((resolve) => {

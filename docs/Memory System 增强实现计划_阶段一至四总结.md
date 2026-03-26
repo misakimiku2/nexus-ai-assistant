@@ -1129,3 +1129,162 @@ console.log('演化结果:', evolutionResult);
 3. **UI 集成**：在前端展示去重决策和合并结果
 4. **用户反馈**：允许用户修改 LLM 的合并结果
 5. **性能优化**：缓存 LLM 调用结果，避免重复请求
+
+---
+
+## ⚠️ 重要发现：阶段四未完全集成
+
+### 问题描述
+
+阶段四的向量相似度去重代码已完整实现，但**未集成到前端流程**。
+
+### 当前状态
+
+| 组件 | 状态 | 说明 |
+|------|------|------|
+| Rust 后端模块 | ✅ 完成 | `deduplication.rs`、`conflict.rs`、`merge.rs` 等 6 个模块 |
+| Rust Commands | ✅ 完成 | `dedup_candidate`、`dedup_accept`、`execute_dedup_pipeline` |
+| 前端类型定义 | ✅ 完成 | `src/types.ts` 已添加所有阶段四类型 |
+| 前端 API 方法 | ✅ 完成 | `TauriMemoryClient` 已添加 API 方法 |
+| **前端集成** | ❌ 未完成 | `accept_all_candidates` 仍使用 `check_duplicate_simple` |
+
+### 具体问题
+
+当前前端 `accept_all_candidates` 调用后端时，后端使用的是**简单字符串匹配**：
+
+```rust
+// src-tauri/src/commands/memory.rs - accept_all_candidates
+// 当前实现使用 check_duplicate_simple（字符串匹配）
+// 未调用 deduplication.rs 的向量相似度去重
+```
+
+### 需要的修复
+
+1. 修改 `accept_all_candidates` 或创建新的批量接受方法
+2. 调用 `dedup_candidate` → `dedup_accept` → `execute_dedup_pipeline` 流程
+3. 或在候选记忆 UI 中提供"智能去重"按钮，单独调用去重 Pipeline
+
+---
+
+## LLM 稳定性修复记录（2026-03-25）
+
+### 问题描述
+
+记忆提取时 LLM 输出不稳定，导致 JSON 解析失败：
+
+```
+finish_reason: "length"
+response: "" (空)
+```
+
+### 根本原因
+
+1. **max_tokens 不足**：模型输出推理过程，超过 2000 tokens 被截断
+2. **temperature 过高**：模型倾向于输出"思考过程"
+3. **Prompt 不够严格**：模型可能输出解释性文字
+
+### 解决方案
+
+#### 1. 增加 max_tokens
+
+```typescript
+// src/agent/memory/MemoryExtractionService.ts
+max_tokens: 5000  // 从 2000 增加到 5000
+```
+
+#### 2. 降低 temperature
+
+```typescript
+temperature: 0.0  // 从默认值降低到 0.0
+```
+
+#### 3. 重写 System Prompt（严格 JSON-only）
+
+```typescript
+const systemPrompt = `# 核心指令
+[STRICT] 你是一个高效的数据提取函数，严禁进行任何推理、自检、解释或草拟过程。
+[FORMAT] 你的输出必须以 "{" 开头，以 "}" 结尾。
+[WARNING] 任何 JSON 以外的文字都会导致程序崩溃。跳过思考过程，直接生成 JSON。
+
+# 任务
+从对话中提取用户的认知记忆...
+
+# 输出格式
+{
+  "extractedMemories": [...],
+  "extractedTasks": [...]
+}`;
+```
+
+#### 4. 添加 JSON 提取 Fallback
+
+```typescript
+// src/agent/memory/MemoryExtractionService.ts
+function extract_json_string(text: string): string | null {
+  // 尝试提取 JSON 对象
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    return jsonMatch[0];
+  }
+  return null;
+}
+```
+
+### 验证结果
+
+```
+finish_reason: "stop"
+response: {"extractedMemories":[...],"extractedTasks":[...]}
+```
+
+### Schema 简化
+
+为减少 LLM 输出复杂度，简化了 `ExtractedTask` 结构：
+
+```typescript
+// 之前（复杂）
+interface ExtractedTask {
+  content: string;
+  status: 'pending' | 'in_progress';
+  progress?: string;
+  nextStep?: string;
+  importance: number;
+}
+
+// 之后（简化）
+interface ExtractedItem {
+  content: string;
+  importance: number;
+}
+type ExtractedTask = ExtractedItem;
+```
+
+---
+
+## 下一步行动
+
+### 优先级 1：集成阶段四去重
+
+修改前端 `accept_all_candidates` 流程，使用向量相似度去重：
+
+```typescript
+// 建议的实现方式
+async function acceptAllCandidatesWithDedup() {
+  for (const candidate of candidates) {
+    // 1. Candidate 阶段：获取相似记忆
+    const similarMemories = await dedupCandidate(candidate.id);
+    
+    // 2. Accept 阶段：获取决策
+    const decision = await dedupAccept(candidate.id);
+    
+    // 3. 执行 Pipeline
+    const result = await executeDedupPipeline(candidate.id, decision);
+  }
+}
+```
+
+### 优先级 2：UI 改进
+
+- 在候选记忆列表中显示相似记忆
+- 提供合并/冲突预览
+- 允许用户手动选择合并策略

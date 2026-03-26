@@ -14,17 +14,48 @@ pub const COGNITIVE_MEMORY_EXTRACTION_PROMPT: &str = r#"
 4. 不要逐步推理
 5. 输出必须以 { 开始，以 } 结束
 
+【提取原则】
+只提取"最重要、最稳定、可复用"的信息。
+
+【忽略内容】
+- 临时讨论内容
+- 重复表达
+- 细节举例
+- 枚举类信息（如一堆角色名、物品列表）
+
+【优先提取】
+- 用户长期偏好
+- 稳定事实
+- 关键能力/约束
+
+【数量限制】
+- identity: ≤2 条
+- facts: ≤3 条
+- preferences: ≤3 条
+- tasks: ≤2 条
+- constraints: ≤2 条
+- skills: ≤2 条
+- 总计 ≤8 条
+
+【强制要求】
+如果提取结果超过 8 条，请只保留最重要的 8 条，其余丢弃。
+
+【合并规则】
+禁止拆分细粒度事实，应合并为一条：
+错误："今汐有叠层机制"、"守岸人能回血"、"维里奈能闪避"
+正确："游戏包含多种角色机制（叠层爆发、护盾、闪避等）"
+
 【输入对话】
 {conversation}
 
 【输出格式】直接输出以下 JSON 结构：
 {
-  "identity": [{"content": "...", "importance": 0.0-1.0}],
-  "facts": [{"content": "...", "importance": 0.0-1.0}],
-  "preferences": [{"content": "...", "importance": 0.0-1.0}],
-  "tasks": [{"content": "...", "status": "pending|in_progress|done", "importance": 0.0-1.0}],
-  "constraints": [{"content": "...", "importance": 0.0-1.0}],
-  "skills": [{"content": "...", "importance": 0.0-1.0}]
+  "identity": [{"content": "...", "importance": 0.7-1.0}],
+  "facts": [{"content": "...", "importance": 0.7-1.0}],
+  "preferences": [{"content": "...", "importance": 0.7-1.0}],
+  "tasks": [{"content": "...", "status": "pending|in_progress|done", "importance": 0.7-1.0}],
+  "constraints": [{"content": "...", "importance": 0.7-1.0}],
+  "skills": [{"content": "...", "importance": 0.7-1.0}]
 }
 
 【类别定义】
@@ -36,7 +67,8 @@ pub const COGNITIVE_MEMORY_EXTRACTION_PROMPT: &str = r#"
 - skills: 具备的能力
 
 【评分规则】
-- importance: 0.0-1.0，越高越重要
+- importance: 0.7-1.0，越高越重要（最低 0.7）
+- content: 最少 10 个字符
 - 空类别返回 []
 
 现在输出 JSON：

@@ -4,7 +4,7 @@
 
 本文档记录了认知记忆系统（Cognitive Memory System）的实现细节，该系统为 AI 助手提供长期记忆能力，支持6类认知记忆类型的存储、检索和生命周期管理。
 
-**最新更新**：2026-03-25 阶段三：Retrieval 稳定性
+**最新更新**：2026-03-25 阶段四：向量相似度去重与记忆合并（后端完成，前端未集成）
 
 ## 实现日期
 
@@ -14,6 +14,8 @@
 - 2026-03-23：阶段一 - 记忆提取集成（候选记忆机制）
 - 2026-03-24：阶段二 - Embedding 模型集成（本地模型推理）
 - 2026-03-25：阶段三 - Retrieval 稳定性（min_similarity、only_active 过滤）
+- 2026-03-25：阶段四 - 向量相似度去重与记忆合并（后端完成，前端未集成）
+- 2026-03-25：LLM 稳定性修复（JSON 输出问题）
 
 ## 文件存储位置
 
@@ -468,8 +470,8 @@ thiserror = "1"
 
 1. ~~集成真实 embedding 模型（如 all-MiniLM-L6-v2）~~ ✅ 已完成（阶段二）
 2. ~~实现自动记忆提取流程~~ ✅ 已完成（阶段一）
-3. 添加全文搜索支持（FTS5）
-4. 实现记忆去重和合并（阶段四 - 向量相似度去重）
+3. ~~实现记忆去重和合并（阶段四 - 向量相似度去重）~~ ✅ 后端完成，前端待集成
+4. 添加全文搜索支持（FTS5）
 5. 添加记忆导入/导出功能
 6. 定期后台演化（而非仅启动时）
 7. 阈值可配置（在设置中提供 `min_similarity` 调整选项）
@@ -1003,3 +1005,261 @@ if options.only_active {
 ### 详细文档
 
 参见 [PHASE3_RETRIEVAL_STABILITY.md](./PHASE3_RETRIEVAL_STABILITY.md)
+
+## 阶段四：向量相似度去重与记忆合并（2026-03-25）
+
+### 核心目标
+
+实现**分层向量相似度去重**与**LLM 驱动的记忆合并**，解决阶段一简单去重无法识别语义相似但表述不同的问题。
+
+### ⚠️ 重要状态：后端完成，前端未集成
+
+| 组件 | 状态 | 说明 |
+|------|------|------|
+| Rust 后端模块 | ✅ 完成 | 6 个新模块已实现 |
+| Rust Commands | ✅ 完成 | 4 个新 Commands 已注册 |
+| 前端类型定义 | ✅ 完成 | `src/types.ts` 已更新 |
+| 前端 API 方法 | ✅ 完成 | `TauriMemoryClient` 已添加 |
+| **前端集成** | ❌ 未完成 | `accept_all_candidates` 仍使用简单字符串匹配 |
+
+### 架构设计
+
+```
+候选记忆 → 分层去重 Pipeline
+              │
+              ├── Candidate 阶段（只标记）
+              │   └── 检索相似记忆，记录 maxSimilarity
+              │
+              └── Accept 阶段（执行决策）
+                  │
+                  ├── similarity >= 0.85 → Boost（权重提升）
+                  │
+                  ├── 0.75 <= similarity < 0.85
+                  │   │
+                  │   ├── 冲突检测（LLM）
+                  │   │   ├── 有冲突 → 冲突解决 → 更新记忆
+                  │   │   └── 无冲突 → 多源合并
+                  │   │
+                  │   └── 多源合并（LLM）
+                  │       ├── 收敛检查
+                  │       └── 创建合并记忆（parent_ids 追踪）
+                  │
+                  └── similarity < 0.75 → 直接接受
+```
+
+### 新增 Rust 模块
+
+| 文件路径 | 功能描述 |
+|---------|---------|
+| `src-tauri/src/memory/scoring.rs` | 时间维度计算（recency_weight、score、should_deactivate） |
+| `src-tauri/src/memory/llm_client.rs` | LLM API 客户端（OpenAI 兼容） |
+| `src-tauri/src/memory/conflict.rs` | 冲突检测与解决服务（LLM 驱动） |
+| `src-tauri/src/memory/merge.rs` | 多源合并服务（LLM 驱动、收敛检查） |
+| `src-tauri/src/memory/working_set.rs` | Working Set（内存态批量操作） |
+| `src-tauri/src/memory/deduplication.rs` | 分层去重服务（Candidate/Accept 阶段） |
+
+### 新增 Tauri Commands
+
+| Command | 功能 |
+|---------|------|
+| `dedup_candidate` | Candidate 阶段去重（只标记，返回相似记忆列表） |
+| `dedup_accept` | Accept 阶段去重（执行 boost/merge/conflict 分类） |
+| `execute_dedup_pipeline` | 执行完整的去重 Pipeline |
+| `run_memory_evolution` | 运行完整记忆演化周期（衰减 + 逻辑删除 + 淘汰） |
+
+### 分层去重阈值
+
+```rust
+pub struct DeduplicationConfig {
+    pub candidate_min_similarity: f32,    // 0.80 - Candidate 阶段最小相似度
+    pub accept_exact_threshold: f32,      // 0.85 - 精确匹配阈值（boost）
+    pub accept_partial_threshold: f32,    // 0.75 - 部分匹配阈值（merge）
+    pub boost_amount: f32,                // 0.10 - 权重提升量
+    pub retrieval_top_k: usize,           // 10 - 检索候选数量
+}
+```
+
+### 冲突类型
+
+```rust
+pub enum ConflictType {
+    Preference,  // 偏好冲突：用户对同一事物的偏好发生变化
+    Fact,        // 事实冲突：关于同一事实的矛盾陈述
+    Status,      // 状态冲突：任务或状态的变化
+}
+```
+
+### Working Set（内存态操作）
+
+```rust
+pub struct WorkingSet {
+    pub memories: HashMap<String, WorkingMemory>,  // ID → WorkingMemory
+    embedding: EmbeddingService,
+    boost_config: BoostConfig,
+}
+
+impl WorkingSet {
+    // 从存储加载指定 ID 的记忆
+    pub async fn load_from_storage(&mut self, storage: &MemoryStorage, memory_ids: &[String]);
+    
+    // 解决冲突（LLM 驱动）
+    pub async fn resolve_conflicts(&mut self, candidate: &CandidateMemory, conflict_targets: &[ConflictTarget]);
+    
+    // 提升权重（递减收益）
+    pub fn boost_memories(&mut self, targets: &[BoostTarget]) -> Vec<MemoryItem>;
+    
+    // 提交到存储（原子操作）
+    pub async fn commit_to_storage(&self, storage: &MemoryStorage) -> Result<CommitResult>;
+}
+```
+
+### 记忆版本追踪
+
+```rust
+pub struct MemoryItem {
+    // ... 其他字段
+    pub version: i32,           // 版本号，每次修改 +1
+    pub parent_ids: Vec<String>, // 父记忆 ID（合并时记录来源）
+    pub updated_at: i64,        // 最后更新时间
+}
+```
+
+### 数据库 Schema 升级
+
+```sql
+-- 自动添加的字段
+ALTER TABLE memory_items ADD COLUMN version INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE memory_items ADD COLUMN parent_ids TEXT DEFAULT '[]';
+```
+
+### LLM 配置
+
+```bash
+OPENAI_API_KEY=your_api_key
+OPENAI_BASE_URL=https://api.openai.com/v1  # 可选
+OPENAI_MODEL=gpt-4o-mini                     # 可选
+```
+
+### 当前问题
+
+`accept_all_candidates` 命令仍使用 `check_duplicate_simple`（字符串匹配），未调用向量相似度去重 Pipeline。
+
+**需要的修复**：
+
+1. 修改 `accept_all_candidates` 或创建新的批量接受方法
+2. 调用 `dedup_candidate` → `dedup_accept` → `execute_dedup_pipeline` 流程
+3. 或在候选记忆 UI 中提供"智能去重"按钮
+
+---
+
+## LLM 稳定性修复（2026-03-25）
+
+### 问题描述
+
+记忆提取时 LLM 输出不稳定，导致 JSON 解析失败：
+
+```
+finish_reason: "length"
+response: "" (空)
+```
+
+### 根本原因
+
+1. **max_tokens 不足**：模型输出推理过程，超过 2000 tokens 被截断
+2. **temperature 过高**：模型倾向于输出"思考过程"
+3. **Prompt 不够严格**：模型可能输出解释性文字
+
+### 解决方案
+
+#### 1. 增加 max_tokens
+
+```typescript
+// src/agent/memory/MemoryExtractionService.ts
+max_tokens: 5000  // 从 2000 增加到 5000
+```
+
+#### 2. 降低 temperature
+
+```typescript
+temperature: 0.0  // 从默认值降低到 0.0
+```
+
+#### 3. 重写 System Prompt（严格 JSON-only）
+
+```typescript
+const systemPrompt = `# 核心指令
+[STRICT] 你是一个高效的数据提取函数，严禁进行任何推理、自检、解释或草拟过程。
+[FORMAT] 你的输出必须以 "{" 开头，以 "}" 结尾。
+[WARNING] 任何 JSON 以外的文字都会导致程序崩溃。跳过思考过程，直接生成 JSON。
+
+# 任务
+从对话中提取用户的认知记忆...`;
+```
+
+#### 4. 添加 JSON 提取 Fallback
+
+```typescript
+function extract_json_string(text: string): string | null {
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  return jsonMatch ? jsonMatch[0] : null;
+}
+```
+
+### Schema 简化
+
+```typescript
+// 简化前
+interface ExtractedTask {
+  content: string;
+  status: 'pending' | 'in_progress';
+  progress?: string;
+  nextStep?: string;
+  importance: number;
+}
+
+// 简化后
+interface ExtractedItem {
+  content: string;
+  importance: number;
+}
+type ExtractedTask = ExtractedItem;
+```
+
+### 验证结果
+
+```
+finish_reason: "stop"
+response: {"extractedMemories":[...],"extractedTasks":[...]}
+```
+
+---
+
+## 下一步行动
+
+### 优先级 1：集成阶段四去重
+
+修改前端 `accept_all_candidates` 流程，使用向量相似度去重：
+
+```typescript
+async function acceptAllCandidatesWithDedup() {
+  for (const candidate of candidates) {
+    const similarMemories = await dedupCandidate(candidate.id);
+    const decision = await dedupAccept(candidate.id);
+    const result = await executeDedupPipeline(candidate.id, decision);
+  }
+}
+```
+
+### 优先级 2：UI 改进
+
+- 在候选记忆列表中显示相似记忆
+- 提供合并/冲突预览
+- 允许用户手动选择合并策略
+
+### 优先级 3：后续优化
+
+1. 添加全文搜索支持（FTS5）
+2. 添加记忆导入/导出功能
+3. 定期后台演化（而非仅启动时）
+4. 阈值可配置（在设置中提供 `min_similarity` 调整选项）
+5. 检索缓存（避免重复计算相同查询的向量）

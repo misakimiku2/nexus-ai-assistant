@@ -3,3 +3,8 @@ export { TauriMemoryClient, TauriSessionClient } from './TauriMemoryClient';
 export { sessionMemoryRegistry, SessionMemoryManager } from './SessionMemory';
 export { DefaultAgentLayer, defaultAgentLayer } from './DefaultAgentLayer';
 export { memoryExtractionService } from './MemoryExtractionService';
+export { PreFilterService, preFilterService } from './PreFilterService';
+export { MemoryModelClient, memoryModelClient, MultiPassParser, SafeExtractor, type ParsedMemory } from './MemoryModelClient';
+export { SimilarityEngine, similarityEngine, type SimilaritySearchResult, type MergeResult } from './SimilarityEngine';
+export { MemoryScoreCalculator, memoryScoreCalculator } from './MemoryScoreCalculator';
+export { MemoryStore, memoryStore, type StoreResult } from './MemoryStore';

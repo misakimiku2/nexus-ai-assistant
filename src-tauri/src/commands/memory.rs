@@ -489,3 +489,79 @@ pub async fn run_memory_evolution(
     let evolution = state.evolution.lock().await;
     evolution.run_full_evolution().await.map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub async fn generate_embedding(
+    content: String,
+    state: State<'_, MemoryState>,
+) -> Result<Vec<f32>, String> {
+    let embedding = state.embedding.lock().await;
+    embedding.embed(&content).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn search_similar_memories(
+    embedding: Vec<f32>,
+    top_k: usize,
+    state: State<'_, MemoryState>,
+) -> Result<Vec<RetrievedMemory>, String> {
+    let storage = state.storage.lock().await;
+    
+    let memories = storage.get_all_memories().await.map_err(|e| e.to_string())?;
+    
+    let mut scored: Vec<(f32, MemoryItem)> = memories
+        .into_iter()
+        .filter_map(|item| {
+            let item_embedding = item.embedding.as_ref()?;
+            let similarity = crate::memory::cosine_similarity(&embedding, item_embedding);
+            Some((similarity, item))
+        })
+        .collect();
+    
+    scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+    scored.truncate(top_k);
+    
+    Ok(scored
+        .into_iter()
+        .map(|(similarity, item)| {
+            let memory_score = item.score;
+            RetrievedMemory {
+                item,
+                score: similarity,
+                components: crate::models::ScoreComponents {
+                    similarity,
+                    memory_score,
+                },
+            }
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub async fn boost_memory(
+    id: String,
+    amount: f32,
+    state: State<'_, MemoryState>,
+) -> Result<(), String> {
+    let storage = state.storage.lock().await;
+    storage.reinforce_memory(&id, amount).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn update_memory(
+    id: String,
+    updates: serde_json::Value,
+    state: State<'_, MemoryState>,
+) -> Result<(), String> {
+    let storage = state.storage.lock().await;
+    
+    if let Some(content) = updates.get("content").and_then(|v| v.as_str()) {
+        storage.update_memory_content(&id, content).await.map_err(|e| e.to_string())?;
+    }
+    
+    if let Some(importance) = updates.get("importance").and_then(|v| v.as_f64()) {
+        storage.update_memory_importance(&id, importance as f32).await.map_err(|e| e.to_string())?;
+    }
+    
+    Ok(())
+}

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
-import { Message, LogEntry, ChatSession, ChatFolder, Agent, TodoItem, SearchGroup, SearchResult, McpServer } from '../types';
+import { Message, LogEntry, ChatSession, ChatFolder, Agent, TodoItem, SearchGroup, SearchResult, McpServer, MemoryModelConfig, DEFAULT_MEMORY_MODEL_CONFIG, ModelProvider } from '../types';
 import { AGENTS as INITIAL_AGENTS } from '../data/agents';
 import { generateMockConversation, generateClusterMockConversation } from '../utils/mockData';
 import { fetchMemoryManager } from '../agent/memory';
@@ -100,6 +100,26 @@ interface GlobalState {
   setTavilySearchDepth: (depth: 'basic' | 'advanced') => void;
   tavilyIncludeAnswer: boolean;
   setTavilyIncludeAnswer: (include: boolean) => void;
+  
+  // Memory Model Settings
+  memoryModelConfig: MemoryModelConfig;
+  setMemoryModelConfig: (config: MemoryModelConfig) => void;
+  
+  // Chat Model Settings
+  lmStudioUrl: string;
+  setLmStudioUrl: (url: string) => void;
+  ollamaUrl: string;
+  setOllamaUrl: (url: string) => void;
+  modelName: string;
+  setModelName: (name: string) => void;
+  modelTemperature: number;
+  setModelTemperature: (temp: number) => void;
+  maxContextLength: number;
+  setMaxContextLength: (length: number) => void;
+  modelProvider: ModelProvider;
+  setModelProvider: (provider: ModelProvider) => void;
+  systemPrompt: string;
+  setSystemPrompt: (prompt: string) => void;
 }
 
 export const GlobalStateContext = createContext<GlobalState | undefined>(undefined);
@@ -191,6 +211,19 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     return stored === 'true';
   });
 
+  // Memory Model Settings
+  const [memoryModelConfig, setMemoryModelConfig] = useState<MemoryModelConfig>(() => {
+    const stored = localStorage.getItem('nexus_memory_model_config');
+    if (stored) {
+      try {
+        return { ...DEFAULT_MEMORY_MODEL_CONFIG, ...JSON.parse(stored) };
+      } catch {
+        return DEFAULT_MEMORY_MODEL_CONFIG;
+      }
+    }
+    return DEFAULT_MEMORY_MODEL_CONFIG;
+  });
+
   // Persist User Settings
   useEffect(() => { localStorage.setItem('nexus_user_name', userName); }, [userName]);
   useEffect(() => { localStorage.setItem('nexus_ai_name', aiName); }, [aiName]);
@@ -205,6 +238,41 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
   useEffect(() => { localStorage.setItem('nexus_tavily_enabled', String(tavilyEnabled)); }, [tavilyEnabled]);
   useEffect(() => { localStorage.setItem('nexus_tavily_search_depth', tavilySearchDepth); }, [tavilySearchDepth]);
   useEffect(() => { localStorage.setItem('nexus_tavily_include_answer', String(tavilyIncludeAnswer)); }, [tavilyIncludeAnswer]);
+  useEffect(() => { localStorage.setItem('nexus_memory_model_config', JSON.stringify(memoryModelConfig)); }, [memoryModelConfig]);
+
+  // Chat Model Settings
+  const [lmStudioUrl, setLmStudioUrl] = useState<string>(() => {
+    return localStorage.getItem('nexus_lm_studio_url') || 'http://localhost:1234/v1/chat/completions';
+  });
+  const [ollamaUrl, setOllamaUrl] = useState<string>(() => {
+    return localStorage.getItem('nexus_ollama_url') || 'http://localhost:11434/api/chat';
+  });
+  const [modelName, setModelName] = useState<string>(() => {
+    return localStorage.getItem('nexus_model_name') || '';
+  });
+  const [modelTemperature, setModelTemperature] = useState<number>(() => {
+    const stored = localStorage.getItem('nexus_model_temperature');
+    return stored ? parseFloat(stored) : 0.7;
+  });
+  const [maxContextLength, setMaxContextLength] = useState<number>(() => {
+    const stored = localStorage.getItem('nexus_max_context_length');
+    return stored ? parseInt(stored) : 4096;
+  });
+  const [modelProvider, setModelProvider] = useState<ModelProvider>(() => {
+    return (localStorage.getItem('nexus_model_provider') as ModelProvider) || 'lm-studio';
+  });
+  const [systemPrompt, setSystemPrompt] = useState<string>(() => {
+    return localStorage.getItem('nexus_system_prompt') || '';
+  });
+
+  // Persist Chat Model Settings
+  useEffect(() => { localStorage.setItem('nexus_lm_studio_url', lmStudioUrl); }, [lmStudioUrl]);
+  useEffect(() => { localStorage.setItem('nexus_ollama_url', ollamaUrl); }, [ollamaUrl]);
+  useEffect(() => { localStorage.setItem('nexus_model_name', modelName); }, [modelName]);
+  useEffect(() => { localStorage.setItem('nexus_model_temperature', String(modelTemperature)); }, [modelTemperature]);
+  useEffect(() => { localStorage.setItem('nexus_max_context_length', String(maxContextLength)); }, [maxContextLength]);
+  useEffect(() => { localStorage.setItem('nexus_model_provider', modelProvider); }, [modelProvider]);
+  useEffect(() => { localStorage.setItem('nexus_system_prompt', systemPrompt); }, [systemPrompt]);
 
   // Sync i18next with global state language
   useEffect(() => {
@@ -682,7 +750,15 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
       tavilyApiKey, setTavilyApiKey,
       tavilyEnabled, setTavilyEnabled,
       tavilySearchDepth, setTavilySearchDepth,
-      tavilyIncludeAnswer, setTavilyIncludeAnswer
+      tavilyIncludeAnswer, setTavilyIncludeAnswer,
+      memoryModelConfig, setMemoryModelConfig,
+      lmStudioUrl, setLmStudioUrl,
+      ollamaUrl, setOllamaUrl,
+      modelName, setModelName,
+      modelTemperature, setModelTemperature,
+      maxContextLength, setMaxContextLength,
+      modelProvider, setModelProvider,
+      systemPrompt, setSystemPrompt
     }}>
       {children}
     </GlobalStateContext.Provider>

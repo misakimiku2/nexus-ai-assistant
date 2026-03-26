@@ -926,4 +926,44 @@ impl MemoryStorage {
         log::info!("[MemoryStorage] 按 ID 获取 {} 条记忆", result.len());
         Ok(result)
     }
+
+    pub async fn reinforce_memory(&self, id: &str, amount: f32) -> Result<(), Box<dyn std::error::Error>> {
+        let conn = self.conn.lock().await;
+        let now = chrono::Utc::now().timestamp();
+        
+        conn.execute(
+            "UPDATE memory_items SET 
+                score = MIN(score + ?1, 1.0),
+                access_count = access_count + 1,
+                last_accessed_at = ?2,
+                is_active = 1,
+                marked_inactive_at = NULL
+             WHERE id = ?3",
+            params![amount, now, id],
+        )?;
+        
+        Ok(())
+    }
+
+    pub async fn update_memory_content(&self, id: &str, content: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let conn = self.conn.lock().await;
+        
+        conn.execute(
+            "UPDATE memory_items SET content = ?1 WHERE id = ?2",
+            params![content, id],
+        )?;
+        
+        Ok(())
+    }
+
+    pub async fn update_memory_importance(&self, id: &str, importance: f32) -> Result<(), Box<dyn std::error::Error>> {
+        let conn = self.conn.lock().await;
+        
+        conn.execute(
+            "UPDATE memory_items SET importance = ?1 WHERE id = ?2",
+            params![importance, id],
+        )?;
+        
+        Ok(())
+    }
 }

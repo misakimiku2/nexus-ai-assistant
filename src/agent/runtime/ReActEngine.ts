@@ -578,7 +578,7 @@ export class ReActEngine {
         isToolCall: false,
       }));
 
-    console.log('[ReActEngine] 触发记忆提取, 消息数:', extractionMessages.length, 
+    console.log('[ReActEngine] 触发记忆提取, 消息数:', extractionMessages.length,
       ', 总长度:', extractionMessages.reduce((sum, m) => sum + m.content.length, 0));
 
     memoryExtractionService.triggerExtractionAsync(

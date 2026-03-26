@@ -387,3 +387,61 @@ export interface EvolutionResult {
   prune: PruneResult;
 }
 
+export interface MemoryModelConfig {
+  enabled: boolean;
+  provider: 'lm-studio' | 'ollama';
+  baseUrl: string;
+  modelName: string;
+  temperature: number;
+  maxTokens: number;
+}
+
+export const DEFAULT_MEMORY_MODEL_CONFIG: MemoryModelConfig = {
+  enabled: true,
+  provider: 'lm-studio',
+  baseUrl: 'http://localhost:1234/v1',
+  modelName: 'qwen2.5-3b-instruct',
+  temperature: 0.2,
+  maxTokens: 800,
+};
+
+export interface PreFilterConfig {
+  minMessageLength: number;
+  maxMessages: number;
+  skipToolCalls: boolean;
+}
+
+export const DEFAULT_PREFILTER_CONFIG: PreFilterConfig = {
+  minMessageLength: 20,
+  maxMessages: 6,
+  skipToolCalls: true,
+};
+
+export interface SimilarityDecision {
+  action: 'skip' | 'merge' | 'insert';
+  targetMemory?: MemoryItem;
+  similarity: number;
+  reason: string;
+}
+
+export interface SimilarityThresholds {
+  duplicate: number;
+  merge: number;
+  minSimilarity: number;
+  minScoreForCleanup: number;
+}
+
+export const DEFAULT_SIMILARITY_THRESHOLDS: SimilarityThresholds = {
+  duplicate: 0.85,
+  merge: 0.75,
+  minSimilarity: 0.5,
+  minScoreForCleanup: 0.3,
+};
+
+export interface MemoryScore {
+  base: number;
+  decay: number;
+  access: number;
+  final: number;
+}
+

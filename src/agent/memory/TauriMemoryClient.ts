@@ -241,6 +241,26 @@ export class TauriMemoryClient {
     console.log('[TauriMemoryClient] 执行完整记忆演化周期');
     return invoke('run_memory_evolution');
   }
+
+  static async generateEmbedding(content: string): Promise<number[]> {
+    console.log('[TauriMemoryClient] 生成 Embedding, content length:', content.length);
+    return invoke('generate_embedding', { content });
+  }
+
+  static async searchSimilarMemories(embedding: number[], topK: number): Promise<RetrievedMemory[]> {
+    console.log('[TauriMemoryClient] 搜索相似记忆, topK:', topK);
+    return invoke('search_similar_memories', { embedding, topK });
+  }
+
+  static async boostMemory(id: string, amount: number): Promise<void> {
+    console.log('[TauriMemoryClient] 提升记忆重要性:', id, 'amount:', amount);
+    return invoke('boost_memory', { id, amount });
+  }
+
+  static async updateMemory(id: string, updates: Partial<MemoryItem>): Promise<void> {
+    console.log('[TauriMemoryClient] 更新记忆:', id);
+    return invoke('update_memory', { id, updates });
+  }
 }
 
 export class TauriSessionClient {
