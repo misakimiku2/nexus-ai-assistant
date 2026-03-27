@@ -29,6 +29,15 @@ export interface MessageVersion {
   executionTime?: number;
 }
 
+export interface AttachmentFile {
+  id: string;
+  name: string;
+  type: 'image' | 'document';
+  mimeType: string;
+  data: string;
+  size?: number;
+}
+
 export interface Message {
   id: string;
   role: MessageRole;
@@ -47,6 +56,7 @@ export interface Message {
   versions?: MessageVersion[];
   currentVersionIndex?: number;
   agentExecution?: AgentExecutionData;
+  attachments?: AttachmentFile[];
 }
 
 export interface SearchResult {

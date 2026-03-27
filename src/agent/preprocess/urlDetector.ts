@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { FetchResult } from '../tools/types';
+import { AttachmentFile } from '../../types';
 
 const URL_REGEX = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/gi;
 
@@ -42,23 +43,24 @@ export function resetUrlPlaceholderCounter(): void {
 }
 
 export interface PreprocessedConversation {
-  messages: Array<{ role: string; content: string }>;
+  messages: Array<{ role: string; content: string; attachments?: AttachmentFile[] }>;
   urlMap: Map<string, string>;
   processedUserInput: string;
 }
 
 export function preprocessConversation(
   currentUserInput: string,
-  conversationHistory: Array<{ role: string; content: string }>
+  conversationHistory: Array<{ role: string; content: string; attachments?: AttachmentFile[] }>
 ): PreprocessedConversation {
   const urlMap = new Map<string, string>();
-  const processedMessages: Array<{ role: string; content: string }> = [];
+  const processedMessages: Array<{ role: string; content: string; attachments?: AttachmentFile[] }> = [];
   
   for (const msg of conversationHistory) {
     const processed = processTextWithUrls(msg.content, urlMap);
     processedMessages.push({
       role: msg.role,
       content: processed,
+      attachments: msg.attachments,
     });
   }
   

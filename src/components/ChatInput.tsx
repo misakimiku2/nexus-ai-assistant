@@ -19,12 +19,16 @@ import {
   Layout,
   Terminal,
   ChevronRight,
-  Mic
+  Mic,
+  File,
+  FileSpreadsheet,
+  Upload
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import { AppMode } from '../types';
+import { AppMode, AttachmentFile } from '../types';
 import { useGlobalState } from '../context/GlobalStateContext';
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 
 interface ChatInputProps {
   input: string;
@@ -32,16 +36,24 @@ interface ChatInputProps {
   appMode: AppMode;
   setAppMode: (mode: AppMode) => void;
   isDarkMode: boolean;
-  attachedImage: string | null;
-  setAttachedImage: (image: string | null) => void;
+  attachedFiles: AttachmentFile[];
+  setAttachedFiles: (files: AttachmentFile[] | ((prev: AttachmentFile[]) => AttachmentFile[])) => void;
   handleSendMessage: () => void;
   handleStopAI?: () => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
-  handleImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   maxContextLength: number;
   isWebSearchEnabled: boolean;
   setIsWebSearchEnabled: (enabled: boolean) => void;
 }
+
+const getFileIcon = (mimeType: string) => {
+  if (mimeType === 'application/pdf') return { icon: FileText, color: 'text-red-500' };
+  if (mimeType.includes('word') || mimeType.includes('document')) return { icon: FileText, color: 'text-blue-500' };
+  if (mimeType.includes('excel') || mimeType.includes('spreadsheet') || mimeType === 'text/csv') return { icon: FileSpreadsheet, color: 'text-green-500' };
+  if (mimeType === 'text/plain') return { icon: FileText, color: 'text-gray-500' };
+  return { icon: File, color: 'text-zinc-500' };
+};
 
 export const ChatInput: React.FC<ChatInputProps> = ({
   input,
@@ -49,12 +61,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   appMode,
   setAppMode,
   isDarkMode,
-  attachedImage,
-  setAttachedImage,
+  attachedFiles,
+  setAttachedFiles,
   handleSendMessage,
   handleStopAI,
   fileInputRef,
-  handleImageUpload,
+  handleFileUpload,
   maxContextLength,
   isWebSearchEnabled,
   setIsWebSearchEnabled
@@ -66,12 +78,17 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const [isAgentMenuOpen, setIsAgentMenuOpen] = React.useState(false);
   const [isRecording, setIsRecording] = React.useState(false);
   const [expandedAgents, setExpandedAgents] = React.useState<Set<string>>(new Set());
+  const [isDragging, setIsDragging] = React.useState(false);
+  const [isDragOverInput, setIsDragOverInput] = React.useState(false);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const documentInputRef = React.useRef<HTMLInputElement>(null);
   const attachmentMenuRef = React.useRef<HTMLDivElement>(null);
   const agentMenuRef = React.useRef<HTMLDivElement>(null);
   const recognitionRef = React.useRef<any>(null);
   const originalInputRef = React.useRef(input);
+  const dragCounterRef = React.useRef(0);
+  const isProcessingDropRef = React.useRef(false);
+  const dragTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   
   const currentSession = sessions.find(s => s.id === currentSessionId);
   const activeAgentId = currentSession?.activeAgents?.[0];
@@ -193,22 +210,372 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     setIsRecording(true);
   };
 
+  const removeAttachment = (id: string) => {
+    setAttachedFiles(attachedFiles.filter(f => f.id !== id));
+  };
+
+  const processDroppedFiles = (files: FileList | File[]) => {
+    const MAX_ATTACHMENTS = 10;
+    const currentCount = attachedFiles.length;
+    const availableSlots = MAX_ATTACHMENTS - currentCount;
+    
+    if (availableSlots <= 0) {
+      return;
+    }
+
+    const filesToProcess = Array.from(files).slice(0, availableSlots);
+    
+    filesToProcess.forEach(file => {
+      const mimeType = file.type;
+      const isImage = mimeType.startsWith('image/');
+      const isDocument = mimeType === 'application/pdf' || 
+                         mimeType.includes('word') || 
+                         mimeType.includes('document') ||
+                         mimeType.includes('excel') ||
+                         mimeType.includes('spreadsheet') ||
+                         mimeType === 'text/plain' ||
+                         mimeType === 'text/csv' ||
+                         file.name.endsWith('.pdf') ||
+                         file.name.endsWith('.doc') ||
+                         file.name.endsWith('.docx') ||
+                         file.name.endsWith('.txt') ||
+                         file.name.endsWith('.csv') ||
+                         file.name.endsWith('.xlsx');
+      
+      if (!isImage && !isDocument) return;
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const attachment: AttachmentFile = {
+          id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+          name: file.name,
+          type: isImage ? 'image' : 'document',
+          mimeType: mimeType || 'application/octet-stream',
+          data: reader.result as string,
+          size: file.size
+        };
+        
+        setAttachedFiles(prev => [...prev, attachment]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  React.useEffect(() => {
+    let unlistenDragDrop: (() => void) | null = null;
+
+    const handleWindowBlur = () => {
+      setIsDragging(false);
+      setIsDragOverInput(false);
+    };
+
+    const handleMouseLeave = () => {
+      if (isDragging) {
+        setIsDragging(false);
+        setIsDragOverInput(false);
+      }
+    };
+
+    const setupTauriDragListeners = async () => {
+      try {
+        const webview = getCurrentWebviewWindow();
+        
+        window.addEventListener('blur', handleWindowBlur);
+        document.addEventListener('mouseleave', handleMouseLeave);
+        
+        unlistenDragDrop = await webview.onDragDropEvent((event) => {
+          const { type } = event.payload;
+          
+          if (type === 'over') {
+            if (dragTimeoutRef.current) {
+              clearTimeout(dragTimeoutRef.current);
+              dragTimeoutRef.current = null;
+            }
+            setIsDragging(true);
+          } else if (type === 'drop') {
+            if (isProcessingDropRef.current) {
+              return;
+            }
+            isProcessingDropRef.current = true;
+            
+            setIsDragging(false);
+            setIsDragOverInput(false);
+            
+            const paths = (event.payload as any).paths;
+            if (paths && paths.length > 0) {
+              const MAX_ATTACHMENTS = 10;
+              const currentCount = attachedFiles.length;
+              const availableSlots = MAX_ATTACHMENTS - currentCount;
+              
+              if (availableSlots <= 0) {
+                isProcessingDropRef.current = false;
+                return;
+              }
+
+              const pathsToProcess = paths.slice(0, availableSlots);
+              let processedCount = 0;
+              
+              pathsToProcess.forEach(async (filePath: string) => {
+                try {
+                  const { readFile } = await import('@tauri-apps/plugin-fs');
+                  const { basename, extname } = await import('@tauri-apps/api/path');
+                  
+                  const fileName = await basename(filePath);
+                  const ext = await extname(filePath).then(e => e.toLowerCase());
+                  
+                  const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'];
+                  const docExts = ['pdf', 'doc', 'docx', 'txt', 'csv', 'xlsx'];
+                  
+                  const isImage = imageExts.includes(ext);
+                  const isDocument = docExts.includes(ext);
+                  
+                  if (!isImage && !isDocument) {
+                    processedCount++;
+                    if (processedCount >= pathsToProcess.length) {
+                      setTimeout(() => {
+                        isProcessingDropRef.current = false;
+                      }, 100);
+                    }
+                    return;
+                  }
+                  
+                  const fileData = await readFile(filePath);
+                  const mimeType = isImage 
+                    ? `image/${ext === 'jpg' ? 'jpeg' : ext}` 
+                    : ext === 'pdf' 
+                      ? 'application/pdf' 
+                      : ext === 'txt' 
+                        ? 'text/plain' 
+                        : 'application/octet-stream';
+                  
+                  const base64 = btoa(
+                    new Uint8Array(fileData).reduce(
+                      (data, byte) => data + String.fromCharCode(byte),
+                      ''
+                    )
+                  );
+                  
+                  const dataUrl = `data:${mimeType};base64,${base64}`;
+                  
+                  const attachment: AttachmentFile = {
+                    id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+                    name: fileName,
+                    type: isImage ? 'image' : 'document',
+                    mimeType: mimeType,
+                    data: dataUrl,
+                    size: fileData.length
+                  };
+                  
+                  setAttachedFiles(prev => [...prev, attachment]);
+                  
+                  processedCount++;
+                  if (processedCount >= pathsToProcess.length) {
+                    setTimeout(() => {
+                      isProcessingDropRef.current = false;
+                    }, 100);
+                  }
+                } catch (err) {
+                  console.error('Failed to read dropped file:', err);
+                  processedCount++;
+                  if (processedCount >= pathsToProcess.length) {
+                    setTimeout(() => {
+                      isProcessingDropRef.current = false;
+                    }, 100);
+                  }
+                }
+              });
+            } else {
+              isProcessingDropRef.current = false;
+            }
+          } else if (type === 'leave') {
+            setIsDragging(false);
+            setIsDragOverInput(false);
+            isProcessingDropRef.current = false;
+          }
+        });
+      } catch (error) {
+        console.log('Not running in Tauri environment or drag listeners setup failed:', error);
+      }
+    };
+
+    setupTauriDragListeners();
+
+    const handleDragEnter = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounterRef.current++;
+      if (e.dataTransfer?.types.includes('Files')) {
+        setIsDragging(true);
+      }
+    };
+
+    const handleDragLeave = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounterRef.current--;
+      if (dragCounterRef.current === 0) {
+        setIsDragging(false);
+        setIsDragOverInput(false);
+      }
+    };
+
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounterRef.current = 0;
+      setIsDragging(false);
+      setIsDragOverInput(false);
+      
+      if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+        processDroppedFiles(e.dataTransfer.files);
+      }
+    };
+
+    document.addEventListener('dragenter', handleDragEnter);
+    document.addEventListener('dragleave', handleDragLeave);
+    document.addEventListener('dragover', handleDragOver);
+    document.addEventListener('drop', handleDrop);
+
+    return () => {
+      document.removeEventListener('dragenter', handleDragEnter);
+      document.removeEventListener('dragleave', handleDragLeave);
+      document.removeEventListener('dragover', handleDragOver);
+      document.removeEventListener('drop', handleDrop);
+      window.removeEventListener('blur', handleWindowBlur);
+      document.removeEventListener('mouseleave', handleMouseLeave);
+      
+      if (unlistenDragDrop) unlistenDragDrop();
+    };
+  }, [attachedFiles]);
+
+  const handleInputDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOverInput(true);
+  };
+
+  const handleInputDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOverInput(false);
+  };
+
+  const handleInputDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleInputDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOverInput(false);
+    
+    if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+      processDroppedFiles(e.dataTransfer.files);
+    }
+  };
+
   return (
     <motion.div 
       layout
       transition={{ duration: 0.3, ease: "easeInOut" }}
       className={cn("pt-0 relative z-20", appMode === 'command' ? "p-4" : "p-6")}
     >
-      <div className="max-w-4xl mx-auto relative" style={{ fontFamily }}>
-        {attachedImage && (
-          <div className="absolute bottom-full left-0 mb-4 p-2 glass rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2">
-            <img src={attachedImage} alt="Preview" className="w-12 h-12 rounded-lg object-cover" />
-            <button 
-              onClick={() => setAttachedImage(null)}
-              className="p-1 rounded-full hover:bg-red-500/20 text-red-500 transition-colors"
-            >
-              <X size={14} />
-            </button>
+      <AnimatePresence>
+        {isDragging && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="absolute inset-0 z-50 pointer-events-none"
+          >
+            <div className={cn(
+              "absolute inset-4 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-3 transition-colors pointer-events-auto",
+              isDragOverInput 
+                ? (isDarkMode 
+                    ? "border-indigo-400 bg-indigo-500/10" 
+                    : "border-indigo-500 bg-indigo-50")
+                : (isDarkMode 
+                    ? "border-zinc-500 bg-zinc-800/50" 
+                    : "border-zinc-400 bg-zinc-100/80")
+            )}>
+              <div className={cn(
+                "p-4 rounded-full",
+                isDragOverInput 
+                  ? (isDarkMode ? "bg-indigo-500/20" : "bg-indigo-100")
+                  : (isDarkMode ? "bg-zinc-700" : "bg-zinc-200")
+              )}>
+                <Upload size={32} className={cn(
+                  "transition-colors",
+                  isDragOverInput 
+                    ? (isDarkMode ? "text-indigo-400" : "text-indigo-500")
+                    : (isDarkMode ? "text-zinc-400" : "text-zinc-500")
+                )} />
+              </div>
+              <div className="text-center">
+                <p className={cn(
+                  "font-medium transition-colors",
+                  isDragOverInput 
+                    ? (isDarkMode ? "text-indigo-400" : "text-indigo-600")
+                    : (isDarkMode ? "text-zinc-300" : "text-zinc-700")
+                )}>
+                  {isDragOverInput ? "松开鼠标添加文件" : "拖拽文件到此处"}
+                </p>
+                <p className={cn(
+                  "text-sm mt-1 transition-colors",
+                  isDarkMode ? "text-zinc-500" : "text-zinc-400"
+                )}>
+                  支持图片和文档文件（最多10个）
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      <div 
+        className="max-w-4xl mx-auto relative" 
+        style={{ fontFamily }}
+        onDragEnter={handleInputDragEnter}
+        onDragLeave={handleInputDragLeave}
+        onDragOver={handleInputDragOver}
+        onDrop={handleInputDrop}
+      >
+        {attachedFiles.length > 0 && (
+          <div className="absolute bottom-full left-0 mb-4 p-2 glass rounded-xl flex flex-wrap items-center gap-2 animate-in fade-in slide-in-from-bottom-2 max-w-full">
+            {attachedFiles.map(file => (
+              <div 
+                key={file.id} 
+                className="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-700 rounded-lg p-1.5 pr-2 max-w-[180px]"
+              >
+                {file.type === 'image' ? (
+                  <img 
+                    src={file.data} 
+                    alt={file.name} 
+                    className="w-8 h-8 rounded object-cover shrink-0" 
+                  />
+                ) : (
+                  <div className={cn("shrink-0", getFileIcon(file.mimeType).color)}>
+                    {React.createElement(getFileIcon(file.mimeType).icon, { size: 20 })}
+                  </div>
+                )}
+                <span className="text-xs truncate flex-1" title={file.name}>
+                  {file.name}
+                </span>
+                <button 
+                  onClick={() => removeAttachment(file.id)}
+                  className="p-0.5 rounded-full hover:bg-red-500/20 text-red-500 transition-colors shrink-0"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ))}
           </div>
         )}
         
@@ -517,10 +884,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 ) : (
                   <button 
                     onClick={onSend}
-                    disabled={(!input.trim() && !attachedImage) || isStreaming}
+                    disabled={(!input.trim() && attachedFiles.length === 0) || isStreaming}
                     className={cn(
                       "p-2 rounded-xl transition-all",
-                      input.trim() || attachedImage
+                      input.trim() || attachedFiles.length > 0
                         ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20" 
                         : "bg-zinc-500/10 text-zinc-500 opacity-50 cursor-not-allowed"
                     )}
@@ -535,16 +902,18 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             <input 
               type="file" 
               ref={fileInputRef} 
-              onChange={handleImageUpload} 
+              onChange={handleFileUpload} 
               className="hidden" 
-              accept="image/*" 
+              accept="image/*"
+              multiple
             />
             <input 
               type="file" 
               ref={documentInputRef} 
-              onChange={handleImageUpload} 
+              onChange={handleFileUpload} 
               className="hidden" 
-              accept=".pdf,.doc,.docx,.txt,.csv,.xlsx" 
+              accept=".pdf,.doc,.docx,.txt,.csv,.xlsx"
+              multiple
             />
           </div>
       </div>

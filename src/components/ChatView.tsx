@@ -3,10 +3,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import { 
   Cpu, ShieldAlert, CheckCircle, XCircle, Wrench, Bot, Database, Globe, Shield, Layout, Terminal, Brain, Search, FileEdit, AlertTriangle, ChevronDown, ChevronUp, User, Edit2,
-  Copy, RotateCcw, ChevronLeft, ChevronRight, Check, FileText, PanelLeftOpen, PanelLeftClose, ArrowUp, ArrowDown, Loader2, Eye
+  Copy, RotateCcw, ChevronLeft, ChevronRight, Check, FileText, PanelLeftOpen, PanelLeftClose, ArrowUp, ArrowDown, Loader2, Eye, File, FileSpreadsheet, Image as ImageIcon
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { McpTool, PendingAction, Message, TodoItem, AppMode } from '../types';
+import { McpTool, PendingAction, Message, TodoItem, AppMode, AttachmentFile } from '../types';
 import { AgentStatus, ReasoningStep, ToolCallRecord } from '../agent/types';
 import { useGlobalState } from '../context/GlobalStateContext';
 import { TodoContainer } from './TodoCard';
@@ -51,6 +51,40 @@ const iconMap: Record<string, React.ElementType> = {
   Layout,
   Terminal,
   Bot
+};
+
+const getFileIconForAttachment = (mimeType: string) => {
+  if (mimeType === 'application/pdf') return { icon: FileText, color: 'text-red-500' };
+  if (mimeType.includes('word') || mimeType.includes('document')) return { icon: FileText, color: 'text-blue-500' };
+  if (mimeType.includes('excel') || mimeType.includes('spreadsheet') || mimeType === 'text/csv') return { icon: FileSpreadsheet, color: 'text-green-500' };
+  if (mimeType === 'text/plain') return { icon: FileText, color: 'text-gray-500' };
+  return { icon: File, color: 'text-zinc-500' };
+};
+
+const AttachmentPreview: React.FC<{ attachment: AttachmentFile; isDarkMode: boolean }> = ({ attachment, isDarkMode }) => {
+  if (attachment.type === 'image') {
+    return (
+      <div className="relative group/attachment">
+        <img 
+          src={attachment.data} 
+          alt={attachment.name} 
+          className="max-w-[200px] max-h-[150px] rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity"
+          onClick={() => window.open(attachment.data, '_blank')}
+        />
+      </div>
+    );
+  }
+
+  const { icon: FileIcon, color } = getFileIconForAttachment(attachment.mimeType);
+  return (
+    <div className={cn(
+      "flex items-center gap-2 px-3 py-2 rounded-lg border max-w-[200px]",
+      isDarkMode ? "bg-zinc-700/50 border-zinc-600" : "bg-zinc-100 border-zinc-200"
+    )}>
+      <FileIcon size={18} className={color} />
+      <span className="text-xs truncate flex-1" title={attachment.name}>{attachment.name}</span>
+    </div>
+  );
 };
 
 const CollapsibleSection: React.FC<{ title: string | React.ReactNode; icon: React.ReactNode; children: React.ReactNode; isDarkMode: boolean; defaultOpen?: boolean; contentClassName?: string }> = ({ title, icon, children, isDarkMode, defaultOpen = false, contentClassName }) => {
@@ -846,7 +880,20 @@ export const ChatView: React.FC<ChatViewProps> = ({
                           </div>
                         </div>
                       ) : (
-                        <div className="whitespace-pre-wrap break-words break-all">{msg.content}</div>
+                        <div className="flex flex-col gap-2">
+                          {msg.attachments && msg.attachments.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mb-1">
+                              {msg.attachments.map(attachment => (
+                                <AttachmentPreview 
+                                  key={attachment.id} 
+                                  attachment={attachment} 
+                                  isDarkMode={isDarkMode}
+                                />
+                              ))}
+                            </div>
+                          )}
+                          <div className="whitespace-pre-wrap break-words break-all">{msg.content}</div>
+                        </div>
                       )}
                     </div>
                   )}

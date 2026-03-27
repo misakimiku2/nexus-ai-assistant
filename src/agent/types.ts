@@ -1,4 +1,4 @@
-import { Agent } from '../types';
+import { Agent, AttachmentFile } from '../types';
 
 export type AgentStatus = 'idle' | 'thinking' | 'acting' | 'responding' | 'waiting_auth' | 'completed' | 'failed';
 
@@ -95,6 +95,7 @@ export interface ConversationMessage {
   name?: string;
   toolCallId?: string;
   toolCalls?: ToolCallRequest[];
+  attachments?: AttachmentFile[];
 }
 
 export interface ToolCallRequest {

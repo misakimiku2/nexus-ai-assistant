@@ -33,6 +33,7 @@ class MemoryExtractionService {
   private modelClient: MemoryModelClient = memoryModelClient;
   private store: MemoryStore = memoryStore;
   private memoryModelConfig: MemoryModelConfig = DEFAULT_MEMORY_MODEL_CONFIG;
+  private useMainModel: boolean = false;
 
   setCallbacks(callbacks: MemoryExtractionCallbacks) {
     this.callbacks = { ...this.callbacks, ...callbacks };
@@ -40,7 +41,30 @@ class MemoryExtractionService {
 
   setMemoryModelConfig(config: MemoryModelConfig): void {
     this.memoryModelConfig = config;
-    this.modelClient.updateConfig(config);
+    
+    if (config.enabled) {
+      this.useMainModel = false;
+      this.modelClient.updateConfig(config);
+    } else {
+      this.useMainModel = true;
+      const mainModelConfig = this.getMainModelConfig();
+      this.modelClient.updateConfig(mainModelConfig);
+      console.log('[MemoryExtraction] 专用模型已禁用，切换到主模型:', mainModelConfig.modelName);
+    }
+  }
+
+  private getMainModelConfig(): MemoryModelConfig {
+    const apiUrl = localStorage.getItem('nexus_lm_studio_url') || 'http://localhost:1234/v1';
+    const modelName = localStorage.getItem('nexus_model_name') || 'local-model';
+    
+    return {
+      enabled: false,
+      provider: 'lm-studio',
+      baseUrl: apiUrl.replace('/chat/completions', '').replace('/v1/chat/completions', '/v1'),
+      modelName: modelName,
+      temperature: 0.2,
+      maxTokens: 800,
+    };
   }
 
   setMemoryStoreConfig(config: {
@@ -90,13 +114,14 @@ class MemoryExtractionService {
 
     try {
       this.isExtracting = true;
-      console.log('[MemoryExtraction] 开始增量提取...');
-
-      if (this.memoryModelConfig.enabled) {
-        return await this.newExtractionPipeline(newMessages, sessionId);
+      
+      if (this.useMainModel) {
+        console.log('[MemoryExtraction] 使用主模型进行记忆提取 (兜底模式)');
       } else {
-        return await this.legacyExtractionPipeline(newMessages, sessionId, config);
+        console.log('[MemoryExtraction] 使用专用模型进行记忆提取');
       }
+      
+      return await this.newExtractionPipeline(newMessages, sessionId);
     } catch (error) {
       console.error('[MemoryExtraction] 提取失败:', error);
       this.callbacks.onExtractionError?.(error instanceof Error ? error : new Error(String(error)));

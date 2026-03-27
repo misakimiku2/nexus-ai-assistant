@@ -14,7 +14,7 @@ interface GlobalState {
   setCurrentTokenCount: React.Dispatch<React.SetStateAction<number>>;
   isStreaming: boolean;
   setIsStreaming: React.Dispatch<React.SetStateAction<boolean>>;
-  addLog: (message: string, type?: 'info' | 'error' | 'command') => void;
+  addLog: (message: string, type?: 'info' | 'error' | 'command' | 'warning' | 'success') => void;
   simulateSmbCheck: () => void;
   simulateTest: () => void;
   simulateClusterTest: () => void;
@@ -317,7 +317,7 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   }, [messages, isStreaming]);
 
-  const addLog = (message: string, type: 'info' | 'error' | 'command' = 'info') => {
+  const addLog = (message: string, type: 'info' | 'error' | 'command' | 'warning' | 'success' = 'info') => {
     setLogs(prev => [...prev, { 
       id: Date.now().toString() + Math.random().toString(36).substring(2, 9), 
       timestamp: Date.now(), 

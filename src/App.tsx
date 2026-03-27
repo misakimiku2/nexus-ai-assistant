@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Plus, Command, Bot } from 'lucide-react';
 import { cn } from './lib/utils';
-import { Message, SearchResult, AppMode, McpServer, PendingAction, TabType, SearchGroup, ModelProvider } from './types';
+import { Message, SearchResult, AppMode, McpServer, PendingAction, TabType, SearchGroup, ModelProvider, AttachmentFile } from './types';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { ChatView } from './components/ChatView';
@@ -84,7 +84,7 @@ function AppContent() {
   const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(false);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-  const [attachedImage, setAttachedImage] = useState<string | null>(null);
+  const [attachedFiles, setAttachedFiles] = useState<AttachmentFile[]>([]);
 
   // Resizing State
   const [commandChatWidth, setCommandChatWidth] = useState(350);
@@ -777,12 +777,56 @@ function AppContent() {
       }
 
       // --- 8GB VRAM 深度上下文压缩策略 ---
-      let apiMessages = currentMsgs.map(m => ({ 
-        role: m.role, 
-        content: cleanContentForApi(m.content) 
-      }));
+      const buildOpenAIMessage = (m: Message) => {
+        const textContent = cleanContentForApi(m.content);
+        
+        console.log('[DEBUG] buildOpenAIMessage - message:', m);
+        console.log('[DEBUG] buildOpenAIMessage - m.attachments:', m.attachments);
+        
+        if (m.attachments && m.attachments.length > 0) {
+          const contentParts: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
+          
+          if (textContent) {
+            contentParts.push({ type: 'text', text: textContent });
+          }
+          
+          for (const attachment of m.attachments) {
+            if (attachment.type === 'image') {
+              console.log('[DEBUG] Adding image to contentParts:', attachment.name, 'data length:', attachment.data.length);
+              contentParts.push({
+                type: 'image_url',
+                image_url: { url: attachment.data }
+              });
+            } else {
+              contentParts.push({
+                type: 'text',
+                text: `[附件: ${attachment.name}]`
+              });
+            }
+          }
+          
+          console.log('[DEBUG] Returning multimodal content with', contentParts.length, 'parts');
+          return { role: m.role, content: contentParts };
+        }
+        
+        console.log('[DEBUG] Returning simple text content');
+        return { role: m.role, content: textContent };
+      };
 
-      let totalTokens = estimateTokens(systemPromptToUse) + apiMessages.reduce((acc, m) => acc + estimateTokens(m.content), 0);
+      let apiMessages: Array<{ role: string; content: string | Array<{ type: string; text?: string; image_url?: { url: string } }> }> = currentMsgs.map(m => buildOpenAIMessage(m));
+
+      const estimateMessageTokens = (msg: { role: string; content: string | Array<{ type: string; text?: string; image_url?: { url: string } }> }) => {
+        if (typeof msg.content === 'string') {
+          return estimateTokens(msg.content);
+        }
+        return msg.content.reduce((acc, part) => {
+          if (part.text) return acc + estimateTokens(part.text);
+          if (part.image_url) return acc + 85;
+          return acc;
+        }, 0);
+      };
+
+      let totalTokens = estimateTokens(systemPromptToUse) + apiMessages.reduce((acc, m) => acc + estimateMessageTokens(m), 0);
       addLog(t.logs.aiRequestStart.replace('{tokens}', String(totalTokens)).replace('{max}', String(maxContextLength)), 'info');
 
       if (totalTokens > maxContextLength * 0.85) {
@@ -790,7 +834,8 @@ function AppContent() {
 
         // 策略 1: 历史代码块骨架化 (保留当前最新消息)
         apiMessages = apiMessages.map((msg, index) => {
-          if (index === apiMessages.length - 1) return msg; // 不压缩当前输入
+          if (index === apiMessages.length - 1) return msg;
+          if (typeof msg.content !== 'string') return msg;
           if (!msg.content.includes('```')) return msg;
 
           return {
@@ -805,7 +850,7 @@ function AppContent() {
           };
         });
 
-        const compressedTokens1 = estimateTokens(systemPromptToUse) + apiMessages.reduce((acc, m) => acc + estimateTokens(m.content), 0);
+        const compressedTokens1 = estimateTokens(systemPromptToUse) + apiMessages.reduce((acc, m) => acc + estimateMessageTokens(m), 0);
         if (compressedTokens1 < totalTokens) {
           addLog(t.logs.codeBlockSkeletonized.replace('{released}', String(totalTokens - compressedTokens1)), 'info');
         }
@@ -819,7 +864,7 @@ function AppContent() {
             { role: 'system', content: t.context.historyReleased },
             ...tail
           ];
-          const compressedTokens2 = estimateTokens(systemPromptToUse) + apiMessages.reduce((acc, m) => acc + estimateTokens(m.content), 0);
+          const compressedTokens2 = estimateTokens(systemPromptToUse) + apiMessages.reduce((acc, m) => acc + estimateMessageTokens(m), 0);
           addLog(t.logs.headTailApplied.replace('{tokens}', String(compressedTokens2)), 'info');
           totalTokens = compressedTokens2;
         }
@@ -1030,15 +1075,22 @@ function AppContent() {
   };
 
   const handleSendMessage = async () => {
-    if (!input.trim() && !attachedImage) return;
+    if (!input.trim() && attachedFiles.length === 0) return;
+
+    console.log('[DEBUG] handleSendMessage - attachedFiles:', attachedFiles);
+    console.log('[DEBUG] handleSendMessage - attachedFiles.length:', attachedFiles.length);
 
     const userMessage: Message = {
       id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
       role: 'user',
-      content: input.trim() || (attachedImage ? t.image.placeholder : ''),
+      content: input.trim() || (attachedFiles.length > 0 ? t.image.placeholder : ''),
       timestamp: Date.now(),
-      mode: appMode
+      mode: appMode,
+      attachments: attachedFiles.length > 0 ? attachedFiles : undefined
     };
+
+    console.log('[DEBUG] userMessage created:', userMessage);
+    console.log('[DEBUG] userMessage.attachments:', userMessage.attachments);
 
     addLog(t.logs.messageSent.replace('{length}', String(input.trim().length)), 'info');
 
@@ -1046,7 +1098,7 @@ function AppContent() {
 
     const originalInput = input;
     setInput('');
-    setAttachedImage(null);
+    setAttachedFiles([]);
 
     if (agentExecution.isAgentMode && agentExecution.currentAgent) {
       await handleAgentExecution(currentMsgs, originalInput);
@@ -1083,6 +1135,7 @@ function AppContent() {
       const conversationHistory: ConversationMessage[] = currentMsgs.map(m => ({
         role: m.role as 'system' | 'user' | 'assistant',
         content: m.content,
+        attachments: m.attachments,
       }));
 
       const result = await agentExecution.execute(originalInput, conversationHistory, currentSessionId || undefined);
@@ -1183,14 +1236,43 @@ function AppContent() {
     }));
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const MAX_ATTACHMENTS = 10;
+    const currentCount = attachedFiles.length;
+    const availableSlots = MAX_ATTACHMENTS - currentCount;
+    
+    if (availableSlots <= 0) {
+      addLog(t.logs.attachmentLimitReached || '附件数量已达上限', 'warning');
+      return;
+    }
+
+    const filesToProcess = Array.from(files).slice(0, availableSlots);
+    
+    filesToProcess.forEach(file => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setAttachedImage(reader.result as string);
+        const mimeType = file.type;
+        const isImage = mimeType.startsWith('image/');
+        
+        const attachment: AttachmentFile = {
+          id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+          name: file.name,
+          type: isImage ? 'image' : 'document',
+          mimeType: mimeType,
+          data: reader.result as string,
+          size: file.size
+        };
+        
+        setAttachedFiles(prev => [...prev, attachment]);
       };
       reader.readAsDataURL(file);
+    });
+    
+    if (e.target) {
+      e.target.value = '';
     }
   };
 
@@ -1296,12 +1378,12 @@ function AppContent() {
                   appMode={appMode}
                   setAppMode={setAppMode}
                   isDarkMode={isDarkMode}
-                  attachedImage={attachedImage}
-                  setAttachedImage={setAttachedImage}
+                  attachedFiles={attachedFiles}
+                  setAttachedFiles={setAttachedFiles}
                   handleSendMessage={handleSendMessage}
                   handleStopAI={handleStopAI}
                   fileInputRef={fileInputRef}
-                  handleImageUpload={handleImageUpload}
+                  handleFileUpload={handleFileUpload}
                   maxContextLength={maxContextLength}
                   isWebSearchEnabled={isWebSearchEnabled}
                   setIsWebSearchEnabled={setIsWebSearchEnabled}

@@ -347,17 +347,17 @@ const MemoryItemCard: React.FC<MemoryItemCardProps> = ({
                 "text-xs font-mono",
                 isDarkMode ? "text-zinc-300" : "text-zinc-700"
               )}>
-                {memory.score.toFixed(2)}
+                {memory.score?.toFixed(2) ?? 'N/A'}
               </span>
             </div>
 
             {debugMode && (
               <>
                 <div className={cn("text-xs", isDarkMode ? "text-zinc-500" : "text-zinc-400")}>
-                  decay: {memory.decay.toFixed(4)}
+                  decay: {memory.decay?.toFixed(4) ?? 'N/A'}
                 </div>
                 <div className={cn("text-xs", isDarkMode ? "text-zinc-500" : "text-zinc-400")}>
-                  importance: {memory.importance.toFixed(2)}
+                  importance: {memory.importance?.toFixed(2) ?? 'N/A'}
                 </div>
               </>
             )}

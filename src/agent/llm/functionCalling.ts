@@ -22,6 +22,44 @@ export interface StreamCallbacks {
   onError?: (error: Error) => void;
 }
 
+function buildMultimodalContent(message: ConversationMessage): string | Array<{ type: string; text?: string; image_url?: { url: string } }> {
+  if (message.attachments && message.attachments.length > 0) {
+    const contentParts: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
+    
+    if (message.content) {
+      contentParts.push({ type: 'text', text: message.content });
+    }
+    
+    for (const attachment of message.attachments) {
+      if (attachment.type === 'image') {
+        contentParts.push({
+          type: 'image_url',
+          image_url: { url: attachment.data }
+        });
+      } else {
+        contentParts.push({
+          type: 'text',
+          text: `[附件: ${attachment.name}]`
+        });
+      }
+    }
+    
+    return contentParts;
+  }
+  
+  return message.content;
+}
+
+function convertMessagesForAPI(messages: ConversationMessage[]): Array<{ role: string; content: string | Array<{ type: string; text?: string; image_url?: { url: string } }> }> {
+  return messages.map(m => ({
+    role: m.role,
+    content: buildMultimodalContent(m),
+    ...(m.name && { name: m.name }),
+    ...(m.toolCallId && { tool_call_id: m.toolCallId }),
+    ...(m.toolCalls && { tool_calls: m.toolCalls }),
+  }));
+}
+
 export function buildToolsForLLM(): { type: 'function'; function: { name: string; description: string; parameters: unknown } }[] {
   return ToolRegistry.buildOpenAITools();
 }
@@ -123,9 +161,11 @@ export async function callLLMWithTools(
 
   const tools = buildToolsForLLM();
 
+  const apiMessages = convertMessagesForAPI(messages);
+
   const body = {
     model: config.modelName,
-    messages,
+    messages: apiMessages,
     temperature: config.temperature ?? 0.7,
     max_tokens: config.maxTokens,
     tools: tools.length > 0 ? tools : undefined,
@@ -187,9 +227,11 @@ export async function* streamLLMWithTools(
 
   const tools = buildToolsForLLM();
 
+  const apiMessages = convertMessagesForAPI(messages);
+
   const body = {
     model: config.modelName,
-    messages,
+    messages: apiMessages,
     temperature: config.temperature ?? 0.7,
     max_tokens: config.maxTokens,
     tools: tools.length > 0 ? tools : undefined,
