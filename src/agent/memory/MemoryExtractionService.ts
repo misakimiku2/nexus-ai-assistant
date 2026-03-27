@@ -1,5 +1,5 @@
 import { TauriMemoryClient } from './TauriMemoryClient';
-import { CandidateMemory, ConversationMessage, ExtractionConfig, MemoryModelConfig, DEFAULT_MEMORY_MODEL_CONFIG, RetrievedMemory, MemoryItem, MemoryStats } from '../../types';
+import { CandidateMemory, CandidateStatus, ConversationMessage, ExtractionConfig, MemoryModelConfig, DEFAULT_MEMORY_MODEL_CONFIG, RetrievedMemory, MemoryItem, MemoryStats } from '../../types';
 import { PreFilterService, preFilterService } from './PreFilterService';
 import { MemoryModelClient, memoryModelClient, ParsedMemory } from './MemoryModelClient';
 import { MemoryStore, memoryStore, StoreResult } from './MemoryStore';
@@ -88,7 +88,7 @@ class MemoryExtractionService {
     messages: ConversationMessage[],
     sessionId: string,
     config: Partial<ExtractionConfig> = {}
-  ): Promise<CandidateMemory[] | StoreResult | null> {
+  ): Promise<CandidateMemory[] | null> {
     if (this.isExtracting) {
       console.log('[MemoryExtraction] 已有提取任务在进行中，跳过');
       return null;
@@ -134,7 +134,7 @@ class MemoryExtractionService {
   private async newExtractionPipeline(
     messages: ConversationMessage[],
     sessionId: string
-  ): Promise<StoreResult | null> {
+  ): Promise<CandidateMemory[] | null> {
     const filteredMessages = this.preFilter.filter(messages);
     if (filteredMessages.length === 0) {
       console.log('[MemoryExtraction] PreFilter 后无有效消息');
@@ -150,20 +150,27 @@ class MemoryExtractionService {
       return null;
     }
 
-    this.callbacks.onCandidatesExtracted?.(candidates);
+    const candidateMemories: CandidateMemory[] = candidates.map(c => ({
+      id: crypto.randomUUID(),
+      content: c.content,
+      memoryType: c.type,
+      confidence: c.importance,
+      sourceSessionId: sessionId,
+      sourceMessageIds: filteredMessages.map(m => m.id || crypto.randomUUID()),
+      createdAt: Date.now(),
+      status: 'pending' as CandidateStatus,
+      importance: c.importance,
+    }));
 
-    const storeResult = await this.store.storeCandidates(candidates, sessionId);
+    for (const candidate of candidateMemories) {
+      await TauriMemoryClient.addCandidateMemory(candidate);
+    }
 
-    this.callbacks.onStoreResult?.(storeResult);
+    this.callbacks.onCandidatesExtracted?.(candidateMemories);
 
-    console.log('[MemoryExtraction] 提取完成:', {
-      candidates: candidates.length,
-      accepted: storeResult.accepted.length,
-      skipped: storeResult.skipped.length,
-      merged: storeResult.merged.length,
-    });
+    console.log('[MemoryExtraction] 提取完成，添加了', candidateMemories.length, '条候选记忆');
 
-    return storeResult;
+    return candidateMemories;
   }
 
   private async legacyExtractionPipeline(

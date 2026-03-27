@@ -137,6 +137,35 @@ impl MemoryStorage {
             log::info!("[MemoryStorage] 字段添加完成");
         }
 
+        let fixed_count: usize = conn.query_row(
+            "SELECT COUNT(*) FROM memory_items WHERE score = 0 OR score IS NULL OR score > 1.0 OR decay = 0 OR decay IS NULL OR decay = 1.0 OR last_accessed_at <= 0",
+            [],
+            |row| row.get::<_, i32>(0).map(|n| n as usize)
+        )?;
+
+        if fixed_count > 0 {
+            log::info!("[MemoryStorage] 修复 {} 条记忆的 score/decay/last_accessed_at 值...", fixed_count);
+            let now_ts = chrono::Utc::now().timestamp();
+            conn.execute_batch(
+                &format!(
+                    "UPDATE memory_items SET score = importance WHERE score = 0 OR score IS NULL OR score > 1.0;
+                     UPDATE memory_items SET decay = CASE type
+                         WHEN 'identity' THEN 0.001
+                         WHEN 'skill' THEN 0.002
+                         WHEN 'constraint' THEN 0.003
+                         WHEN 'preference' THEN 0.005
+                         WHEN 'fact' THEN 0.01
+                         WHEN 'task' THEN 0.02
+                         ELSE 0.01
+                     END WHERE decay = 0 OR decay IS NULL OR decay = 1.0;
+                     UPDATE memory_items SET last_accessed_at = {} WHERE last_accessed_at <= 0;
+                     UPDATE memory_items SET is_active = 1, marked_inactive_at = NULL WHERE score >= 0.3 AND is_active = 0;",
+                    now_ts
+                )
+            )?;
+            log::info!("[MemoryStorage] 修复完成");
+        }
+
         Ok(())
     }
 
@@ -214,6 +243,8 @@ impl MemoryStorage {
             });
 
             let memory_type = MemoryType::from_str(&type_str).unwrap_or(MemoryType::Fact);
+            let score = if score == 0.0 { importance } else { score };
+            let decay = if decay == 0.0 || decay == 1.0 { get_default_decay(&memory_type) } else { decay };
 
             Ok(MemoryItem {
                 id,
@@ -678,12 +709,22 @@ impl MemoryStorage {
         let mut updated = 0;
         
         for (id, score, decay, last_accessed) in items {
-            let days_since_access = (now - last_accessed) as f32 / (24.0 * 3600.0);
-            let new_score = score * (-decay * days_since_access).exp();
+            let last_accessed = if last_accessed <= 0 { now } else { last_accessed };
+            let days_since_access = ((now - last_accessed) as f32 / (24.0 * 3600.0)).max(0.0);
+            let decay_factor = (-decay.abs() * days_since_access).exp();
+            let new_score = score * decay_factor;
+            
+            let new_score = if new_score.is_nan() || new_score.is_infinite() || new_score < 0.0 {
+                0.0
+            } else if new_score > 1.0 {
+                1.0
+            } else {
+                new_score
+            };
             
             let rows = conn.execute(
-                "UPDATE memory_items SET score = ?1 WHERE id = ?2",
-                params![new_score, id],
+                "UPDATE memory_items SET score = ?1, last_accessed_at = ?2 WHERE id = ?3",
+                params![new_score, last_accessed, id],
             )?;
             updated += rows;
         }
@@ -737,6 +778,9 @@ impl MemoryStorage {
             [],
             |row| row.get::<_, Option<f32>>(0)
         )?.unwrap_or(0.0);
+        
+        let avg_score = if avg_score.is_nan() || avg_score.is_infinite() { 0.0 } else { avg_score };
+        let avg_decay = if avg_decay.is_nan() || avg_decay.is_infinite() { 0.0 } else { avg_decay };
         
         Ok(EvolutionStats {
             active_count,

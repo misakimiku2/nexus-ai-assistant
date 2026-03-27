@@ -33,12 +33,19 @@ export const MemoryStats: React.FC<MemoryStatsProps> = ({
     return null;
   }
 
+  const formatValue = (value: number | undefined | null, decimals: number = 2): string => {
+    if (value === undefined || value === null || isNaN(value)) {
+      return '-';
+    }
+    return value.toFixed(decimals);
+  };
+
   const statCards = [
     { label: t('memory.stats.total'), value: stats.totalCount, color: 'text-blue-400' },
     { label: t('memory.stats.active'), value: evolutionStats?.activeCount ?? '-', color: 'text-green-400' },
     { label: t('memory.stats.inactive'), value: evolutionStats?.inactiveCount ?? '-', color: 'text-zinc-400' },
-    { label: t('memory.stats.avgScore'), value: evolutionStats?.avgScore?.toFixed(2) ?? '-', color: 'text-yellow-400' },
-    { label: t('memory.stats.avgDecay'), value: evolutionStats?.avgDecay?.toFixed(4) ?? '-', color: 'text-orange-400' },
+    { label: t('memory.stats.avgScore'), value: formatValue(evolutionStats?.avgScore, 2), color: 'text-yellow-400' },
+    { label: t('memory.stats.avgDecay'), value: formatValue(evolutionStats?.avgDecay, 4), color: 'text-orange-400' },
   ];
 
   return (

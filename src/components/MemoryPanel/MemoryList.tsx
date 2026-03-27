@@ -347,7 +347,7 @@ const MemoryItemCard: React.FC<MemoryItemCardProps> = ({
                 "text-xs font-mono",
                 isDarkMode ? "text-zinc-300" : "text-zinc-700"
               )}>
-                {memory.score?.toFixed(2) ?? 'N/A'}
+                {(memory.score ?? memory.importance)?.toFixed(2) ?? 'N/A'}
               </span>
             </div>
 
