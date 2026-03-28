@@ -104,11 +104,21 @@ export function parseToolCalls(response: unknown): ToolCall[] {
 }
 
 export function parseToolCallArguments(argsString: string): Record<string, unknown> {
+  if (!argsString || argsString.trim() === '') {
+    console.warn('[parseToolCallArguments] Empty arguments string received from LLM');
+    return { _invalid: true, _reason: 'empty_arguments' };
+  }
+
   try {
-    return JSON.parse(argsString);
-  } catch {
-    console.error('Failed to parse tool call arguments:', argsString);
-    return {};
+    const parsed = JSON.parse(argsString);
+    if (typeof parsed !== 'object' || parsed === null) {
+      console.warn('[parseToolCallArguments] Parsed arguments is not an object:', parsed);
+      return { _invalid: true, _reason: 'not_an_object' };
+    }
+    return parsed;
+  } catch (error) {
+    console.error('[parseToolCallArguments] Failed to parse tool call arguments:', argsString, error);
+    return { _invalid: true, _reason: 'parse_error', _raw: argsString };
   }
 }
 

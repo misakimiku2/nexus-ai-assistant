@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Settings, Save, RotateCcw, CheckCircle2, XCircle, RefreshCw, Activity, X, Database, Server, Globe, UploadCloud, FileText, User, Languages, Type, MessageSquare, Camera, Mic, Cpu, Minimize2, Power, ExternalLink } from 'lucide-react';
+import { Settings, Save, RotateCcw, CheckCircle2, XCircle, RefreshCw, Activity, X, Database, Server, Globe, UploadCloud, FileText, User, Languages, Type, MessageSquare, Camera, Mic, Cpu, Minimize2, Power, ExternalLink, FolderOpen, Pause, Play, Download, Trash2 } from 'lucide-react';
 import { NexusLogo } from './NexusLogo';
 import { useGlobalState } from '../context/GlobalStateContext';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +8,8 @@ import { cn } from '../lib/utils';
 import { ImageCropper } from './ImageCropper';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 import { VoiceSettings } from './VoiceSettings';
+import { listen, UnlistenFn } from '@tauri-apps/api/event';
+import { TauriMemoryClient, DownloadProgress } from '../agent/memory/TauriMemoryClient';
 
 interface TavilyUsage {
   key: {
@@ -157,10 +159,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [isEmbeddingLoading, setIsEmbeddingLoading] = useState(false);
   const [storedEmbeddingDimension, setStoredEmbeddingDimension] = useState<number | null>(null);
   const [isRecomputing, setIsRecomputing] = useState(false);
+  
+  // Download Progress State
+  const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
+  const [modelExists, setModelExists] = useState<boolean>(false);
+  const [isCheckingModel, setIsCheckingModel] = useState<boolean>(false);
+  const downloadListenerRef = useRef<UnlistenFn | null>(null);
 
   const fetchEmbeddingStatus = async () => {
     try {
-      const { TauriMemoryClient } = await import('../agent/memory/TauriMemoryClient');
       const provider = await TauriMemoryClient.getEmbeddingProvider();
       setEmbeddingProvider(provider);
       const models = await TauriMemoryClient.getAvailableEmbeddingModels();
@@ -172,14 +179,51 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
+  const checkModelExists = useCallback(async (modelId: string) => {
+    setIsCheckingModel(true);
+    try {
+      const exists = await TauriMemoryClient.checkModelExists(modelId);
+      setModelExists(exists);
+    } catch (error) {
+      console.error('[SettingsView] Failed to check model exists:', error);
+      setModelExists(false);
+    } finally {
+      setIsCheckingModel(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchEmbeddingStatus();
+    
+    const setupDownloadListener = async () => {
+      try {
+        downloadListenerRef.current = await listen<DownloadProgress>('embedding-download-progress', (event) => {
+          setDownloadProgress(event.payload);
+        });
+      } catch (error) {
+        console.error('[SettingsView] Failed to setup download listener:', error);
+      }
+    };
+    
+    setupDownloadListener();
+    
+    return () => {
+      if (downloadListenerRef.current) {
+        downloadListenerRef.current();
+      }
+    };
   }, []);
+
+  useEffect(() => {
+    if (selectedEmbeddingModel) {
+      setDownloadProgress(null);
+      checkModelExists(selectedEmbeddingModel);
+    }
+  }, [selectedEmbeddingModel, checkModelExists]);
 
   const handleLoadEmbeddingModel = async () => {
     setIsEmbeddingLoading(true);
     try {
-      const { TauriMemoryClient } = await import('../agent/memory/TauriMemoryClient');
       await TauriMemoryClient.initializeEmbeddingWithModel(selectedEmbeddingModel);
       const provider = await TauriMemoryClient.getEmbeddingProvider();
       setEmbeddingProvider(provider);
@@ -190,10 +234,108 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
+  const handleDownloadModel = async () => {
+    setDownloadProgress({
+      model_id: selectedEmbeddingModel,
+      filename: '',
+      downloaded_bytes: 0,
+      total_bytes: 0,
+      percentage: 0,
+      speed_bps: 0,
+      eta_seconds: 0,
+      state: 'downloading',
+      error_message: undefined
+    });
+    
+    try {
+      await TauriMemoryClient.downloadEmbeddingModel(selectedEmbeddingModel);
+      setDownloadProgress(prev => prev ? { ...prev, state: 'completed' } : null);
+      await checkModelExists(selectedEmbeddingModel);
+    } catch (error) {
+      console.error('[SettingsView] Failed to download model:', error);
+      setDownloadProgress(prev => prev ? { 
+        ...prev, 
+        state: 'error', 
+        error_message: String(error) 
+      } : null);
+    }
+  };
+
+  const handlePauseDownload = async () => {
+    try {
+      await TauriMemoryClient.pauseEmbeddingDownload(selectedEmbeddingModel);
+      // 更新状态为暂停
+      setDownloadProgress(prev => prev ? { ...prev, state: 'paused' } : null);
+    } catch (error) {
+      console.error('[SettingsView] Failed to pause download:', error);
+    }
+  };
+
+  const handleResumeDownload = async () => {
+    try {
+      await TauriMemoryClient.resumeEmbeddingDownload(selectedEmbeddingModel);
+      // 更新状态为下载中
+      setDownloadProgress(prev => prev ? { ...prev, state: 'downloading' } : null);
+    } catch (error) {
+      console.error('[SettingsView] Failed to resume download:', error);
+    }
+  };
+
+  const handleCancelDownload = async () => {
+    try {
+      await TauriMemoryClient.cancelEmbeddingDownload(selectedEmbeddingModel);
+      // 清理下载状态
+      setDownloadProgress(null);
+      // 重新检查模型状态
+      await checkModelExists(selectedEmbeddingModel);
+    } catch (error) {
+      console.error('[SettingsView] Failed to cancel download:', error);
+    }
+  };
+
+  const handleRetryDownload = async () => {
+    try {
+      await TauriMemoryClient.deleteEmbeddingModel(selectedEmbeddingModel);
+      setDownloadProgress(null);
+      await TauriMemoryClient.downloadEmbeddingModel(selectedEmbeddingModel);
+    } catch (error) {
+      console.error('Failed to retry download:', error);
+    }
+  };
+
+  const handleOpenModelFolder = async () => {
+    try {
+      await TauriMemoryClient.openModelFolder(selectedEmbeddingModel);
+    } catch (error) {
+      console.error('Failed to open model folder:', error);
+    }
+  };
+
+  const formatSpeed = (bps: number): string => {
+    if (bps >= 1024 * 1024) {
+      return `${(bps / (1024 * 1024)).toFixed(2)} MB/s`;
+    } else if (bps >= 1024) {
+      return `${(bps / 1024).toFixed(2)} KB/s`;
+    }
+    return `${bps} B/s`;
+  };
+
+  const formatTime = (seconds: number): string => {
+    if (seconds >= 3600) {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      return `${h}h ${m}m`;
+    } else if (seconds >= 60) {
+      const m = Math.floor(seconds / 60);
+      const s = seconds % 60;
+      return `${m}m ${s}s`;
+    }
+    return `${seconds}s`;
+  };
+
   const handleRecomputeEmbeddings = async () => {
     setIsRecomputing(true);
     try {
-      const { TauriMemoryClient } = await import('../agent/memory/TauriMemoryClient');
       const count = await TauriMemoryClient.recomputeAllEmbeddings();
       const dim = await TauriMemoryClient.getStoredEmbeddingDimension();
       setStoredEmbeddingDimension(dim);
@@ -207,7 +349,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleClearEmbeddings = async () => {
     try {
-      const { TauriMemoryClient } = await import('../agent/memory/TauriMemoryClient');
       const count = await TauriMemoryClient.clearAllEmbeddings();
       setStoredEmbeddingDimension(null);
       addLog(`[Embedding] ${t('settings.ai.embedding.clearComplete', { count })}`);
@@ -1334,11 +1475,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                   : embeddingProvider.replace('local:', '')}
                               </span>
                             </div>
-                            {storedEmbeddingDimension && (
-                              <span className={cn("text-xs", isDarkMode ? "text-zinc-500" : "text-zinc-400")}>
-                                {t('settings.ai.embedding.storedDimension')}: {storedEmbeddingDimension}
-                              </span>
-                            )}
+                            <div className="flex items-center gap-2">
+                              {storedEmbeddingDimension && (
+                                <span className={cn("text-xs", isDarkMode ? "text-zinc-500" : "text-zinc-400")}>
+                                  {t('settings.ai.embedding.storedDimension')}: {storedEmbeddingDimension}
+                                </span>
+                              )}
+                              {modelExists && (
+                                <button
+                                  onClick={handleOpenModelFolder}
+                                  className={cn(
+                                    "p-1.5 rounded-lg transition-colors",
+                                    isDarkMode 
+                                      ? "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700" 
+                                      : "text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200"
+                                  )}
+                                  title={t('settings.ai.embedding.openModelFolder')}
+                                >
+                                  <FolderOpen size={14} />
+                                </button>
+                              )}
+                            </div>
                           </div>
 
                           {/* Model Selection */}
@@ -1346,41 +1503,290 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                             <label htmlFor="embeddingModelSelect" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>
                               {t('settings.ai.embedding.selectModel')}
                             </label>
-                            <div className="flex gap-2">
-                              <select
-                                id="embeddingModelSelect"
-                                value={selectedEmbeddingModel}
-                                onChange={(e) => setSelectedEmbeddingModel(e.target.value)}
-                                className={cn(
-                                  "flex-1 border rounded-xl px-4 py-2.5 text-sm focus:ring-1 focus:ring-indigo-500/50 outline-none appearance-none",
-                                  isDarkMode ? "bg-zinc-700 border-zinc-600 text-zinc-200" : "bg-white border-zinc-300 text-zinc-900"
-                                )}
-                              >
-                                {availableEmbeddingModels.map(([id, name, dim]) => (
-                                  <option key={id} value={id}>{name} ({dim}D)</option>
-                                ))}
-                              </select>
-                              <button
-                                onClick={handleLoadEmbeddingModel}
-                                disabled={isEmbeddingLoading}
-                                className={cn(
-                                  "px-4 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-50",
-                                  isDarkMode ? "bg-indigo-600 hover:bg-indigo-500 text-white" : "bg-indigo-500 hover:bg-indigo-600 text-white"
-                                )}
-                              >
-                                {isEmbeddingLoading ? (
-                                  <>
-                                    <RefreshCw size={16} className="animate-spin" />
-                                    {t('settings.ai.embedding.loading')}
-                                  </>
-                                ) : (
-                                  t('settings.ai.embedding.loadModel')
-                                )}
-                              </button>
-                            </div>
-                            <p className={cn("text-[10px] flex items-center gap-1", isDarkMode ? "text-indigo-400" : "text-indigo-600")}>
-                              <span>💡</span> {t('settings.ai.embedding.downloadHint')}
-                            </p>
+                            <select
+                              id="embeddingModelSelect"
+                              value={selectedEmbeddingModel}
+                              onChange={(e) => setSelectedEmbeddingModel(e.target.value)}
+                              className={cn(
+                                "w-full border rounded-xl px-4 py-2.5 text-sm focus:ring-1 focus:ring-indigo-500/50 outline-none appearance-none",
+                                isDarkMode ? "bg-zinc-700 border-zinc-600 text-zinc-200" : "bg-white border-zinc-300 text-zinc-900"
+                              )}
+                            >
+                              {availableEmbeddingModels.map(([id, name, dim]) => (
+                                <option key={id} value={id}>{name} ({dim}D)</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Download Status & Controls */}
+                          <div className={cn(
+                            "p-3 rounded-xl space-y-3",
+                            isDarkMode ? "bg-zinc-800/50" : "bg-white/50"
+                          )}>
+                            {/* Not Downloaded State */}
+                            {!modelExists && !downloadProgress && !isCheckingModel && (
+                              <div className="space-y-2">
+                                <div className={cn(
+                                  "flex items-center gap-2 text-sm",
+                                  isDarkMode ? "text-amber-400" : "text-amber-600"
+                                )}>
+                                  <Download size={16} />
+                                  <span>{t('settings.ai.embedding.modelNotDownloaded')}</span>
+                                </div>
+                                <button
+                                  onClick={handleDownloadModel}
+                                  className={cn(
+                                    "w-full py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2",
+                                    isDarkMode 
+                                      ? "bg-indigo-600 hover:bg-indigo-500 text-white" 
+                                      : "bg-indigo-500 hover:bg-indigo-600 text-white"
+                                  )}
+                                >
+                                  <Download size={16} />
+                                  {t('settings.ai.embedding.downloadModel')}
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Checking Model State */}
+                            {isCheckingModel && (
+                              <div className="flex items-center justify-center gap-2 py-2">
+                                <RefreshCw size={16} className="animate-spin" />
+                                <span className={cn("text-sm", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>
+                                  {t('settings.ai.embedding.loading')}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Downloading State */}
+                            {downloadProgress && downloadProgress.state === 'downloading' && (
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <span className={cn("text-sm font-medium", isDarkMode ? "text-zinc-200" : "text-zinc-800")}>
+                                    {t('settings.ai.embedding.downloadingModel')}
+                                  </span>
+                                  <span className={cn("text-xs", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>
+                                    {downloadProgress.filename}
+                                  </span>
+                                </div>
+                                
+                                {/* Progress Bar */}
+                                <div className="space-y-2">
+                                  <div className={cn(
+                                    "h-2 rounded-full overflow-hidden",
+                                    isDarkMode ? "bg-zinc-700" : "bg-zinc-200"
+                                  )}>
+                                    <div 
+                                      className="h-full bg-indigo-500 transition-all duration-300"
+                                      style={{ width: `${downloadProgress.percentage}%` }}
+                                    />
+                                  </div>
+                                  <div className="flex justify-between text-xs">
+                                    <span className={isDarkMode ? "text-zinc-400" : "text-zinc-500"}>
+                                      {downloadProgress.percentage.toFixed(1)}%
+                                    </span>
+                                    <span className={isDarkMode ? "text-zinc-400" : "text-zinc-500"}>
+                                      {formatSpeed(downloadProgress.speed_bps)}
+                                    </span>
+                                    <span className={isDarkMode ? "text-zinc-400" : "text-zinc-500"}>
+                                      {t('settings.ai.embedding.remainingTime')}: {formatTime(downloadProgress.eta_seconds)}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Control Buttons */}
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={handlePauseDownload}
+                                    className={cn(
+                                      "flex-1 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2",
+                                      isDarkMode 
+                                        ? "bg-zinc-700 text-zinc-300 hover:bg-zinc-600" 
+                                        : "bg-zinc-200 text-zinc-700 hover:bg-zinc-300"
+                                    )}
+                                  >
+                                    <Pause size={14} />
+                                    {t('settings.ai.embedding.pauseDownload')}
+                                  </button>
+                                  <button
+                                    onClick={handleCancelDownload}
+                                    className={cn(
+                                      "py-2 px-4 rounded-lg text-sm font-medium transition-colors",
+                                      isDarkMode 
+                                        ? "bg-red-900/30 text-red-400 hover:bg-red-900/50" 
+                                        : "bg-red-50 text-red-600 hover:bg-red-100"
+                                    )}
+                                  >
+                                    {t('settings.ai.embedding.cancelDownload')}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Paused State */}
+                            {downloadProgress && downloadProgress.state === 'paused' && (
+                              <div className="space-y-3">
+                                <div className={cn(
+                                  "flex items-center gap-2 text-sm",
+                                  isDarkMode ? "text-amber-400" : "text-amber-600"
+                                )}>
+                                  <Pause size={16} />
+                                  <span>{t('settings.ai.embedding.downloadPaused')}</span>
+                                  <span className={cn("text-xs", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>
+                                    ({downloadProgress.percentage.toFixed(1)}%)
+                                  </span>
+                                </div>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={handleResumeDownload}
+                                    className={cn(
+                                      "flex-1 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2",
+                                      isDarkMode 
+                                        ? "bg-indigo-600 hover:bg-indigo-500 text-white" 
+                                        : "bg-indigo-500 hover:bg-indigo-600 text-white"
+                                    )}
+                                  >
+                                    <Play size={14} />
+                                    {t('settings.ai.embedding.resumeDownload')}
+                                  </button>
+                                  <button
+                                    onClick={handleCancelDownload}
+                                    className={cn(
+                                      "py-2 px-4 rounded-lg text-sm font-medium transition-colors",
+                                      isDarkMode 
+                                        ? "bg-red-900/30 text-red-400 hover:bg-red-900/50" 
+                                        : "bg-red-50 text-red-600 hover:bg-red-100"
+                                    )}
+                                  >
+                                    {t('settings.ai.embedding.cancelDownload')}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Completed State */}
+                            {downloadProgress && downloadProgress.state === 'completed' && (
+                              <div className="space-y-2">
+                                <div className={cn(
+                                  "flex items-center gap-2 text-sm",
+                                  isDarkMode ? "text-emerald-400" : "text-emerald-600"
+                                )}>
+                                  <CheckCircle2 size={16} />
+                                  <span>{t('settings.ai.embedding.downloadComplete')}</span>
+                                </div>
+                                <button
+                                  onClick={handleLoadEmbeddingModel}
+                                  disabled={isEmbeddingLoading}
+                                  className={cn(
+                                    "w-full py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50",
+                                    isDarkMode 
+                                      ? "bg-emerald-600 hover:bg-emerald-500 text-white" 
+                                      : "bg-emerald-500 hover:bg-emerald-600 text-white"
+                                  )}
+                                >
+                                  {isEmbeddingLoading ? (
+                                    <>
+                                      <RefreshCw size={16} className="animate-spin" />
+                                      {t('settings.ai.embedding.loading')}
+                                    </>
+                                  ) : (
+                                    t('settings.ai.embedding.loadModel')
+                                  )}
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Error State */}
+                            {downloadProgress && downloadProgress.state === 'error' && (
+                              <div className="space-y-3">
+                                <div className={cn(
+                                  "flex items-start gap-2 text-sm",
+                                  isDarkMode ? "text-red-400" : "text-red-600"
+                                )}>
+                                  <XCircle size={16} className="flex-shrink-0 mt-0.5" />
+                                  <div>
+                                    <span>{t('settings.ai.embedding.downloadError')}</span>
+                                    {downloadProgress.error_message && (
+                                      <p className={cn("text-xs mt-1", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>
+                                        {downloadProgress.error_message}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={handleRetryDownload}
+                                  className={cn(
+                                    "w-full py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2",
+                                    isDarkMode 
+                                      ? "bg-indigo-600 hover:bg-indigo-500 text-white" 
+                                      : "bg-indigo-500 hover:bg-indigo-600 text-white"
+                                  )}
+                                >
+                                  <RefreshCw size={16} />
+                                  {t('settings.ai.embedding.retryDownload')}
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Model Ready State (exists but not downloading) */}
+                            {modelExists && !downloadProgress && (
+                              <div className="space-y-2">
+                                {(() => {
+                                  const currentLoadedModel = embeddingProvider.startsWith('local:') 
+                                    ? embeddingProvider.replace('local:', '') 
+                                    : null;
+                                  const isCurrentModelLoaded = currentLoadedModel === selectedEmbeddingModel;
+                                  
+                                  return (
+                                    <>
+                                      <div className={cn(
+                                        "flex items-center gap-2 text-sm",
+                                        isCurrentModelLoaded 
+                                          ? (isDarkMode ? "text-emerald-400" : "text-emerald-600")
+                                          : (isDarkMode ? "text-amber-400" : "text-amber-600")
+                                      )}>
+                                        {isCurrentModelLoaded ? (
+                                          <>
+                                            <CheckCircle2 size={16} />
+                                            <span>{t('settings.ai.embedding.modelLoaded')}</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Download size={16} />
+                                            <span>{t('settings.ai.embedding.modelReadyToLoad')}</span>
+                                          </>
+                                        )}
+                                      </div>
+                                      <button
+                                        onClick={handleLoadEmbeddingModel}
+                                        disabled={isEmbeddingLoading}
+                                        className={cn(
+                                          "w-full py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50",
+                                          isCurrentModelLoaded
+                                            ? (isDarkMode 
+                                                ? "bg-zinc-700 text-zinc-300 hover:bg-zinc-600" 
+                                                : "bg-zinc-200 text-zinc-700 hover:bg-zinc-300")
+                                            : (isDarkMode 
+                                                ? "bg-indigo-600 hover:bg-indigo-500 text-white" 
+                                                : "bg-indigo-500 hover:bg-indigo-600 text-white")
+                                        )}
+                                      >
+                                        {isEmbeddingLoading ? (
+                                          <>
+                                            <RefreshCw size={16} className="animate-spin" />
+                                            {t('settings.ai.embedding.loading')}
+                                          </>
+                                        ) : (
+                                          isCurrentModelLoaded 
+                                            ? t('settings.ai.embedding.reloadModel')
+                                            : t('settings.ai.embedding.loadModel')
+                                        )}
+                                      </button>
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            )}
                           </div>
 
                           {/* Actions */}

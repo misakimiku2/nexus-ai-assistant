@@ -261,6 +261,58 @@ export class TauriMemoryClient {
     console.log('[TauriMemoryClient] 更新记忆:', id);
     return invoke('update_memory', { id, updates });
   }
+
+  static async checkModelExists(modelId: string): Promise<boolean> {
+    return invoke('check_model_exists', { modelId });
+  }
+
+  static async downloadEmbeddingModel(modelId: string): Promise<void> {
+    return invoke('download_embedding_model', { modelId });
+  }
+
+  static async pauseEmbeddingDownload(modelId: string): Promise<void> {
+    return invoke('pause_embedding_download', { modelId });
+  }
+
+  static async resumeEmbeddingDownload(modelId: string): Promise<void> {
+    return invoke('resume_embedding_download', { modelId });
+  }
+
+  static async cancelEmbeddingDownload(modelId: string): Promise<void> {
+    return invoke('cancel_embedding_download', { modelId });
+  }
+
+  static async getDownloadProgress(modelId: string): Promise<DownloadProgress | null> {
+    return invoke('get_download_progress', { modelId });
+  }
+
+  static async openModelFolder(modelId: string): Promise<void> {
+    return invoke('open_model_folder', { modelId });
+  }
+
+  static async deleteEmbeddingModel(modelId: string): Promise<void> {
+    return invoke('delete_embedding_model', { modelId });
+  }
+
+  static async verifyModelIntegrity(modelId: string): Promise<boolean> {
+    return invoke('verify_model_integrity', { modelId });
+  }
+
+  static async getModelFolderPath(modelId: string): Promise<string> {
+    return invoke('get_model_folder_path', { modelId });
+  }
+}
+
+export interface DownloadProgress {
+  model_id: string;
+  filename: string;
+  downloaded_bytes: number;
+  total_bytes: number;
+  percentage: number;
+  speed_bps: number;
+  eta_seconds: number;
+  state: 'idle' | 'downloading' | 'paused' | 'completed' | 'error';
+  error_message?: string;
 }
 
 export class TauriSessionClient {

@@ -1,7 +1,13 @@
-use tauri::State;
+use tauri::{State, AppHandle, Emitter};
 use std::sync::Arc;
+use std::io::Write;
 use tokio::sync::Mutex;
-use crate::memory::{MemoryStorage, MemoryRetriever, EmbeddingService, EmbeddingConfig, EmbeddingProvider, MemoryEvolutionManager, CandidateStorage};
+use crate::memory::{
+    MemoryStorage, MemoryRetriever, EmbeddingService, EmbeddingConfig, EmbeddingProvider, 
+    MemoryEvolutionManager, CandidateStorage, DownloadManager, DownloadProgress, 
+    check_model_files_exist, delete_model_files, get_model_dir, cleanup_temp_files,
+    get_temp_file_path, DownloadState
+};
 use crate::models::{
     MemoryItem, MemoryType, TaskStatus, RetrievalOptions, RetrievedMemory,
     MemoryStats, DecayResult, PruneResult, EvolutionStats,
@@ -16,6 +22,7 @@ pub struct MemoryState {
     pub embedding: Arc<Mutex<EmbeddingService>>,
     pub evolution: Arc<Mutex<MemoryEvolutionManager>>,
     pub candidate_storage: Arc<Mutex<CandidateStorage>>,
+    pub download_manager: Arc<DownloadManager>,
 }
 
 impl MemoryState {
@@ -37,6 +44,7 @@ impl MemoryState {
         let evolution = MemoryEvolutionManager::new(storage.clone());
         
         let candidate_storage = CandidateStorage::new(db_path).expect("Failed to initialize candidate storage");
+        let download_manager = Arc::new(DownloadManager::new());
         
         log::info!("[MemoryState] 记忆状态实例创建完成");
         Self {
@@ -45,6 +53,7 @@ impl MemoryState {
             embedding: Arc::new(Mutex::new(embedding)),
             evolution: Arc::new(Mutex::new(evolution)),
             candidate_storage: Arc::new(Mutex::new(candidate_storage)),
+            download_manager,
         }
     }
 }
@@ -564,4 +573,494 @@ pub async fn update_memory(
     }
     
     Ok(())
+}
+
+#[tauri::command]
+pub async fn check_model_exists(
+    model_id: String,
+) -> Result<bool, String> {
+    Ok(check_model_files_exist(&model_id))
+}
+
+#[tauri::command]
+pub async fn download_embedding_model(
+    model_id: String,
+    app: AppHandle,
+    state: State<'_, MemoryState>,
+) -> Result<(), String> {
+    let download_manager = state.download_manager.clone();
+    
+    let config_files = vec!["config.json", "tokenizer.json"];
+    let model_files = vec!["model.safetensors", "pytorch_model.bin"];
+    
+    let model_dir = get_model_dir(&model_id);
+    
+    // 收集需要下载的配置文件
+    let mut config_to_download: Vec<String> = Vec::new();
+    for filename in &config_files {
+        let file_path = model_dir.join(filename);
+        if !file_path.exists() {
+            config_to_download.push(filename.to_string());
+        }
+    }
+    
+    // 检查模型文件是否已存在
+    let mut model_file_exists = false;
+    for filename in &model_files {
+        let file_path = model_dir.join(filename);
+        if file_path.exists() {
+            model_file_exists = true;
+            break;
+        }
+    }
+    
+    // 如果没有模型文件，需要尝试下载
+    let need_model_files = !model_file_exists;
+    
+    if config_to_download.is_empty() && !need_model_files {
+        log::info!("[MemoryCommands] 所有文件已存在，无需下载");
+        return Ok(());
+    }
+    
+    log::info!("[MemoryCommands] 需要下载的配置文件: {:?}", config_to_download);
+    log::info!("[MemoryCommands] 需要下载模型文件: {}", need_model_files);
+    
+    // 构建客户端，添加更多headers模拟浏览器
+    let client = reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+    
+    // 确保模型目录存在
+    if !model_dir.exists() {
+        std::fs::create_dir_all(&model_dir).map_err(|e| {
+            format!("Failed to create model directory: {}", e)
+        })?;
+        log::info!("[MemoryCommands] 创建模型目录: {:?}", model_dir);
+    }
+    
+    // 启动下载任务（只调用一次）
+    let cancel_flag = download_manager.start_download(&model_id, "model").await
+        .map_err(|e| e.to_string())?;
+    
+    let mut downloaded_total: u64 = 0;
+    let mut model_file_downloaded = model_file_exists;
+    let mut total_size: u64 = 0;
+    
+    // 获取配置文件大小
+    for filename in &config_to_download {
+        let url = format!(
+            "https://modelscope.cn/models/{}/resolve/master/{}",
+            model_id, filename
+        );
+        
+        match client.get(&url).header("Range", "bytes=0-0").send().await {
+            Ok(response) => {
+                if let Some(content_range) = response.headers().get("content-range") {
+                    if let Ok(range_str) = content_range.to_str() {
+                        if let Some(total) = range_str.split('/').last() {
+                            if let Ok(size) = total.parse::<u64>() {
+                                total_size += size;
+                                log::info!("[MemoryCommands] 配置文件 {} 大小: {} bytes", filename, size);
+                            }
+                        }
+                    }
+                } else if let Some(size) = response.content_length() {
+                    total_size += size;
+                }
+            }
+            Err(e) => log::warn!("[MemoryCommands] 无法获取文件 {} 大小: {}", filename, e),
+        }
+    }
+    
+    // 获取模型文件大小（尝试两个文件，找到可用的一个）
+    let mut available_model_file: Option<String> = None;
+    if need_model_files {
+        for filename in &model_files {
+            let url = format!(
+                "https://modelscope.cn/models/{}/resolve/master/{}",
+                model_id, filename
+            );
+            
+            match client.get(&url).header("Range", "bytes=0-0").send().await {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        available_model_file = Some(filename.to_string());
+                        if let Some(content_range) = response.headers().get("content-range") {
+                            if let Ok(range_str) = content_range.to_str() {
+                                if let Some(total) = range_str.split('/').last() {
+                                    if let Ok(size) = total.parse::<u64>() {
+                                        total_size += size;
+                                        log::info!("[MemoryCommands] 模型文件 {} 大小: {} bytes", filename, size);
+                                    }
+                                }
+                            }
+                        } else if let Some(size) = response.content_length() {
+                            total_size += size;
+                        }
+                        break;
+                    }
+                }
+                Err(e) => log::warn!("[MemoryCommands] 无法获取模型文件 {} 大小: {}", filename, e),
+            }
+        }
+        
+        if available_model_file.is_none() {
+            download_manager.set_error(&model_id, "No available model file found".to_string()).await;
+            download_manager.remove_task(&model_id).await;
+            return Err("No available model file found on ModelScope".to_string());
+        }
+    }
+    
+    log::info!("[MemoryCommands] 总下载大小: {} bytes ({:.2} MB)", total_size, total_size as f64 / (1024.0 * 1024.0));
+    
+    // 下载配置文件（必须成功）
+    for filename in &config_to_download {
+        let file_path = model_dir.join(filename);
+        if file_path.exists() {
+            log::info!("[MemoryCommands] 文件已存在，跳过: {:?}", file_path);
+            continue;
+        }
+        
+        let url = format!(
+            "https://modelscope.cn/models/{}/resolve/master/{}",
+            model_id, filename
+        );
+        
+        log::info!("[MemoryCommands] 开始下载: {}", url);
+        
+        let response = match client.get(&url).send().await {
+            Ok(r) => r,
+            Err(e) => {
+                let error = format!("Request failed: {}", e);
+                download_manager.set_error(&model_id, error.clone()).await;
+                download_manager.remove_task(&model_id).await;
+                return Err(error);
+            }
+        };
+        
+        if !response.status().is_success() {
+            let error = format!("Download failed with status: {}", response.status());
+            download_manager.set_error(&model_id, error.clone()).await;
+            download_manager.remove_task(&model_id).await;
+            return Err(error);
+        }
+        
+        let temp_path = crate::memory::get_temp_file_path(&file_path);
+        let mut file = match std::fs::File::create(&temp_path) {
+            Ok(f) => f,
+            Err(e) => {
+                let error = format!("Failed to create temp file: {}", e);
+                download_manager.set_error(&model_id, error.clone()).await;
+                download_manager.remove_task(&model_id).await;
+                return Err(error);
+            }
+        };
+        
+        let mut file_downloaded: u64 = 0;
+        let mut stream = response.bytes_stream();
+        use futures::StreamExt;
+        
+        while let Some(chunk) = stream.next().await {
+            if cancel_flag.load(std::sync::atomic::Ordering::SeqCst) {
+                let _ = file.flush();
+                drop(file);
+                let _ = std::fs::remove_file(&temp_path);
+                download_manager.remove_task(&model_id).await;
+                return Err("Download cancelled".to_string());
+            }
+            
+            let pause_flag = download_manager.get_pause_flag(&model_id).await;
+            if let Some(flag) = pause_flag {
+                while flag.load(std::sync::atomic::Ordering::SeqCst) {
+                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                    if cancel_flag.load(std::sync::atomic::Ordering::SeqCst) {
+                        let _ = file.flush();
+                        drop(file);
+                        let _ = std::fs::remove_file(&temp_path);
+                        download_manager.remove_task(&model_id).await;
+                        return Err("Download cancelled".to_string());
+                    }
+                }
+            }
+            
+            let chunk = match chunk {
+                Ok(c) => c,
+                Err(e) => {
+                    let error = format!("Failed to read chunk: {}", e);
+                    download_manager.set_error(&model_id, error.clone()).await;
+                    download_manager.remove_task(&model_id).await;
+                    return Err(error);
+                }
+            };
+            
+            if let Err(e) = file.write_all(&chunk) {
+                let error = format!("Failed to write chunk: {}", e);
+                download_manager.set_error(&model_id, error.clone()).await;
+                download_manager.remove_task(&model_id).await;
+                return Err(error);
+            }
+            
+            file_downloaded += chunk.len() as u64;
+            let overall_downloaded = downloaded_total + file_downloaded;
+            
+            if let Some(progress) = download_manager.update_overall_progress(
+                &model_id, 
+                overall_downloaded, 
+                total_size,
+                filename
+            ).await {
+                let _ = app.emit("embedding-download-progress", &progress);
+            }
+        }
+        
+        let _ = file.flush();
+        drop(file);
+        
+        if let Err(e) = std::fs::rename(&temp_path, &file_path) {
+            let error = format!("Failed to rename temp file: {}", e);
+            download_manager.set_error(&model_id, error.clone()).await;
+            download_manager.remove_task(&model_id).await;
+            return Err(error);
+        }
+        
+        downloaded_total += file_downloaded;
+        log::info!("[MemoryCommands] 文件下载完成: {}", filename);
+    }
+    
+    // 下载模型文件（只需要成功一个）
+    if let Some(filename) = &available_model_file {
+        let file_path = model_dir.join(filename);
+        if !file_path.exists() {
+            let url = format!(
+                "https://modelscope.cn/models/{}/resolve/master/{}",
+                model_id, filename
+            );
+            
+            log::info!("[MemoryCommands] 开始下载模型文件: {}", url);
+            
+            let response = match client.get(&url).send().await {
+                Ok(r) => r,
+                Err(e) => {
+                    let error = format!("Request failed: {}", e);
+                    download_manager.set_error(&model_id, error.clone()).await;
+                    download_manager.remove_task(&model_id).await;
+                    return Err(error);
+                }
+            };
+            
+            if !response.status().is_success() {
+                let error = format!("Download failed with status: {}", response.status());
+                download_manager.set_error(&model_id, error.clone()).await;
+                download_manager.remove_task(&model_id).await;
+                return Err(error);
+            }
+            
+            let actual_size = response.content_length().unwrap_or(0);
+            let mut total_size_clone = total_size;
+            if total_size_clone == 0 && actual_size > 0 {
+                total_size_clone = actual_size;
+                log::info!("[MemoryCommands] 从响应获取文件大小: {} bytes", actual_size);
+            }
+            
+            let temp_path = crate::memory::get_temp_file_path(&file_path);
+            let mut file = match std::fs::File::create(&temp_path) {
+                Ok(f) => f,
+                Err(e) => {
+                    let error = format!("Failed to create temp file: {}", e);
+                    download_manager.set_error(&model_id, error.clone()).await;
+                    download_manager.remove_task(&model_id).await;
+                    return Err(error);
+                }
+            };
+            
+            let mut file_downloaded: u64 = 0;
+            let mut stream = response.bytes_stream();
+            use futures::StreamExt;
+            
+            while let Some(chunk) = stream.next().await {
+                if cancel_flag.load(std::sync::atomic::Ordering::SeqCst) {
+                    let _ = file.flush();
+                    drop(file);
+                    let _ = std::fs::remove_file(&temp_path);
+                    download_manager.remove_task(&model_id).await;
+                    return Err("Download cancelled".to_string());
+                }
+                
+                let pause_flag = download_manager.get_pause_flag(&model_id).await;
+                if let Some(flag) = pause_flag {
+                    while flag.load(std::sync::atomic::Ordering::SeqCst) {
+                        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                        if cancel_flag.load(std::sync::atomic::Ordering::SeqCst) {
+                            let _ = file.flush();
+                            drop(file);
+                            let _ = std::fs::remove_file(&temp_path);
+                            download_manager.remove_task(&model_id).await;
+                            return Err("Download cancelled".to_string());
+                        }
+                    }
+                }
+                
+                let chunk = match chunk {
+                    Ok(c) => c,
+                    Err(e) => {
+                        let error = format!("Failed to read chunk: {}", e);
+                        download_manager.set_error(&model_id, error.clone()).await;
+                        download_manager.remove_task(&model_id).await;
+                        return Err(error);
+                    }
+                };
+                
+                if let Err(e) = file.write_all(&chunk) {
+                    let error = format!("Failed to write chunk: {}", e);
+                    download_manager.set_error(&model_id, error.clone()).await;
+                    download_manager.remove_task(&model_id).await;
+                    return Err(error);
+                }
+                
+                file_downloaded += chunk.len() as u64;
+                let overall_downloaded = downloaded_total + file_downloaded;
+                
+                if let Some(progress) = download_manager.update_overall_progress(
+                    &model_id, 
+                    overall_downloaded, 
+                    total_size_clone,
+                    filename
+                ).await {
+                    let _ = app.emit("embedding-download-progress", &progress);
+                }
+            }
+            
+            let _ = file.flush();
+            drop(file);
+            
+            if let Err(e) = std::fs::rename(&temp_path, &file_path) {
+                let error = format!("Failed to rename temp file: {}", e);
+                download_manager.set_error(&model_id, error.clone()).await;
+                download_manager.remove_task(&model_id).await;
+                return Err(error);
+            }
+            
+            downloaded_total += file_downloaded;
+            model_file_downloaded = true;
+            log::info!("[MemoryCommands] 模型文件下载完成: {}", filename);
+        }
+    }
+    
+    download_manager.set_state(&model_id, crate::memory::DownloadState::Completed).await;
+    download_manager.remove_task(&model_id).await;
+    
+    if model_file_downloaded {
+        log::info!("[MemoryCommands] 模型 {} 下载完成", model_id);
+        Ok(())
+    } else {
+        Err("Failed to download model files".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn pause_embedding_download(
+    model_id: String,
+    state: State<'_, MemoryState>,
+) -> Result<(), String> {
+    state.download_manager.pause_download(&model_id).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn resume_embedding_download(
+    model_id: String,
+    state: State<'_, MemoryState>,
+) -> Result<(), String> {
+    state.download_manager.resume_download(&model_id).await.map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn cancel_embedding_download(
+    model_id: String,
+    state: State<'_, MemoryState>,
+) -> Result<(), String> {
+    state.download_manager.cancel_download(&model_id).await.map_err(|e| e.to_string())?;
+    cleanup_temp_files(&model_id);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_download_progress(
+    model_id: String,
+    state: State<'_, MemoryState>,
+) -> Result<Option<DownloadProgress>, String> {
+    Ok(state.download_manager.get_progress(&model_id).await)
+}
+
+#[tauri::command]
+pub async fn open_model_folder(
+    model_id: String,
+) -> Result<(), String> {
+    let model_dir = get_model_dir(&model_id);
+    
+    if !model_dir.exists() {
+        return Err("Model folder does not exist".to_string());
+    }
+    
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(&model_dir)
+            .spawn()
+            .map_err(|e| format!("Failed to open folder: {}", e))?;
+    }
+    
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&model_dir)
+            .spawn()
+            .map_err(|e| format!("Failed to open folder: {}", e))?;
+    }
+    
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&model_dir)
+            .spawn()
+            .map_err(|e| format!("Failed to open folder: {}", e))?;
+    }
+    
+    log::info!("[MemoryCommands] 打开模型文件夹: {:?}", model_dir);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn delete_embedding_model(
+    model_id: String,
+) -> Result<(), String> {
+    delete_model_files(&model_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn verify_model_integrity(
+    model_id: String,
+) -> Result<bool, String> {
+    let model_dir = get_model_dir(&model_id);
+    
+    let config_path = model_dir.join("config.json");
+    let tokenizer_path = model_dir.join("tokenizer.json");
+    let model_path = model_dir.join("model.safetensors");
+    let alt_model_path = model_dir.join("pytorch_model.bin");
+    
+    let config_ok = config_path.exists() && config_path.metadata().map(|m| m.len() > 0).unwrap_or(false);
+    let tokenizer_ok = tokenizer_path.exists() && tokenizer_path.metadata().map(|m| m.len() > 0).unwrap_or(false);
+    let model_ok = (model_path.exists() && model_path.metadata().map(|m| m.len() > 0).unwrap_or(false))
+        || (alt_model_path.exists() && alt_model_path.metadata().map(|m| m.len() > 0).unwrap_or(false));
+    
+    Ok(config_ok && tokenizer_ok && model_ok)
+}
+
+#[tauri::command]
+pub async fn get_model_folder_path(
+    model_id: String,
+) -> Result<String, String> {
+    let model_dir = get_model_dir(&model_id);
+    Ok(model_dir.to_string_lossy().to_string())
 }

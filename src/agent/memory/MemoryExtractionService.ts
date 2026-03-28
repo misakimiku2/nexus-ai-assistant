@@ -3,6 +3,7 @@ import { CandidateMemory, CandidateStatus, ConversationMessage, ExtractionConfig
 import { PreFilterService, preFilterService } from './PreFilterService';
 import { MemoryModelClient, memoryModelClient, ParsedMemory } from './MemoryModelClient';
 import { MemoryStore, memoryStore, StoreResult } from './MemoryStore';
+import { similarityEngine } from './SimilarityEngine';
 
 const DEFAULT_EXTRACTION_CONFIG: ExtractionConfig = {
   minMessageCount: 4,
@@ -150,7 +151,14 @@ class MemoryExtractionService {
       return null;
     }
 
-    const candidateMemories: CandidateMemory[] = candidates.map(c => ({
+    const dedupedCandidates = await this.deduplicateCandidates(candidates);
+
+    if (dedupedCandidates.length === 0) {
+      console.log('[MemoryExtraction] 去重后无新候选记忆');
+      return null;
+    }
+
+    const candidateMemories: CandidateMemory[] = dedupedCandidates.map(c => ({
       id: crypto.randomUUID(),
       content: c.content,
       memoryType: c.type,
@@ -168,9 +176,165 @@ class MemoryExtractionService {
 
     this.callbacks.onCandidatesExtracted?.(candidateMemories);
 
-    console.log('[MemoryExtraction] 提取完成，添加了', candidateMemories.length, '条候选记忆');
+    console.log('[MemoryExtraction] 提取完成，添加了', candidateMemories.length, '条候选记忆 (原始:', candidates.length, ', 去重后:', dedupedCandidates.length, ')');
 
     return candidateMemories;
+  }
+
+  private async deduplicateCandidates(candidates: ParsedMemory[]): Promise<ParsedMemory[]> {
+    const DUPLICATE_THRESHOLD = 0.85;
+    const SIMILAR_THRESHOLD = 0.75;
+
+    const result: ParsedMemory[] = [];
+    const stats = {
+      total: candidates.length,
+      skipped: 0,
+      merged: 0,
+    };
+
+    try {
+      const existingCandidates = await TauriMemoryClient.getPendingCandidates();
+      const existingMemories = await TauriMemoryClient.getAllMemories();
+
+      const candidateEmbeddings = new Map<string, number[]>();
+      for (const candidate of candidates) {
+        if (!candidate.embedding) {
+          try {
+            candidate.embedding = await TauriMemoryClient.generateEmbedding(candidate.content);
+          } catch (e) {
+            console.warn('[MemoryExtraction] 生成 embedding 失败，跳过去重检查:', candidate.content.substring(0, 30));
+            result.push(candidate);
+            continue;
+          }
+        }
+        candidateEmbeddings.set(candidate.content, candidate.embedding);
+      }
+
+      const existingCandidateEmbeddings = new Map<string, number[]>();
+      const embeddingPromises = existingCandidates.map(async (ec) => {
+        try {
+          const embedding = await TauriMemoryClient.generateEmbedding(ec.content);
+          existingCandidateEmbeddings.set(ec.id, embedding);
+        } catch (e) {
+          console.warn('[MemoryExtraction] 生成已有候选 embedding 失败:', ec.content.substring(0, 30));
+        }
+      });
+      await Promise.all(embeddingPromises);
+
+      const memoryEmbeddings = new Map<string, number[]>();
+      for (const memory of existingMemories) {
+        if (memory.embedding && memory.embedding.length > 0) {
+          memoryEmbeddings.set(memory.id, memory.embedding);
+        } else {
+          try {
+            const embedding = await TauriMemoryClient.generateEmbedding(memory.content);
+            memoryEmbeddings.set(memory.id, embedding);
+          } catch (e) {
+            console.warn('[MemoryExtraction] 生成已有记忆 embedding 失败:', memory.content.substring(0, 30));
+          }
+        }
+      }
+
+      for (const candidate of candidates) {
+        const candidateEmbedding = candidateEmbeddings.get(candidate.content);
+        if (!candidateEmbedding) continue;
+
+        let shouldSkip = false;
+        let hasMerged = false;
+
+        for (const existing of existingCandidates) {
+          if (existing.memoryType !== candidate.type) continue;
+
+          const existingEmbedding = existingCandidateEmbeddings.get(existing.id);
+          if (!existingEmbedding) continue;
+
+          const similarity = this.cosineSimilarity(candidateEmbedding, existingEmbedding);
+
+          if (similarity > DUPLICATE_THRESHOLD) {
+            console.log('[MemoryExtraction] 与已有候选记忆重复，跳过:', candidate.content.substring(0, 30), '相似度:', similarity.toFixed(3));
+            shouldSkip = true;
+            stats.skipped++;
+            break;
+          }
+
+          if (similarity > SIMILAR_THRESHOLD && !hasMerged) {
+            const merged = this.tryMergeContent(existing.content, candidate.content);
+            if (merged) {
+              console.log('[MemoryExtraction] 与已有候选记忆相似，合并:', candidate.content.substring(0, 30), '→', merged.substring(0, 30));
+              candidate.content = merged;
+              hasMerged = true;
+              stats.merged++;
+            }
+          }
+        }
+
+        if (shouldSkip) continue;
+
+        for (const memory of existingMemories) {
+          if (memory.memoryType !== candidate.type) continue;
+
+          const memoryEmbedding = memoryEmbeddings.get(memory.id);
+          if (!memoryEmbedding) continue;
+
+          const similarity = this.cosineSimilarity(candidateEmbedding, memoryEmbedding);
+
+          if (similarity > DUPLICATE_THRESHOLD) {
+            console.log('[MemoryExtraction] 与已有正式记忆重复，跳过:', candidate.content.substring(0, 30), '相似度:', similarity.toFixed(3));
+            shouldSkip = true;
+            stats.skipped++;
+            await TauriMemoryClient.boostMemory(memory.id, 0.05);
+            break;
+          }
+
+          if (similarity > SIMILAR_THRESHOLD && !hasMerged) {
+            const merged = this.tryMergeContent(memory.content, candidate.content);
+            if (merged) {
+              console.log('[MemoryExtraction] 与已有正式记忆相似，合并:', candidate.content.substring(0, 30), '→', merged.substring(0, 30));
+              candidate.content = merged;
+              hasMerged = true;
+              stats.merged++;
+            }
+          }
+        }
+
+        if (!shouldSkip) {
+          result.push(candidate);
+        }
+      }
+    } catch (error) {
+      console.error('[MemoryExtraction] 去重过程出错，返回原始候选:', error);
+      return candidates;
+    }
+
+    console.log('[MemoryExtraction] 去重统计:', stats);
+    return result;
+  }
+
+  private cosineSimilarity(a: number[], b: number[]): number {
+    if (a.length !== b.length) return 0;
+
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+
+    for (let i = 0; i < a.length; i++) {
+      dotProduct += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+
+    if (normA === 0 || normB === 0) return 0;
+    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+  }
+
+  private tryMergeContent(existing: string, newContent: string): string | null {
+    if (existing.includes(newContent)) {
+      return existing;
+    }
+    if (newContent.includes(existing)) {
+      return newContent;
+    }
+    return null;
   }
 
   private async legacyExtractionPipeline(

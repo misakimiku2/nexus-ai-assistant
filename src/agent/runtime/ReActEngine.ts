@@ -108,7 +108,53 @@ export class ReActEngine {
 
         const response = await this.callLLMStream(messages);
 
-        if (!response.toolCalls || response.toolCalls.length === 0) {
+        if (response.toolCalls && response.toolCalls.length > 0) {
+          const validToolCalls: ToolCallRequest[] = [];
+          const toolResults: Array<{ toolCallId: string; name: string; content: string }> = [];
+
+          for (const toolCall of response.toolCalls) {
+            const params = parseToolCallArguments(toolCall.function.arguments);
+            
+            if (params._invalid) {
+              console.warn(`[ReActEngine] Skipping invalid tool call: ${toolCall.function.name}, reason: ${params._reason}`);
+              continue;
+            }
+
+            const toolDefinition = ToolRegistry.get(toolCall.function.name);
+            if (toolDefinition?.parameters?.required) {
+              const missingParams = toolDefinition.parameters.required.filter(
+                (p) => params[p] === undefined || params[p] === null || params[p] === ''
+              );
+              if (missingParams.length > 0) {
+                console.warn(`[ReActEngine] Skipping tool call with missing params: ${toolCall.function.name}, missing: ${missingParams.join(', ')}`);
+                continue;
+              }
+            }
+
+            validToolCalls.push(toolCall);
+          }
+
+          if (validToolCalls.length > 0) {
+            messages.push({
+              role: 'assistant',
+              content: response.content || '',
+              toolCalls: validToolCalls,
+            });
+
+            for (const toolCall of validToolCalls) {
+              const result = await this.handleToolCall(toolCall);
+              
+              messages.push({
+                role: 'tool',
+                content: result.output || result.error || 'No output',
+                toolCallId: toolCall.id,
+                name: toolCall.function.name,
+              });
+            }
+          } else {
+            console.warn('[ReActEngine] All tool calls were invalid, proceeding without tool execution');
+          }
+        } else {
           this.updateStatus('completed');
           await this.reinforceUsedMemories(response.content || '');
           messages.push({
@@ -117,23 +163,6 @@ export class ReActEngine {
           });
           this.triggerMemoryExtraction(messages, response.content || '');
           return response.content || 'Task completed.';
-        }
-
-        for (const toolCall of response.toolCalls) {
-          const result = await this.handleToolCall(toolCall);
-          
-          messages.push({
-            role: 'assistant',
-            content: response.content || '',
-            toolCalls: response.toolCalls,
-          });
-
-          messages.push({
-            role: 'tool',
-            content: result.output || result.error || 'No output',
-            toolCallId: toolCall.id,
-            name: toolCall.function.name,
-          });
         }
 
         this.updateStatus('thinking');
@@ -239,12 +268,17 @@ export class ReActEngine {
       { role: 'system', content: systemPrompt },
     ];
 
-    for (const msg of this.context.conversationHistory) {
+    const truncatedHistory = this.truncateConversationHistory(
+      this.context.conversationHistory,
+      systemPrompt.length
+    );
+
+    for (const msg of truncatedHistory) {
       messages.push(msg);
     }
 
     const lastMessage = messages[messages.length - 1];
-    const lastUserMessage = this.context.conversationHistory
+    const lastUserMessage = truncatedHistory
       .filter(m => m.role === 'user')
       .pop();
     
@@ -253,6 +287,59 @@ export class ReActEngine {
     }
 
     return messages;
+  }
+
+  private truncateConversationHistory(
+    history: ConversationMessage[],
+    systemPromptLength: number
+  ): ConversationMessage[] {
+    const MAX_MODEL_TOKENS = 20000;
+    const RESERVE_FOR_TOOLS = 2000;
+    const RESERVE_FOR_RESPONSE = 2000;
+    const MAX_CONTEXT_TOKENS = MAX_MODEL_TOKENS - RESERVE_FOR_TOOLS - RESERVE_FOR_RESPONSE;
+    const AVG_CHARS_PER_TOKEN = 2;
+    const MAX_CONTEXT_CHARS = MAX_CONTEXT_TOKENS * AVG_CHARS_PER_TOKEN;
+    const MIN_MESSAGES_TO_KEEP = 4;
+    const MAX_MESSAGES = 20;
+
+    const availableChars = MAX_CONTEXT_CHARS - systemPromptLength;
+
+    console.log(`[ReActEngine] 上下文预算: 模型=${MAX_MODEL_TOKENS}, 工具预留=${RESERVE_FOR_TOOLS}, 回复预留=${RESERVE_FOR_RESPONSE}, 可用=${MAX_CONTEXT_TOKENS} tokens (${MAX_CONTEXT_CHARS} chars)`);
+    console.log(`[ReActEngine] System prompt 长度: ${systemPromptLength} chars, 剩余可用: ${availableChars} chars`);
+
+    if (history.length <= MIN_MESSAGES_TO_KEEP) {
+      return history;
+    }
+
+    if (history.length > MAX_MESSAGES) {
+      console.log(`[ReActEngine] 对话历史过长 (${history.length} 条)，截断到 ${MAX_MESSAGES} 条`);
+      history = history.slice(-MAX_MESSAGES);
+    }
+
+    let totalChars = history.reduce((sum, m) => sum + (m.content?.length || 0), 0);
+
+    if (totalChars <= availableChars) {
+      console.log(`[ReActEngine] 对话历史无需截断: ${history.length} 条, ${totalChars} chars`);
+      return history;
+    }
+
+    const result: ConversationMessage[] = [];
+    let currentChars = 0;
+    const recentMessages = [...history].reverse();
+
+    for (const msg of recentMessages) {
+      const msgLength = msg.content?.length || 0;
+      if (currentChars + msgLength <= availableChars || result.length < MIN_MESSAGES_TO_KEEP) {
+        result.unshift(msg);
+        currentChars += msgLength;
+      } else {
+        break;
+      }
+    }
+
+    console.log(`[ReActEngine] 对话历史截断: ${history.length} 条 → ${result.length} 条, 字符数: ${totalChars} → ${currentChars}`);
+
+    return result;
   }
 
   private getModelType(): 'local' | 'online' {
@@ -358,6 +445,7 @@ export class ReActEngine {
     const requiresAuth = ToolRegistry.requiresAuth(toolName);
 
     console.log('[ReActEngine] Tool call:', toolName, 'params:', params);
+
     console.log('[ReActEngine] preprocessedUrls:', this.context.preprocessedUrls ? Object.fromEntries(this.context.preprocessedUrls) : 'undefined');
 
     if (this.context.preprocessedUrls && params.url && typeof params.url === 'string') {

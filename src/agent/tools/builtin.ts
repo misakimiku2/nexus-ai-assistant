@@ -117,6 +117,16 @@ IMPORTANT: Write concise, natural search queries like a human would.
     execute: async (params): Promise<ToolExecutionResult> => {
       try {
         const query = params.query as string;
+
+        if (!query || typeof query !== 'string' || query.trim() === '' || query === 'undefined') {
+          console.error('[web_search] Invalid query parameter:', query);
+          return {
+            success: false,
+            output: '',
+            error: '搜索查询参数无效或为空。请提供有效的搜索关键词。',
+          };
+        }
+
         const searchEngine = localStorage.getItem('nexus_search_engine') || 'auto';
         const tavilyApiKey = localStorage.getItem('nexus_tavily_api_key');
         const tavilyEnabled = localStorage.getItem('nexus_tavily_enabled') === 'true';

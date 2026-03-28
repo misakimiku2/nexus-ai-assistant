@@ -1,10 +1,17 @@
 use thiserror::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant};
+use std::collections::HashMap;
+use std::io::Write;
 use candle_core::{Device, Tensor, DType};
 use candle_nn::VarBuilder;
 use candle_transformers::models::bert::{BertModel, Config, DTYPE};
 use tokenizers::Tokenizer;
+use serde::{Deserialize, Serialize};
+use tokio::sync::Mutex;
+use sha2::{Sha256, Digest};
 
 #[derive(Debug, Error)]
 pub enum EmbeddingError {
@@ -22,6 +29,279 @@ pub enum EmbeddingError {
     TensorError(String),
     #[error("Model download failed: {0}")]
     DownloadFailed(String),
+    #[error("Download was cancelled")]
+    DownloadCancelled,
+    #[error("Download is already in progress")]
+    DownloadInProgress,
+    #[error("File integrity check failed: {0}")]
+    IntegrityCheckFailed(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DownloadState {
+    Idle,
+    Downloading,
+    Paused,
+    Completed,
+    Error,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DownloadProgress {
+    pub model_id: String,
+    pub filename: String,
+    pub downloaded_bytes: u64,
+    pub total_bytes: u64,
+    pub percentage: f32,
+    pub speed_bps: u64,
+    pub eta_seconds: u64,
+    pub state: DownloadState,
+    pub error_message: Option<String>,
+}
+
+impl Default for DownloadProgress {
+    fn default() -> Self {
+        Self {
+            model_id: String::new(),
+            filename: String::new(),
+            downloaded_bytes: 0,
+            total_bytes: 0,
+            percentage: 0.0,
+            speed_bps: 0,
+            eta_seconds: 0,
+            state: DownloadState::Idle,
+            error_message: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct DownloadTask {
+    progress: DownloadProgress,
+    cancel_flag: Arc<AtomicBool>,
+    pause_flag: Arc<AtomicBool>,
+    start_time: Instant,
+    last_update_time: Instant,
+    last_downloaded_bytes: u64,
+}
+
+pub struct DownloadManager {
+    tasks: Mutex<HashMap<String, DownloadTask>>,
+}
+
+impl DownloadManager {
+    pub fn new() -> Self {
+        Self {
+            tasks: Mutex::new(HashMap::new()),
+        }
+    }
+
+    pub async fn start_download(&self, model_id: &str, filename: &str) -> Result<Arc<AtomicBool>, EmbeddingError> {
+        let mut tasks = self.tasks.lock().await;
+        
+        if let Some(task) = tasks.get(model_id) {
+            if task.progress.state == DownloadState::Downloading || task.progress.state == DownloadState::Paused {
+                return Err(EmbeddingError::DownloadInProgress);
+            }
+            // 如果是其他状态（Error, Completed, Idle），移除旧任务允许重新下载
+            tasks.remove(model_id);
+        }
+
+        let cancel_flag = Arc::new(AtomicBool::new(false));
+        let pause_flag = Arc::new(AtomicBool::new(false));
+        
+        let progress = DownloadProgress {
+            model_id: model_id.to_string(),
+            filename: filename.to_string(),
+            state: DownloadState::Downloading,
+            ..Default::default()
+        };
+
+        let task = DownloadTask {
+            progress,
+            cancel_flag: cancel_flag.clone(),
+            pause_flag: pause_flag.clone(),
+            start_time: Instant::now(),
+            last_update_time: Instant::now(),
+            last_downloaded_bytes: 0,
+        };
+
+        tasks.insert(model_id.to_string(), task);
+        Ok(cancel_flag)
+    }
+
+    pub async fn update_progress(&self, model_id: &str, downloaded: u64, total: u64) -> Option<DownloadProgress> {
+        let mut tasks = self.tasks.lock().await;
+        
+        if let Some(task) = tasks.get_mut(model_id) {
+            let now = Instant::now();
+            let elapsed = now.duration_since(task.last_update_time).as_secs_f64();
+            
+            let speed = if elapsed >= 0.5 {
+                let bytes_diff = downloaded.saturating_sub(task.last_downloaded_bytes);
+                let instant_speed = bytes_diff as f64 / elapsed;
+                let smoothed_speed = task.progress.speed_bps as f64 * 0.7 + instant_speed * 0.3;
+                smoothed_speed as u64
+            } else {
+                task.progress.speed_bps
+            };
+
+            let remaining_bytes = total.saturating_sub(downloaded);
+            let eta = if speed > 0 {
+                remaining_bytes / speed
+            } else {
+                0
+            };
+
+            let percentage = if total > 0 {
+                (downloaded as f64 / total as f64 * 100.0) as f32
+            } else {
+                0.0
+            };
+
+            task.progress.downloaded_bytes = downloaded;
+            task.progress.total_bytes = total;
+            task.progress.percentage = percentage;
+            task.progress.speed_bps = speed;
+            task.progress.eta_seconds = eta;
+            
+            if elapsed >= 0.5 {
+                task.last_update_time = now;
+                task.last_downloaded_bytes = downloaded;
+            }
+
+            Some(task.progress.clone())
+        } else {
+            None
+        }
+    }
+
+    pub async fn update_overall_progress(&self, model_id: &str, overall_downloaded: u64, overall_total: u64, current_filename: &str) -> Option<DownloadProgress> {
+        let mut tasks = self.tasks.lock().await;
+        
+        if let Some(task) = tasks.get_mut(model_id) {
+            let now = Instant::now();
+            let elapsed = now.duration_since(task.last_update_time).as_secs_f64();
+            
+            let speed = if elapsed >= 0.5 {
+                let bytes_diff = overall_downloaded.saturating_sub(task.last_downloaded_bytes);
+                let instant_speed = bytes_diff as f64 / elapsed;
+                let smoothed_speed = task.progress.speed_bps as f64 * 0.7 + instant_speed * 0.3;
+                smoothed_speed as u64
+            } else {
+                task.progress.speed_bps
+            };
+
+            let remaining_bytes = overall_total.saturating_sub(overall_downloaded);
+            let eta = if speed > 0 {
+                remaining_bytes / speed
+            } else {
+                0
+            };
+
+            let percentage = if overall_total > 0 {
+                (overall_downloaded as f64 / overall_total as f64 * 100.0) as f32
+            } else {
+                0.0
+            };
+
+            task.progress.downloaded_bytes = overall_downloaded;
+            task.progress.total_bytes = overall_total;
+            task.progress.percentage = percentage;
+            task.progress.speed_bps = speed;
+            task.progress.eta_seconds = eta;
+            task.progress.filename = current_filename.to_string();
+            
+            if elapsed >= 0.5 {
+                task.last_update_time = now;
+                task.last_downloaded_bytes = overall_downloaded;
+            }
+
+            Some(task.progress.clone())
+        } else {
+            None
+        }
+    }
+
+    pub async fn set_state(&self, model_id: &str, state: DownloadState) {
+        let mut tasks = self.tasks.lock().await;
+        if let Some(task) = tasks.get_mut(model_id) {
+            task.progress.state = state;
+        }
+    }
+
+    pub async fn set_error(&self, model_id: &str, error: String) {
+        let mut tasks = self.tasks.lock().await;
+        if let Some(task) = tasks.get_mut(model_id) {
+            task.progress.state = DownloadState::Error;
+            task.progress.error_message = Some(error);
+        }
+    }
+
+    pub async fn get_progress(&self, model_id: &str) -> Option<DownloadProgress> {
+        let tasks = self.tasks.lock().await;
+        tasks.get(model_id).map(|t| t.progress.clone())
+    }
+
+    pub async fn pause_download(&self, model_id: &str) -> Result<(), EmbeddingError> {
+        let mut tasks = self.tasks.lock().await;
+        if let Some(task) = tasks.get_mut(model_id) {
+            if task.progress.state == DownloadState::Downloading {
+                task.pause_flag.store(true, Ordering::SeqCst);
+                task.progress.state = DownloadState::Paused;
+                Ok(())
+            } else {
+                Err(EmbeddingError::DownloadFailed("Download is not in progress".to_string()))
+            }
+        } else {
+            Err(EmbeddingError::DownloadFailed("No download task found".to_string()))
+        }
+    }
+
+    pub async fn resume_download(&self, model_id: &str) -> Result<Arc<AtomicBool>, EmbeddingError> {
+        let mut tasks = self.tasks.lock().await;
+        if let Some(task) = tasks.get_mut(model_id) {
+            if task.progress.state == DownloadState::Paused {
+                task.pause_flag.store(false, Ordering::SeqCst);
+                task.progress.state = DownloadState::Downloading;
+                task.last_update_time = Instant::now();
+                Ok(task.cancel_flag.clone())
+            } else {
+                Err(EmbeddingError::DownloadFailed("Download is not paused".to_string()))
+            }
+        } else {
+            Err(EmbeddingError::DownloadFailed("No download task found".to_string()))
+        }
+    }
+
+    pub async fn cancel_download(&self, model_id: &str) -> Result<(), EmbeddingError> {
+        let mut tasks = self.tasks.lock().await;
+        if let Some(task) = tasks.get_mut(model_id) {
+            task.cancel_flag.store(true, Ordering::SeqCst);
+            task.pause_flag.store(false, Ordering::SeqCst);
+            task.progress.state = DownloadState::Idle;
+            Ok(())
+        } else {
+            Err(EmbeddingError::DownloadFailed("No download task found".to_string()))
+        }
+    }
+
+    pub async fn get_pause_flag(&self, model_id: &str) -> Option<Arc<AtomicBool>> {
+        let tasks = self.tasks.lock().await;
+        tasks.get(model_id).map(|t| t.pause_flag.clone())
+    }
+
+    pub async fn remove_task(&self, model_id: &str) {
+        let mut tasks = self.tasks.lock().await;
+        tasks.remove(model_id);
+    }
+}
+
+impl Default for DownloadManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -79,7 +359,7 @@ impl Clone for EmbeddingService {
     }
 }
 
-fn get_model_cache_dir() -> PathBuf {
+pub fn get_model_cache_dir() -> PathBuf {
     let cache_dir = dirs::cache_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("nexus-ai-assistant")
@@ -90,6 +370,90 @@ fn get_model_cache_dir() -> PathBuf {
     }
     
     cache_dir
+}
+
+pub fn get_model_dir(model_id: &str) -> PathBuf {
+    get_model_cache_dir().join(model_id.replace('/', "_"))
+}
+
+pub fn check_model_files_exist(model_id: &str) -> bool {
+    let model_dir = get_model_dir(model_id);
+    
+    let model_exists = model_dir.join("model.safetensors").exists() 
+        || model_dir.join("pytorch_model.bin").exists();
+    let config_exists = model_dir.join("config.json").exists();
+    let tokenizer_exists = model_dir.join("tokenizer.json").exists();
+    
+    model_exists && config_exists && tokenizer_exists
+}
+
+pub fn verify_file_integrity(file_path: &PathBuf, expected_size: Option<u64>) -> Result<bool, EmbeddingError> {
+    if !file_path.exists() {
+        return Ok(false);
+    }
+
+    let metadata = std::fs::metadata(file_path)
+        .map_err(|e| EmbeddingError::IntegrityCheckFailed(e.to_string()))?;
+
+    if let Some(expected) = expected_size {
+        if metadata.len() < expected {
+            return Ok(false);
+        }
+    }
+
+    Ok(true)
+}
+
+pub fn calculate_file_hash(file_path: &PathBuf) -> Result<String, EmbeddingError> {
+    let mut file = std::fs::File::open(file_path)
+        .map_err(|e| EmbeddingError::IntegrityCheckFailed(e.to_string()))?;
+    
+    let mut hasher = Sha256::new();
+    std::io::copy(&mut file, &mut hasher)
+        .map_err(|e| EmbeddingError::IntegrityCheckFailed(e.to_string()))?;
+    
+    let hash = hasher.finalize();
+    Ok(format!("{:x}", hash))
+}
+
+pub fn delete_model_files(model_id: &str) -> Result<(), EmbeddingError> {
+    let model_dir = get_model_dir(model_id);
+    
+    if model_dir.exists() {
+        std::fs::remove_dir_all(&model_dir)
+            .map_err(|e| EmbeddingError::DownloadFailed(format!("Failed to delete model files: {}", e)))?;
+        log::info!("[EmbeddingService] 已删除模型文件: {:?}", model_dir);
+    }
+    
+    Ok(())
+}
+
+pub fn get_temp_file_path(file_path: &PathBuf) -> PathBuf {
+    let mut temp_path = file_path.clone();
+    let file_name = temp_path.file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("temp");
+    let temp_name = format!("{}.downloading", file_name);
+    temp_path.set_file_name(temp_name);
+    temp_path
+}
+
+pub fn cleanup_temp_files(model_id: &str) {
+    let model_dir = get_model_dir(model_id);
+    
+    if model_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&model_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                    if name.ends_with(".downloading") {
+                        let _ = std::fs::remove_file(&path);
+                        log::info!("[EmbeddingService] 清理临时文件: {:?}", path);
+                    }
+                }
+            }
+        }
+    }
 }
 
 fn download_from_modelscope(model_id: &str, filename: &str) -> Result<PathBuf, EmbeddingError> {
@@ -134,6 +498,122 @@ fn download_from_modelscope(model_id: &str, filename: &str) -> Result<PathBuf, E
         .map_err(|e| EmbeddingError::DownloadFailed(format!("Write file failed: {}", e)))?;
     
     log::info!("[EmbeddingService] 文件下载完成: {:?}", file_path);
+    Ok(file_path)
+}
+
+pub async fn download_model_file_with_progress<F>(
+    model_id: &str,
+    filename: &str,
+    download_manager: Arc<DownloadManager>,
+    progress_callback: F,
+) -> Result<PathBuf, EmbeddingError>
+where
+    F: Fn(DownloadProgress) + Send + 'static,
+{
+    let model_dir = get_model_dir(model_id);
+    
+    if !model_dir.exists() {
+        let _ = std::fs::create_dir_all(&model_dir);
+    }
+    
+    let file_path = model_dir.join(filename);
+    
+    if file_path.exists() {
+        log::info!("[EmbeddingService] 文件已存在: {:?}", file_path);
+        return Ok(file_path);
+    }
+
+    let temp_path = get_temp_file_path(&file_path);
+    
+    let cancel_flag = download_manager.start_download(model_id, filename).await?;
+    
+    let url = format!(
+        "https://modelscope.cn/models/{}/resolve/master/{}",
+        model_id, filename
+    );
+    
+    log::info!("[EmbeddingService::Async] 开始下载 (带进度): {}", url);
+
+    let client = reqwest::Client::new();
+    let response = client
+        .get(&url)
+        .header("User-Agent", "Mozilla/5.0")
+        .send()
+        .await
+        .map_err(|e| {
+            let _ = futures::executor::block_on(download_manager.set_error(model_id, e.to_string()));
+            EmbeddingError::DownloadFailed(format!("Request failed: {}", e))
+        })?;
+    
+    if !response.status().is_success() {
+        let error = format!("Download failed with status: {}", response.status());
+        download_manager.set_error(model_id, error.clone()).await;
+        return Err(EmbeddingError::DownloadFailed(error));
+    }
+
+    let total_size = response.content_length().unwrap_or(0);
+    
+    let mut file = std::fs::File::create(&temp_path).map_err(|e| {
+        let _ = futures::executor::block_on(download_manager.set_error(model_id, e.to_string()));
+        EmbeddingError::DownloadFailed(format!("Failed to create temp file: {}", e))
+    })?;
+
+    let mut downloaded: u64 = 0;
+    let mut stream = response.bytes_stream();
+    use futures::StreamExt;
+
+    while let Some(chunk) = stream.next().await {
+        if cancel_flag.load(Ordering::SeqCst) {
+            let _ = file.flush();
+            drop(file);
+            let _ = std::fs::remove_file(&temp_path);
+            download_manager.remove_task(model_id).await;
+            return Err(EmbeddingError::DownloadCancelled);
+        }
+
+        let pause_flag = download_manager.get_pause_flag(model_id).await;
+        if let Some(flag) = pause_flag {
+            while flag.load(Ordering::SeqCst) {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                
+                if cancel_flag.load(Ordering::SeqCst) {
+                    let _ = file.flush();
+                    drop(file);
+                    let _ = std::fs::remove_file(&temp_path);
+                    download_manager.remove_task(model_id).await;
+                    return Err(EmbeddingError::DownloadCancelled);
+                }
+            }
+        }
+
+        let chunk = chunk.map_err(|e| {
+            let _ = futures::executor::block_on(download_manager.set_error(model_id, e.to_string()));
+            EmbeddingError::DownloadFailed(format!("Failed to read chunk: {}", e))
+        })?;
+
+        file.write_all(&chunk).map_err(|e| {
+            let _ = futures::executor::block_on(download_manager.set_error(model_id, e.to_string()));
+            EmbeddingError::DownloadFailed(format!("Failed to write chunk: {}", e))
+        })?;
+
+        downloaded += chunk.len() as u64;
+
+        if let Some(progress) = download_manager.update_progress(model_id, downloaded, total_size).await {
+            progress_callback(progress);
+        }
+    }
+
+    let _ = file.flush();
+    drop(file);
+
+    std::fs::rename(&temp_path, &file_path).map_err(|e| {
+        let _ = futures::executor::block_on(download_manager.set_error(model_id, e.to_string()));
+        EmbeddingError::DownloadFailed(format!("Failed to rename temp file: {}", e))
+    })?;
+
+    download_manager.set_state(model_id, DownloadState::Completed).await;
+    
+    log::info!("[EmbeddingService::Async] 文件下载完成: {:?}", file_path);
     Ok(file_path)
 }
 
@@ -191,16 +671,30 @@ impl EmbeddingService {
         
         log::info!("[EmbeddingService] 使用设备: {:?}", device);
 
-        log::info!("[EmbeddingService] 正在从 ModelScope 下载模型文件...");
+        let model_dir = get_model_dir(&model_id);
+        
+        let model_path = model_dir.join("model.safetensors");
+        let alt_model_path = model_dir.join("pytorch_model.bin");
+        let config_path = model_dir.join("config.json");
+        let tokenizer_path = model_dir.join("tokenizer.json");
 
-        let model_path = download_from_modelscope(&model_id, "model.safetensors")
-            .or_else(|_| download_from_modelscope(&model_id, "pytorch_model.bin"))?;
+        if !config_path.exists() || !tokenizer_path.exists() {
+            return Err(EmbeddingError::ModelLoadFailed(
+                "Model files not found. Please download the model first.".to_string()
+            ));
+        }
 
-        let config_path = download_from_modelscope(&model_id, "config.json")?;
+        let model_file = if model_path.exists() {
+            model_path
+        } else if alt_model_path.exists() {
+            alt_model_path
+        } else {
+            return Err(EmbeddingError::ModelLoadFailed(
+                "Model weights file not found. Please download the model first.".to_string()
+            ));
+        };
 
-        let tokenizer_path = download_from_modelscope(&model_id, "tokenizer.json")?;
-
-        log::info!("[EmbeddingService] 模型文件下载完成，正在加载...");
+        log::info!("[EmbeddingService] 加载模型文件: {:?}", model_file);
 
         let config_content = std::fs::read_to_string(&config_path)
             .map_err(|e| EmbeddingError::ModelLoadFailed(e.to_string()))?;
@@ -208,9 +702,9 @@ impl EmbeddingService {
             .map_err(|e| EmbeddingError::ModelLoadFailed(e.to_string()))?;
 
         let vb = unsafe {
-            VarBuilder::from_mmaped_safetensors(&[model_path.clone()], DTYPE, &device)
+            VarBuilder::from_mmaped_safetensors(&[model_file.clone()], DTYPE, &device)
                 .or_else(|_| {
-                    VarBuilder::from_pth(&model_path, DTYPE, &device)
+                    VarBuilder::from_pth(&model_file, DTYPE, &device)
                 })
                 .map_err(|e| EmbeddingError::ModelLoadFailed(e.to_string()))?
         };

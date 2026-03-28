@@ -1,38 +1,52 @@
 import { MemoryModelConfig, DEFAULT_MEMORY_MODEL_CONFIG, MemoryType } from '../../types';
 
-const MEMORY_EXTRACTION_PROMPT = `你是记忆提取器。严格按照格式输出。
+const MEMORY_EXTRACTION_PROMPT = `你是记忆提取器。从对话中提取用户相关的记忆信息。
 
 【输出格式 - 必须严格遵守】
 每行一条记忆，格式：
 [类型] 内容 | 重要性
 
 类型只能是以下之一：
-- identity（身份）
-- fact（事实）
-- preference（偏好）
-- task（任务）
-- constraint（约束）
-- skill（技能）
+- identity（身份信息：用户是谁、职业、年龄等）
+- fact（事实信息：用户提到的事件、地点、物品等）
+- preference（偏好信息：用户喜欢/不喜欢什么）
+- task（用户自己的计划或目标）
+- constraint（约束信息：用户的限制或困难）
+- skill（技能信息：用户擅长什么或正在学习什么）
 
 重要性是 0.7 到 1.0 之间的数字。
 
 【输出示例】
-[identity] 用户是一名软件工程师 | 0.9
-[preference] 用户喜欢使用深色主题 | 0.8
-[fact] 项目使用 React + TypeScript 技术栈 | 0.85
+[identity] 用户是一名产品经理，28岁 | 0.9
+[preference] 用户喜欢摄影，尤其是风景和人文纪实 | 0.85
+[fact] 用户刚从北京搬到杭州工作 | 0.9
+[constraint] 用户对猫毛过敏 | 0.8
 
 【严格规则】
-1. 每行必须以 [类型] 开头
-2. 内容和重要性之间用 | 分隔
-3. 不要输出任何其他内容
-4. 不要输出思考过程
-5. 不要输出解释
+1. 只提取用户明确说出的信息，不要推断、猜测或编造
+2. 不要提取 AI 的任务或计划（如"帮助用户..."、"为用户推荐..."）
+3. 不要添加对话中没有的细节（如用户没说年龄，就不能写年龄）
+4. 每条记忆必须来自用户的原话
+5. 内容要具体，不要模糊的描述
 6. 总共不超过 8 行
-7. 如果没有重要信息，输出空行`;
+7. 如果没有重要信息，输出空行
+
+【禁止输出】
+- AI 的任务或计划（如"帮助用户适应新城市"）
+- 推断的信息（如用户没说养猫，就不能写"养了一只猫"）
+- 编造的细节（如用户没说年龄，就不能写"28岁"）
+- 模糊的描述（如"用户有一些爱好"）
+- 重复的信息
+- 对话中没有提到的具体细节
+
+【特别注意】
+- 用户说"想学习"不等于"擅长"，应该用 task 或 preference 类型
+- 用户说"感兴趣"不等于"擅长"，应该用 preference 类型
+- 只有用户明确说"我会"、"我擅长"才能用 skill 类型`;
 
 const USER_PROMPT_SUFFIX = `
 
-直接输出记忆，不要解释：`;
+从以上对话中提取用户记忆。只提取用户明确说出的信息，不要编造。直接输出：`;
 
 export interface ParsedMemory {
   type: MemoryType;
@@ -135,13 +149,21 @@ export class MultiPassParser {
 
 export class SafeExtractor {
   private readonly MAX_MEMORIES = 8;
-  private readonly MIN_CONTENT_LENGTH = 10;
+  private readonly MIN_CONTENT_LENGTH = 6;
   private readonly MAX_CONTENT_LENGTH = 200;
   private readonly MIN_IMPORTANCE = 0.7;
   private readonly MAX_IMPORTANCE = 1.0;
   private readonly VALID_TYPES = new Set(['identity', 'fact', 'preference', 'task', 'constraint', 'skill']);
 
   private seenContents: Set<string> = new Set();
+
+  private readonly IMPORTANT_SHORT_PATTERNS = [
+    /手[大小小]/,
+    /手[大小小]/,
+    /叫.+$/,
+    /是.+$/,
+    /有.+$/,
+  ];
 
   extract(memories: ParsedMemory[]): ParsedMemory[] {
     const validMemories: ParsedMemory[] = [];
@@ -175,7 +197,8 @@ export class SafeExtractor {
       return { valid: false, reason: `Invalid type: ${memory.type}` };
     }
 
-    if (memory.content.length < this.MIN_CONTENT_LENGTH) {
+    const isImportantShort = this.isImportantShortInfo(memory.content);
+    if (memory.content.length < this.MIN_CONTENT_LENGTH && !isImportantShort) {
       return { valid: false, reason: `Content too short: ${memory.content.length}` };
     }
 
@@ -191,7 +214,61 @@ export class SafeExtractor {
       return { valid: false, reason: 'Content contains garbage characters' };
     }
 
+    if (this.isAITask(memory.content)) {
+      return { valid: false, reason: 'Content is AI task, not user memory' };
+    }
+
+    if (this.isVagueDescription(memory.content)) {
+      return { valid: false, reason: 'Content is too vague' };
+    }
+
     return { valid: true };
+  }
+
+  private isImportantShortInfo(content: string): boolean {
+    const importantPatterns = [
+      /^用户[叫是].+$/,
+      /^用户[男女]$/,
+      /^[男女]，.+$/,
+      /^\d+岁$/,
+    ];
+    return importantPatterns.some(p => p.test(content));
+  }
+
+  private isAITask(content: string): boolean {
+    const aiTaskPatterns = [
+    /^帮助/,
+    /^为用户/,
+    /^给用户/,
+    /^推荐/,
+    /^了解并/,
+    /^制定/,
+    /^提供/,
+    /^建议/,
+    /^整理/,
+    /^规划/,
+    /希望得到/,
+    /希望获得/,
+    /想要获取/,
+    /需要.*方案/,
+    /需要.*资源/,
+  ];
+
+    return aiTaskPatterns.some(pattern => pattern.test(content));
+  }
+
+  private isVagueDescription(content: string): boolean {
+    const vaguePatterns = [
+      /一些/,
+      /某些/,
+      /相关/,
+      /等信息/,
+      /等内容/,
+      /^用户有/,
+      /^用户需要/,
+    ];
+
+    return vaguePatterns.some(pattern => pattern.test(content));
   }
 
   private normalizeContent(content: string): string {
