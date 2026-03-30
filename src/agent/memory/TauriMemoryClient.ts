@@ -63,11 +63,9 @@ export class TauriMemoryClient {
   private static getDefaultDecay(memoryType: MemoryType): number {
     switch (memoryType) {
       case 'identity': return 0.001;
-      case 'skill': return 0.002;
       case 'constraint': return 0.003;
       case 'preference': return 0.005;
       case 'fact': return 0.01;
-      case 'task': return 0.02;
       default: return 0.01;
     }
   }

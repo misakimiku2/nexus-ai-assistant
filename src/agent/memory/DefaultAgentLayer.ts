@@ -70,7 +70,7 @@ export class DefaultAgentLayer {
         );
 
         if (!existingTask) {
-          const newTask = await this.createTask(taskContent);
+          const newTask = await this.createConstraint(taskContent);
           newTasks.push(newTask);
         }
         break;
@@ -140,15 +140,15 @@ export class DefaultAgentLayer {
     return nextStepMatch ? nextStepMatch[1].trim() : '';
   }
 
-  private async createTask(content: string): Promise<MemoryItem> {
+  private async createConstraint(content: string): Promise<MemoryItem> {
     const now = Date.now();
     return {
       id: crypto.randomUUID(),
       content,
-      memoryType: 'task',
+      memoryType: 'constraint',
       importance: 0.7,
       score: 0.7,
-      decay: 0.02,
+      decay: 0.003,
       isActive: true,
       createdAt: now,
       updatedAt: now,
@@ -166,28 +166,23 @@ export class DefaultAgentLayer {
 
   defaultMemoryRouting(query: string): MemoryType[] {
     if (!this.config.autoRouting) {
-      return ['task', 'constraint'];
+      return ['constraint'];
     }
 
     const queryLower = query.toLowerCase();
 
-    const taskKeywords = ['任务', '进度', '下一步', '完成', 'task', 'progress', 'todo', 'doing'];
     const preferenceKeywords = ['偏好', '喜欢', '习惯', 'prefer', 'like', 'habit', 'want'];
     const problemKeywords = ['问题', '解决', '如何', '怎么', 'problem', 'solve', 'how', 'help'];
-
-    if (taskKeywords.some((k) => queryLower.includes(k))) {
-      return ['task'];
-    }
 
     if (preferenceKeywords.some((k) => queryLower.includes(k))) {
       return ['preference'];
     }
 
     if (problemKeywords.some((k) => queryLower.includes(k))) {
-      return ['constraint', 'skill'];
+      return ['constraint'];
     }
 
-    return ['task', 'constraint'];
+    return ['constraint'];
   }
 
   async retrieveMemories(query: string, modelType?: 'local' | 'online'): Promise<RetrievedMemory[]> {
@@ -212,17 +207,6 @@ export class DefaultAgentLayer {
 
   formatMemoriesForAutoInjection(memories: RetrievedMemory[]): string {
     const sections: string[] = [];
-
-    const tasks = memories.filter((m) => m.item.memoryType === 'task');
-    if (tasks.length > 0) {
-      sections.push('## Relevant Task State');
-      for (const t of tasks) {
-        const meta = t.item.metadata;
-        sections.push(`- ${t.item.content} [${meta?.status || 'unknown'}]`);
-        if (meta?.progress) sections.push(`  进展: ${meta.progress}`);
-        if (meta?.next_step) sections.push(`  下一步: ${meta.next_step}`);
-      }
-    }
 
     const constraints = memories.filter((m) => m.item.memoryType === 'constraint');
     if (constraints.length > 0) {
@@ -256,9 +240,7 @@ export class DefaultAgentLayer {
     const identity = memories.filter((m) => m.item.memoryType === 'identity');
     const facts = memories.filter((m) => m.item.memoryType === 'fact');
     const preferences = memories.filter((m) => m.item.memoryType === 'preference');
-    const tasks = memories.filter((m) => m.item.memoryType === 'task');
     const constraints = memories.filter((m) => m.item.memoryType === 'constraint');
-    const skills = memories.filter((m) => m.item.memoryType === 'skill');
 
     if (identity.length > 0) {
       lines.push('### 身份特征');
@@ -278,30 +260,9 @@ export class DefaultAgentLayer {
       lines.push('');
     }
 
-    if (tasks.length > 0) {
-      lines.push('### 进行中的任务');
-      tasks.forEach((t) => {
-        const meta = t.item.metadata;
-        if (meta) {
-          lines.push(`- ${t.item.content} [${meta.status}]`);
-          if (meta.progress) lines.push(`  进展: ${meta.progress}`);
-          if (meta.next_step) lines.push(`  下一步: ${meta.next_step}`);
-        } else {
-          lines.push(`- ${t.item.content}`);
-        }
-      });
-      lines.push('');
-    }
-
     if (constraints.length > 0) {
       lines.push('### 限制条件');
       constraints.forEach((c) => lines.push(`- ${c.item.content}`));
-      lines.push('');
-    }
-
-    if (skills.length > 0) {
-      lines.push('### 用户能力');
-      skills.forEach((s) => lines.push(`- ${s.item.content}`));
       lines.push('');
     }
 

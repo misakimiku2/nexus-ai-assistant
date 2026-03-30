@@ -1,6 +1,34 @@
 use crate::memory::storage::MemoryStorage;
-use crate::memory::scoring::{calculate_recency_weight, should_deactivate, calculate_score};
-use crate::models::{MemoryItem, MemoryType, TaskStatus, DecayResult, PruneResult, RecencyConfig, DeletionConfig, DeactivationResult, EvolutionResult};
+use crate::memory::scoring::{calculate_recency_weight, should_deactivate};
+use crate::models::{MemoryItem, MemoryType, TaskStatus, DecayResult, PruneResult, RecencyConfig, DeletionConfig, DeactivationResult, EvolutionResult, ConversationMessage, ExtractionConfig};
+
+pub fn should_extract(messages: &[ConversationMessage], _config: &ExtractionConfig) -> bool {
+    messages.len() >= 3
+}
+
+pub fn check_duplicate_simple(content: &str, existing: &[MemoryItem]) -> Option<String> {
+    for memory in existing {
+        let similarity = text_similarity(content, &memory.content);
+        if similarity > 0.85 {
+            return Some(memory.id.clone());
+        }
+    }
+    None
+}
+
+fn text_similarity(a: &str, b: &str) -> f32 {
+    let a_chars: std::collections::HashSet<char> = a.chars().collect();
+    let b_chars: std::collections::HashSet<char> = b.chars().collect();
+
+    if a_chars.is_empty() || b_chars.is_empty() {
+        return 0.0;
+    }
+
+    let intersection = a_chars.intersection(&b_chars).count();
+    let union = a_chars.union(&b_chars).count();
+
+    intersection as f32 / union as f32
+}
 
 pub struct MemoryLifecycle {
     storage: MemoryStorage,
@@ -75,11 +103,9 @@ impl MemoryLifecycle {
 
         match memory_type {
             MemoryType::Identity => importance += 0.3,
-            MemoryType::Task => importance += 0.2,
             MemoryType::Constraint => importance += 0.15,
             MemoryType::Preference => importance += 0.1,
             MemoryType::Fact => importance += 0.05,
-            MemoryType::Skill => importance += 0.1,
         }
 
         if content.len() > 100 {
@@ -251,45 +277,22 @@ impl MemoryEvolutionManager {
 pub fn default_memory_routing(query: &str) -> Vec<MemoryType> {
     let query_lower = query.to_lowercase();
 
-    let task_keywords = ["任务", "进度", "下一步", "完成", "task", "progress", "todo", "doing"];
     let preference_keywords = ["偏好", "喜欢", "习惯", "prefer", "like", "habit", "want"];
     let problem_keywords = ["问题", "解决", "如何", "怎么", "problem", "solve", "how", "help"];
-
-    if task_keywords.iter().any(|k| query_lower.contains(k)) {
-        return vec![MemoryType::Task];
-    }
 
     if preference_keywords.iter().any(|k| query_lower.contains(k)) {
         return vec![MemoryType::Preference];
     }
 
     if problem_keywords.iter().any(|k| query_lower.contains(k)) {
-        return vec![MemoryType::Constraint, MemoryType::Skill];
+        return vec![MemoryType::Constraint];
     }
 
-    vec![MemoryType::Task, MemoryType::Constraint]
+    vec![MemoryType::Constraint]
 }
 
 pub fn format_memories_for_auto_injection(memories: &[crate::models::RetrievedMemory]) -> String {
     let mut sections: Vec<String> = Vec::new();
-
-    let tasks: Vec<_> = memories.iter().filter(|m| m.item.memory_type == MemoryType::Task).collect();
-    if !tasks.is_empty() {
-        sections.push("## Relevant Task State".to_string());
-        for t in tasks {
-            if let Some(meta) = &t.item.metadata {
-                sections.push(format!("- {} [{}]", t.item.content, meta.status.as_str()));
-                if let Some(progress) = &meta.progress {
-                    sections.push(format!("  进展: {}", progress));
-                }
-                if let Some(next_step) = &meta.next_step {
-                    sections.push(format!("  下一步: {}", next_step));
-                }
-            } else {
-                sections.push(format!("- {}", t.item.content));
-            }
-        }
-    }
 
     let constraints: Vec<_> = memories.iter().filter(|m| m.item.memory_type == MemoryType::Constraint).collect();
     if !constraints.is_empty() {

@@ -149,7 +149,7 @@ export interface Agent {
   knowledgeFolders?: string[];
 }
 
-export type MemoryType = 'identity' | 'fact' | 'preference' | 'task' | 'constraint' | 'skill';
+export type MemoryType = 'identity' | 'preference' | 'constraint' | 'fact';
 
 export type TaskStatus = 'pending' | 'in_progress' | 'done' | 'cancelled';
 
@@ -184,15 +184,11 @@ export interface ExtractedItem {
   importance: number;
 }
 
-export type ExtractedTask = ExtractedItem;
-
 export interface ExtractedMemory {
   identity: ExtractedItem[];
   facts: ExtractedItem[];
   preferences: ExtractedItem[];
-  tasks: ExtractedTask[];
   constraints: ExtractedItem[];
-  skills: ExtractedItem[];
 }
 
 export type ModelType = 'local' | 'online';
@@ -419,12 +415,14 @@ export interface PreFilterConfig {
   minMessageLength: number;
   maxMessages: number;
   skipToolCalls: boolean;
+  userOnly: boolean;
 }
 
 export const DEFAULT_PREFILTER_CONFIG: PreFilterConfig = {
-  minMessageLength: 20,
-  maxMessages: 6,
+  minMessageLength: 5,
+  maxMessages: 10,
   skipToolCalls: true,
+  userOnly: true,
 };
 
 export interface SimilarityDecision {

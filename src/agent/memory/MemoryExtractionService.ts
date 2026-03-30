@@ -4,6 +4,7 @@ import { PreFilterService, preFilterService } from './PreFilterService';
 import { MemoryModelClient, memoryModelClient, ParsedMemory } from './MemoryModelClient';
 import { MemoryStore, memoryStore, StoreResult } from './MemoryStore';
 import { similarityEngine } from './SimilarityEngine';
+import { filterMemories, FilterInput } from './MemoryFilter';
 
 const DEFAULT_EXTRACTION_CONFIG: ExtractionConfig = {
   minMessageCount: 4,
@@ -151,7 +152,32 @@ class MemoryExtractionService {
       return null;
     }
 
-    const dedupedCandidates = await this.deduplicateCandidates(candidates);
+    const filterInput: FilterInput[] = candidates.map(c => ({
+      type: c.type,
+      span: c.span,
+      resolvedText: c.resolvedText,
+      sourceText: c.sourceText,
+      confidence: c.importance
+    }));
+
+    const filteredMemories = filterMemories(filterInput);
+
+    const filteredCandidates: ParsedMemory[] = filteredMemories.map(f => ({
+      type: f.type,
+      span: f.content,
+      sourceText: f.content,
+      importance: f.confidence,
+      embedding: undefined
+    }));
+
+    console.log('[MemoryExtraction] Filter 过滤:', candidates.length, '→', filteredCandidates.length);
+
+    if (filteredCandidates.length === 0) {
+      console.log('[MemoryExtraction] Filter 后无有效候选记忆');
+      return null;
+    }
+
+    const dedupedCandidates = await this.deduplicateCandidates(filteredCandidates);
 
     if (dedupedCandidates.length === 0) {
       console.log('[MemoryExtraction] 去重后无新候选记忆');
@@ -160,7 +186,7 @@ class MemoryExtractionService {
 
     const candidateMemories: CandidateMemory[] = dedupedCandidates.map(c => ({
       id: crypto.randomUUID(),
-      content: c.content,
+      content: c.span,
       memoryType: c.type,
       confidence: c.importance,
       sourceSessionId: sessionId,
@@ -200,14 +226,14 @@ class MemoryExtractionService {
       for (const candidate of candidates) {
         if (!candidate.embedding) {
           try {
-            candidate.embedding = await TauriMemoryClient.generateEmbedding(candidate.content);
+            candidate.embedding = await TauriMemoryClient.generateEmbedding(candidate.span);
           } catch (e) {
-            console.warn('[MemoryExtraction] 生成 embedding 失败，跳过去重检查:', candidate.content.substring(0, 30));
+            console.warn('[MemoryExtraction] 生成 embedding 失败，跳过去重检查:', candidate.span.substring(0, 30));
             result.push(candidate);
             continue;
           }
         }
-        candidateEmbeddings.set(candidate.content, candidate.embedding);
+        candidateEmbeddings.set(candidate.span, candidate.embedding);
       }
 
       const existingCandidateEmbeddings = new Map<string, number[]>();
@@ -236,7 +262,7 @@ class MemoryExtractionService {
       }
 
       for (const candidate of candidates) {
-        const candidateEmbedding = candidateEmbeddings.get(candidate.content);
+        const candidateEmbedding = candidateEmbeddings.get(candidate.span);
         if (!candidateEmbedding) continue;
 
         let shouldSkip = false;
@@ -251,17 +277,18 @@ class MemoryExtractionService {
           const similarity = this.cosineSimilarity(candidateEmbedding, existingEmbedding);
 
           if (similarity > DUPLICATE_THRESHOLD) {
-            console.log('[MemoryExtraction] 与已有候选记忆重复，跳过:', candidate.content.substring(0, 30), '相似度:', similarity.toFixed(3));
+            console.log('[MemoryExtraction] 与已有候选记忆重复，跳过:', candidate.span.substring(0, 30), '相似度:', similarity.toFixed(3));
             shouldSkip = true;
             stats.skipped++;
             break;
           }
 
           if (similarity > SIMILAR_THRESHOLD && !hasMerged) {
-            const merged = this.tryMergeContent(existing.content, candidate.content);
+            const merged = this.tryMergeContent(existing.content, candidate.span);
             if (merged) {
-              console.log('[MemoryExtraction] 与已有候选记忆相似，合并:', candidate.content.substring(0, 30), '→', merged.substring(0, 30));
-              candidate.content = merged;
+              console.log('[MemoryExtraction] 与已有候选记忆相似，合并:', candidate.span.substring(0, 30), '→', merged.substring(0, 30));
+              candidate.span = merged;
+              candidate.sourceText = merged;
               hasMerged = true;
               stats.merged++;
             }
@@ -279,7 +306,7 @@ class MemoryExtractionService {
           const similarity = this.cosineSimilarity(candidateEmbedding, memoryEmbedding);
 
           if (similarity > DUPLICATE_THRESHOLD) {
-            console.log('[MemoryExtraction] 与已有正式记忆重复，跳过:', candidate.content.substring(0, 30), '相似度:', similarity.toFixed(3));
+            console.log('[MemoryExtraction] 与已有正式记忆重复，跳过:', candidate.span.substring(0, 30), '相似度:', similarity.toFixed(3));
             shouldSkip = true;
             stats.skipped++;
             await TauriMemoryClient.boostMemory(memory.id, 0.05);
@@ -287,10 +314,11 @@ class MemoryExtractionService {
           }
 
           if (similarity > SIMILAR_THRESHOLD && !hasMerged) {
-            const merged = this.tryMergeContent(memory.content, candidate.content);
+            const merged = this.tryMergeContent(memory.content, candidate.span);
             if (merged) {
-              console.log('[MemoryExtraction] 与已有正式记忆相似，合并:', candidate.content.substring(0, 30), '→', merged.substring(0, 30));
-              candidate.content = merged;
+              console.log('[MemoryExtraction] 与已有正式记忆相似，合并:', candidate.span.substring(0, 30), '→', merged.substring(0, 30));
+              candidate.span = merged;
+              candidate.sourceText = merged;
               hasMerged = true;
               stats.merged++;
             }
@@ -426,30 +454,29 @@ class MemoryExtractionService {
 - 细节举例
 - 枚举类信息（如一堆角色名、物品列表）
 
-【优先提取】
-- 用户长期偏好
-- 稳定事实
-- 关键能力/约束
+【只允许提取以下4类】
+1. identity（身份特征）- 稳定身份信息，如：职业、年龄、教育背景等
+2. preference（用户偏好）- 长期兴趣、喜好，如：喜欢摄影、喜欢科幻电影
+3. constraint（限制条件）- 会影响决策的条件，如：预算、健康问题、过敏
+4. fact（用户事实）- 与用户直接相关的客观事实，如：有一只猫、家人情况
+
+【严禁提取】
+- 模型推断（如："擅长摄影"）
+- 常识/世界知识（如："杭州夏天很热"）
+- 短期任务/计划（如："正在找工作"）
 
 【数量限制】
 - identity: ≤2 条
 - facts: ≤3 条
 - preferences: ≤3 条
-- tasks: ≤2 条
 - constraints: ≤2 条
-- skills: ≤2 条
 - 总计 ≤8 条
 
 【强制要求】
 如果提取结果超过 8 条，请只保留最重要的 8 条，其余丢弃。
 
-【合并规则】
-禁止拆分细粒度事实，应合并为一条：
-错误："今汐有叠层机制"、"守岸人能回血"、"维里奈能闪避"
-正确："游戏包含多种角色机制（叠层爆发、护盾、闪避等）"
-
 Output this exact structure:
-{"identity":[],"facts":[],"preferences":[],"tasks":[],"constraints":[],"skills":[]}
+{"identity":[],"facts":[],"preferences":[],"constraints":[]}
 
 Each array contains objects with: {"content":"中文内容","importance":0.7}
 
@@ -529,9 +556,7 @@ JSON:`;
       if (!parsed.identity) parsed.identity = [];
       if (!parsed.facts) parsed.facts = [];
       if (!parsed.preferences) parsed.preferences = [];
-      if (!parsed.tasks) parsed.tasks = [];
       if (!parsed.constraints) parsed.constraints = [];
-      if (!parsed.skills) parsed.skills = [];
       
       return parsed;
     } catch (e) {
@@ -542,7 +567,7 @@ JSON:`;
   }
 
   private extractJsonFromReasoning(reasoningContent: string): string {
-    const jsonMarkers = ['"identity":', '"facts":', '"preferences":', '"tasks":', '"constraints":', '"skills":'];
+    const jsonMarkers = ['"identity":', '"facts":', '"preferences":', '"constraints":'];
     
     for (const marker of jsonMarkers) {
       const markerIndex = reasoningContent.indexOf(marker);
@@ -698,9 +723,7 @@ JSON:`;
     if (Array.isArray(extracted.identity)) processItems(extracted.identity, 'identity');
     if (Array.isArray(extracted.facts)) processItems(extracted.facts, 'fact');
     if (Array.isArray(extracted.preferences)) processItems(extracted.preferences, 'preference');
-    if (Array.isArray(extracted.tasks)) processItems(extracted.tasks, 'task');
     if (Array.isArray(extracted.constraints)) processItems(extracted.constraints, 'constraint');
-    if (Array.isArray(extracted.skills)) processItems(extracted.skills, 'skill');
 
     let candidates = rawCandidates.filter(c => {
       if (c.importance < 0.7) {
@@ -806,9 +829,7 @@ JSON:`;
       identity: 2,
       fact: 3,
       preference: 3,
-      task: 2,
       constraint: 2,
-      skill: 2,
     };
 
     const result: CandidateMemory[] = [];

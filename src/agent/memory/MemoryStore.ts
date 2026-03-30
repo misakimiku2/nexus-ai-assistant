@@ -61,7 +61,7 @@ export class MemoryStore {
           case 'skip':
             await this.similarityEngine.executeBoost(decision.targetMemory!.id, 0.05);
             result.skipped.push({
-              content: candidate.content,
+              content: candidate.span,
               reason: decision.reason,
             });
             break;
@@ -75,7 +75,7 @@ export class MemoryStore {
             if (mergeResult.wasMerged) {
               result.merged.push({
                 existing: decision.targetMemory!,
-                newContent: candidate.content,
+                newContent: candidate.span,
               });
             } else {
               console.log('[MemoryStore] Merge failed, fallback to insert');
@@ -113,7 +113,7 @@ export class MemoryStore {
     await Promise.all(
       candidates.map(async (c) => {
         if (!c.embedding) {
-          c.embedding = await this.config!.generateEmbedding(c.content);
+          c.embedding = await this.config!.generateEmbedding(c.span);
         }
       })
     );
@@ -138,11 +138,11 @@ export class MemoryStore {
 
     try {
       const embedding = candidate.embedding || 
-        await this.config.generateEmbedding(candidate.content);
+        await this.config.generateEmbedding(candidate.span);
       
       const memory: MemoryItem = {
         id: crypto.randomUUID(),
-        content: candidate.content,
+        content: candidate.span,
         memoryType: candidate.type,
         importance: candidate.importance,
         score: candidate.importance,

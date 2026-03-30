@@ -130,7 +130,7 @@ export const MemoryList: React.FC<MemoryListProps> = ({ isDarkMode, debugMode })
     return new Date(timestamp).toLocaleString();
   };
 
-  const memoryTypes: MemoryType[] = ['identity', 'fact', 'preference', 'task', 'constraint', 'skill'];
+  const memoryTypes: MemoryType[] = ['identity', 'preference', 'constraint', 'fact'];
 
   if (loading && memories.length === 0) {
     return (

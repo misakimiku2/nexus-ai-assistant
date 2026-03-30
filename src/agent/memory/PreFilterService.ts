@@ -18,15 +18,19 @@ export class PreFilterService {
   filter(messages: ConversationMessage[]): ConversationMessage[] {
     let filtered = messages;
 
-    filtered = filtered.filter(m => m.content.length >= this.config.minMessageLength);
-    
     if (this.config.skipToolCalls) {
       filtered = filtered.filter(m => !m.isToolCall);
     }
 
-    filtered = filtered.filter(m => m.role === 'user' || m.role === 'assistant');
+    if (this.config.userOnly) {
+      filtered = filtered.filter(m => m.role === 'user');
+    } else {
+      filtered = filtered.filter(m => m.role === 'user' || m.role === 'assistant');
+    }
 
-    filtered = this.exactDeduplicate(filtered);
+    filtered = filtered.filter(m => m.content.trim().length >= this.config.minMessageLength);
+
+    filtered = this.smartDeduplicate(filtered);
 
     filtered = filtered.slice(-this.config.maxMessages);
 
@@ -38,12 +42,12 @@ export class PreFilterService {
     return filtered;
   }
 
-  private exactDeduplicate(messages: ConversationMessage[]): ConversationMessage[] {
+  private smartDeduplicate(messages: ConversationMessage[]): ConversationMessage[] {
     const seen = new Set<string>();
     const result: ConversationMessage[] = [];
     
     for (const msg of messages) {
-      const normalized = msg.content.trim().toLowerCase();
+      const normalized = msg.content.trim().toLowerCase().substring(0, 100);
       if (!seen.has(normalized)) {
         seen.add(normalized);
         result.push(msg);
@@ -55,8 +59,20 @@ export class PreFilterService {
 
   formatForExtraction(messages: ConversationMessage[]): string {
     return messages
-      .map(m => `${m.role === 'user' ? '用户' : '助手'}: ${m.content}`)
-      .join('\n\n');
+      .flatMap(m => {
+        // 分句：按标点符号或者换行拆分
+        return m.content
+          .split(/([。.！!？?；;\n]+)/)
+          .reduce((acc: string[], curr, index, arr) => {
+            if (index % 2 === 0 && curr.trim()) {
+              acc.push(curr.trim() + (arr[index + 1] || ''));
+            }
+            return acc;
+          }, [])
+          .filter(s => s.length >= this.config.minMessageLength)
+          .map(s => `用户: ${s.trim()}`);
+      })
+      .join('\n');
   }
 }
 

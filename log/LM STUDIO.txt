@@ -1,81 +1,16 @@
-2026-03-28 00:32:08  [INFO]
- [qwen2.5-3b-instruct] Model generated tool calls:  []
-2026-03-28 00:32:08  [INFO]
- [qwen2.5-3b-instruct] Generated prediction:  {
-  "id": "chatcmpl-iddzg635jupr0pgbcpyb5f",
-  "object": "chat.completion",
-  "created": 1774629128,
-  "model": "qwen2.5-3b-instruct",
-  "choices": [
-    {
-      "index": 0,
-      "message": {
-        "role": "assistant",
-        "content": "[task] 用户打算买一台新的无反相机EOS R50 | 0.9\n[skill] 用户对后期修图完全不懂 | 0.87\n[constraint] 用户担心自己的水平太低会被别人笑话 | 0.85",
-        "reasoning_content": "",
-        "tool_calls": []
-      },
-      "logprobs": null,
-      "finish_reason": "stop"
-    }
-  ],
-  "usage": {
-    "prompt_tokens": 2187,
-    "completion_tokens": 57,
-    "total_tokens": 2244
-  },
-  "stats": {},
-  "system_fingerprint": "qwen2.5-3b-instruct"
-}
-2026-03-28 00:34:00  [INFO]
+2026-03-29 20:57:24  [INFO]
  [LM STUDIO SERVER] Received OPTIONS request. {}
-2026-03-28 00:34:00 [DEBUG]
+2026-03-29 20:57:24 [DEBUG]
  Received request: POST to /v1/chat/completions with body  {
   "model": "qwen/qwen3.5-9b",
   "messages": [
     {
       "role": "system",
-      "content": "You are an intelligent agent that uses the ReAct (... <Truncated in logs> ... 用户考虑学一门新乐器\n- 用户想了解吉他的区别和选择\n- 选购入门吉他，预算1000-2500元\n"
+      "content": "You are an intelligent agent that uses the ReAct (... <Truncated in logs> ... continue the conversation based on those results."
     },
     {
       "role": "user",
-      "content": "嗨！我最近对摄影特别感兴趣，想学习怎么拍出好看的照片。你能给我一些入门建议吗？比如第一台相机该怎么选？"
-    },
-    {
-      "role": "assistant",
-      "content": "\n\n你好！很高兴你对摄影感兴趣！我为你整理了一份详细的入门相机选购指南，希望能帮助你找到合适的第一台... <Truncated in logs> ...手感很重要！\n\n你大概的预算是多少呢？或者你更想拍什么类型的照片？这样我可以给你更具体的推荐！📷✨"
-    },
-    {
-      "role": "user",
-      "content": "哇，回复得好详细！谢谢你的建议！我的预算大概在5000-6000元左右，主要是想拍一些日常生活记录，... <Truncated in logs> ...线暗的时候噪点很多。你觉得这种情况选哪台比较好？还有，镜头方面你有什么建议吗？我需要买好几个镜头吗？"
-    },
-    {
-      "role": "assistant",
-      "content": "\n\n太棒了！你的需求非常清晰，让我结合这些信息给你更精准的推荐！🎯\n\n## 💰 5000-600... <Truncated in logs> ...多！预算内还有空间升级镜头，非常划算！\n\n还有什么其他想了解的吗？比如具体型号对比或者操作建议？😊"
-    },
-    {
-      "role": "user",
-      "content": "太感谢了！这个配置听起来确实很适合我。我还有个问题，我平时工作比较忙，只有周末才有时间出去拍照，而且... <Truncated in logs> ...，我注意到你提到了Vlog，我其实也有点想尝试拍一些短视频记录生活，但完全没经验，这个入门难度大吗？"
-    },
-    {
-      "role": "assistant",
-      "content": "\n\n太棒了！你考虑得很周全！针对你的情况，我来逐一解答：\n\n---\n\n## 🌧️ 关于天气和时间问... <Truncated in logs> ...、城市氛围都是很好的创作素材，关键是保持拍摄的热情和好奇心。\n\n有什么具体想问的，随时找我聊！📸✨"
-    },
-    {
-      "role": "user",
-      "content": "哇，你真的好耐心！我已经被你说服了，准备入手佳能EOS R50了。不过我突然想到一个问题，我之前其实... <Truncated in logs> ...始？还有，你提到的那些摄影社区，我有点担心自己的水平太低，发出去的照片会被别人笑话，这种心态正常吗？"
-    },
-    {
-      "role": "assistant",
-      "content": "\n\n太棒了！你的问题非常实际，我来逐一解答：\n\n---\n\n## 📷 **700D vs EOS R... <Truncated in logs> ...下来，拍起来！边拍边学，边学边进步！**\n\n如果有任何问题，随时来问我！祝你摄影之旅顺利愉快！📸✨"
-    },
-    {
-      "role": "user",
-      "content": "谢谢你这么详细的解答！我现在心里踏实多了。不过我突然想到，我平时除了喜欢拍照，其实还有个爱好是喝咖啡... <Truncated in logs> ...，叫\"汤圆\"，我也很想给它拍一些好看的照片，但之前用手机拍总是拍糊或者眼睛反光，用相机会不会有改善？"
-    },
-    {
-      "role": "user",
-      "content": " 谢谢你这么详细的解答！我现在心里踏实多了。不过我突然想到，我平时除了喜欢拍照，其实还有个爱好是喝咖... <Truncated in logs> ...，叫\"汤圆\"，我也很想给它拍一些好看的照片，但之前用手机拍总是拍糊或者眼睛反光，用相机会不会有改善？"
+      "content": "嘿！终于下班了，今天累死了。对了，我养的那只金毛最近特别调皮，老是咬我的拖鞋 😂 你平时喜欢宠物吗？"
     }
   ],
   "temperature": 0.7,
@@ -189,115 +124,290 @@
   "tool_choice": "auto",
   "stream": true
 }
-2026-03-28 00:34:00  [INFO]
- [qwen/qwen3.5-9b] Running chat completion on conversation with 11 messages.
-2026-03-28 00:34:00  [INFO]
+2026-03-29 20:57:24  [INFO]
+ [qwen/qwen3.5-9b] Running chat completion on conversation with 2 messages.
+2026-03-29 20:57:24  [INFO]
  [qwen/qwen3.5-9b] Streaming response...
-2026-03-28 00:34:00  [INFO]
+2026-03-29 20:57:24  [INFO]
  [qwen/qwen3.5-9b] Prompt processing progress: 0.0%
-2026-03-28 00:34:00  [INFO]
- [qwen/qwen3.5-9b] Prompt processing progress: 5.1%
-2026-03-28 00:34:01  [INFO]
- [qwen/qwen3.5-9b] Prompt processing progress: 10.3%
-2026-03-28 00:34:02  [INFO]
- [qwen/qwen3.5-9b] Prompt processing progress: 15.4%
-2026-03-28 00:34:02  [INFO]
- [qwen/qwen3.5-9b] Prompt processing progress: 20.5%
-2026-03-28 00:34:03  [INFO]
- [qwen/qwen3.5-9b] Prompt processing progress: 25.6%
-2026-03-28 00:34:04  [INFO]
- [qwen/qwen3.5-9b] Prompt processing progress: 30.8%
-2026-03-28 00:34:04  [INFO]
- [qwen/qwen3.5-9b] Prompt processing progress: 35.9%
-2026-03-28 00:34:05  [INFO]
- [qwen/qwen3.5-9b] Prompt processing progress: 41.0%
-2026-03-28 00:34:06  [INFO]
- [qwen/qwen3.5-9b] Prompt processing progress: 46.1%
-2026-03-28 00:34:06  [INFO]
- [qwen/qwen3.5-9b] Prompt processing progress: 51.3%
-2026-03-28 00:34:07  [INFO]
- [qwen/qwen3.5-9b] Prompt processing progress: 56.4%
-2026-03-28 00:34:08  [INFO]
- [qwen/qwen3.5-9b] Prompt processing progress: 61.5%
-2026-03-28 00:34:08  [INFO]
- [qwen/qwen3.5-9b] Prompt processing progress: 66.6%
-2026-03-28 00:34:09  [INFO]
- [qwen/qwen3.5-9b] Prompt processing progress: 71.8%
-2026-03-28 00:34:09  [INFO]
- [qwen/qwen3.5-9b] Prompt processing progress: 76.9%
-2026-03-28 00:34:10  [INFO]
- [qwen/qwen3.5-9b] Prompt processing progress: 76.9%
-2026-03-28 00:34:10 [ERROR]
- [qwen/qwen3.5-9b] Error: Channel Error
-2026-03-28 00:34:10 [ERROR]
- [qwen/qwen3.5-9b] Context size has been exceeded.. Error Data: n/a, Additional Data: n/a
-2026-03-28 00:34:10  [INFO]
+2026-03-29 20:57:26  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 19.0%
+2026-03-29 20:57:26  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 37.9%
+2026-03-29 20:57:26  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 56.9%
+2026-03-29 20:57:27  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 75.9%
+2026-03-29 20:57:27  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 81.0%
+2026-03-29 20:57:27  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 100.0%
+2026-03-29 20:57:32  [INFO]
+ [qwen/qwen3.5-9b] Finished streaming response
+2026-03-29 20:57:32  [INFO]
  [LM STUDIO SERVER] Received OPTIONS request. {}
-2026-03-28 00:34:10 [DEBUG]
+2026-03-29 20:57:32 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen/qwen3.5-9b",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个帮助用户总结对话标题的助手。请根据以下用户的提问和AI的回答，总结出一个能概括讨论内容的对话标题，长度控制在12个字以内。不要包含标点符号、引号或多余的解释。直接输出最终的标题内容。"
+    },
+    {
+      "role": "user",
+      "content": "用户提问：嘿！终于下班了，今天累死了。对了，我养的那只金毛最近特别调皮，老是咬我的拖鞋 😂 你平时... <Truncated in logs> ...时候特别爱咬东西，等成年后会稍微收敛一些～\n\n你平时都是怎么训练它的？有没有什么特别有效的招数？😄"
+    }
+  ],
+  "temperature": 0.3,
+  "stream": false
+}
+2026-03-29 20:57:32  [INFO]
+ [qwen/qwen3.5-9b] Running chat completion on conversation with 2 messages.
+2026-03-29 20:57:32  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 0.0%
+2026-03-29 20:57:32  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 100.0%
+2026-03-29 20:58:14  [INFO]
+ [qwen/qwen3.5-9b] Done reasoning. Reasoned for 335774.73 seconds.
+2026-03-29 20:58:14  [INFO]
+ [qwen/qwen3.5-9b] Model generated tool calls:  []
+2026-03-29 20:58:14  [INFO]
+ [qwen/qwen3.5-9b] Generated prediction:  {
+  "id": "chatcmpl-op715y6whi7pmk29du55x",
+  "object": "chat.completion",
+  "created": 1774789052,
+  "model": "qwen/qwen3.5-9b",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "\n\n金毛咬拖鞋的应对建议",
+        "reasoning_content": "Thinking Process:\n\n1.  **Analyze the Request:**\n    *   Role: Assistant helping users summarize conversation titles.\n    *   Input: User's question and AI's answer.\n    *   Task: Summarize the conversation into a title.\n    *   Constraint 1: Length must be within 12 Chinese characters.\n    *   Constraint 2: No punctuation, quotes, or extra explanations.\n    *   Output: Direct title content only.\n\n2.  **Analyze the Conversation:**\n    *   User: Complains about being tired after work, mentions their Golden Retriever is mischievous (biting slippers), asks if AI likes pets.\n    *   AI: Acknowledges Golden Retrievers' nature (biting slippers), shares tips (durable slippers, chew toys, play fetch), asks about the dog's age and training methods.\n    *   Core Topic: Golden Retriever behavior (biting slippers) and training tips.\n\n3.  **Draft Potential Titles:**\n    *   金毛咬拖鞋怎么办 (9 chars) - Good.\n    *   金毛调皮咬拖鞋建议 (10 chars) - Good.\n    *   金毛咬拖鞋训练方法 (10 chars) - Good.\n    *   金毛咬拖鞋的解决办法 (11 chars) - Good.\n    *   金毛爱咬拖鞋怎么管 (10 chars) - Good.\n    *   金毛调皮咬拖鞋应对 (10 chars) - Good.\n    *   金毛咬拖鞋训练建议 (10 chars) - Good.\n\n4.  **Select the Best Title:**\n    *   The conversation focuses heavily on the specific behavior (biting slippers) and the AI providing advice/tips on how to handle it.\n    *   \"金毛咬拖鞋怎么办\" is direct and covers the main issue.\n    *   \"金毛咬拖鞋的训练建议\" is also accurate.\n    *   Let's aim for something concise that captures the essence.\n    *   \"金毛咬拖鞋的应对建议\" (11 chars)\n    *   \"金毛咬拖鞋怎么办及建议\" (11 chars)\n    *   \"金毛咬拖鞋问题及建议\" (10 chars)\n    *   \"金毛咬拖鞋如何纠正\" (9 chars)\n\n    Let's pick \"金毛咬拖鞋怎么办及建议\" or simply \"金毛咬拖鞋的应对建议\".\n    Wait, the constraint is 12 characters max.\n    \"金毛咬拖鞋怎么办及建议\" is 11 characters.\n    \"金毛咬拖鞋的应对建议\" is 10 characters.\n    \"金毛咬拖鞋训练建议\" is 9 characters.\n\n    The user asked about the behavior and the AI gave tips.\n    \"金毛咬拖鞋的应对建议\" seems professional.\n    \"金毛咬拖鞋怎么办\" is more colloquial like the user.\n    Let's go with \"金毛咬拖鞋的应对建议\" (10 chars) or \"金毛咬拖鞋怎么办\" (9 chars).\n    Actually, \"金毛咬拖鞋怎么办\" is very direct.\n    But the AI also asked about training.\n    Let's try: \"金毛咬拖鞋行为及建议\" (10 chars).\n    Or simply: \"金毛咬拖鞋怎么办\" (9 chars).\n\n    Let's check the constraint again: 12 characters max.\n    \"金毛咬拖鞋的应对建议\" (10 characters).\n    \"金毛咬拖鞋训练与互动\" (10 characters).\n    \"金毛咬拖鞋如何纠正\" (9 characters).\n\n    The core is the user's problem (biting slippers) and the AI's solution.\n    \"金毛咬拖鞋怎么办\" is the most natural summary.\n    Let's add a bit more detail to make it better but stay under 12.\n    \"金毛咬拖鞋的解决办法\" (10 chars).\n    \"金毛咬拖鞋应对建议\" (9 chars).\n\n    Let's choose \"金毛咬拖鞋的应对建议\" (10 characters). It sounds like a summary title.\n    Or \"金毛咬拖鞋问题及建议\" (10 characters).\n\n    Let's try to be concise.\n    \"金毛咬拖鞋怎么办\" (9 chars).\n    \"金毛咬拖鞋应对建议\" (9 chars).\n\n    I will select \"金毛咬拖鞋的应对建议\" as it covers the problem and the solution provided.\n    Wait, counting characters:\n    金 (1) 毛 (2) 咬 (3) 拖 (4) 鞋 (5) 的 (6) 应 (7) 对 (8) 建 (9) 议 (10).\n    Total 10 characters. Perfect.\n\n    Another option: \"金毛咬拖鞋行为及建议\" (10 chars).\n    Another option: \"金毛咬拖鞋训练建议\" (9 chars).\n\n    Let's go with \"金毛咬拖鞋的应对建议\".\n\n5.  **Final Check:**\n    *   Length: 10 characters (<= 12).\n    *   No punctuation: Yes.\n    *   No quotes: Yes.\n    *   No extra explanation: Yes.\n\n    Wait, I can make it slightly more descriptive.\n    \"金毛咬拖鞋问题及建议\" (10 chars).\n    \"金毛咬拖鞋怎么办及建议\" (11 chars).\n    \"金毛咬拖鞋的解决办法\" (10 chars).\n\n    \"金毛咬拖鞋的解决办法\" sounds good.\n    Let's use \"金毛咬拖鞋的应对建议\".\n\n    Actually, \"金毛咬拖鞋怎么办\" is very common for chat summaries.\n    But \"建议\" implies the AI's role.\n    Let's use \"金毛咬拖鞋的应对建议\".\n\n    Wait, I need to make sure I don't exceed 12.\n    金毛咬拖鞋的应对建议 (10)\n    金毛咬拖鞋行为建议 (9)\n    金毛咬拖鞋训练建议 (9)\n\n    Let's pick \"金毛咬拖鞋的应对建议\".\n\n    Wait, re-reading the conversation, the user also asked \"Do you like pets?\". The AI said \"I'm not a real pet but like stories\". But the main content is the dog advice. So the title should focus on the dog.\n\n    Final decision: 金毛咬拖鞋的应对建议\n\n    Wait, let's count again.\n    金 (1) 毛 (2) 咬 (3) 拖 (4) 鞋 (5) 的 (6) 应 (7) 对 (8) 建 (9) 议 (10).\n    Okay.\n\n    Is there a better one?\n    \"金毛咬拖鞋问题及建议\" (10)\n    \"金毛咬拖鞋怎么办\" (9)\n\n    \"金毛咬拖鞋怎么办\" is punchier.\n    But \"建议\" captures the AI's output better.\n    Let's go with \"金毛咬拖鞋的应对建议\".\n\n    Wait, I can write \"金毛咬拖鞋行为及建议\" (10).\n    Let's stick to \"金毛咬拖鞋的应对建议\".\n\n    Wait, one more check: \"长度控制在12个字以内\".\n    金毛咬拖鞋的应对建议 is 10 characters.\n    It fits.\n\n    Let's try to make it even more accurate.\n    \"金毛咬拖鞋的解决办法\" (10).\n    \"金毛咬拖鞋如何纠正\" (9).\n\n    I think \"金毛咬拖鞋的应对建议\" is safe and accurate.\n    Or simply \"金毛咬拖鞋怎么办及建议\" (11).\n    Let's use \"金毛咬拖鞋的应对建议\".\n\n    Wait, I should check if I can include \"训练\".\n    \"金毛咬拖鞋训练建议\" (9).\n    The AI mentioned training.\n    \"金毛咬拖鞋训练建议\" is good.\n    But the user asked about the behavior first.\n    \"金毛咬拖鞋的应对建议\" covers behavior + tips.\n\n    Okay, final choice: 金毛咬拖鞋的应对建议\n\n    Wait, I can just output: 金毛咬拖鞋的应对建议\n\n    Wait, let's check if I can make it 12 chars exactly or close.\n    \"金毛咬拖鞋行为纠正建议\" (11 chars).\n    \"金毛咬拖鞋问题及解决建议\" (12 chars).\n    金 (1) 毛 (2) 咬 (3) 拖 (4) 鞋 (5) 问 (6) 题 (7) 及 (8) 解 (9) 决 (10) 建 (11) 议 (12).\n    This is exactly 12.\n    But simpler is better.\n    \"金毛咬拖鞋的应对建议\" (10 chars).\n\n    Let's go with 10 chars. It's safe.\n    Wait, I'll choose \"金毛咬拖鞋的应对建议\".\n\n    Wait, one more thought: The user asked \"Do you like pets?\". The AI answered that too. But the bulk is the dog advice.\n    So focusing on the dog is correct.\n\n    Final check on constraints:\n    - 12 chars max: Yes (10).\n    - No punctuation: Yes.\n    - No quotes: Yes.\n    - No extra explanation: Yes.\n\n    Output: 金毛咬拖鞋的应对建议\n",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 257,
+    "completion_tokens": 2126,
+    "total_tokens": 2383
+  },
+  "stats": {},
+  "system_fingerprint": "qwen/qwen3.5-9b"
+}
+2026-03-29 20:59:10  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-03-29 20:59:10 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen/qwen3.5-9b",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an intelligent agent that uses the ReAct (... <Truncated in logs> ... continue the conversation based on those results."
+    },
+    {
+      "role": "user",
+      "content": "嘿！终于下班了，今天累死了。对了，我养的那只金毛最近特别调皮，老是咬我的拖鞋 😂 你平时喜欢宠物吗？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，金毛确实以活泼好动著称，咬拖鞋简直是它们的\"必杀技\"！🐕 我虽然不是真宠物，但很喜欢和宠... <Truncated in logs> ...时候特别爱咬东西，等成年后会稍微收敛一些～\n\n你平时都是怎么训练它的？有没有什么特别有效的招数？😄"
+    },
+    {
+      "role": "user",
+      "content": "它现在8个月大，正是拆家高峰期 😅 名字叫\"年糕\"，因为我女朋友特别爱吃年糕哈哈哈。训练效果一般，... <Truncated in logs> ...算大概200万左右，看了好几个小区都不太满意。买房这事儿真头疼，你觉得结婚前先买房好还是先租房凑合？"
+    }
+  ],
+  "temperature": 0.7,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "description": "Search the web for current information. Returns a ... <Truncated in logs> ...R_1__`），请使用 `fetch_url` 工具获取网页内容，而不是 `web_search`。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query (2-4 keywords, natural language)"
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 5)",
+              "default": 5,
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "fetch_url",
+        "description": "获取网页或 PDF 文档内容并提取正文。\n\n**重要：URL 处理规则**\n- URL 必须使用用户... <Truncated in logs> ... URL 30 分钟内不会重复请求\n- 使用 force_refresh: true 可强制刷新缓存",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "要获取的网页或 PDF URL。必须是用户提供的原始 URL 或 URL 占位符，禁止任何修改。"
+            },
+            "use_cache": {
+              "type": "boolean",
+              "description": "是否使用缓存（默认 true）",
+              "default": true
+            },
+            "force_refresh": {
+              "type": "boolean",
+              "description": "是否强制刷新缓存（默认 false）",
+              "default": false
+            },
+            "render_js": {
+              "type": "boolean",
+              "description": "是否启用 JS 渲染（用于 SPA 页面，默认 false）",
+              "default": false
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "calculate",
+        "description": "Perform mathematical calculations. Supports basic arithmetic and common math functions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string",
+              "description": "The mathematical expression to evaluate (e.g., \"2 + 2\", \"Math.sqrt(16)\", \"Math.PI * 2\")"
+            }
+          },
+          "required": [
+            "expression"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_time",
+        "description": "Get the current date and time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "timezone": {
+              "type": "string",
+              "description": "Timezone (e.g., \"Asia/Shanghai\", \"UTC\"). Default: local timezone"
+            },
+            "format": {
+              "type": "string",
+              "description": "Output format: \"iso\", \"locale\", or \"unix\"",
+              "enum": [
+                "iso",
+                "locale",
+                "unix"
+              ],
+              "default": "locale"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "stream": true
+}
+2026-03-29 20:59:10  [INFO]
+ [qwen/qwen3.5-9b] Running chat completion on conversation with 4 messages.
+2026-03-29 20:59:10  [INFO]
+ [qwen/qwen3.5-9b] Streaming response...
+2026-03-29 20:59:11  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 0.0%
+2026-03-29 20:59:11  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 31.9%
+2026-03-29 20:59:12  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 100.0%
+2026-03-29 20:59:20  [INFO]
+ [qwen/qwen3.5-9b] Finished streaming response
+2026-03-29 20:59:21  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-03-29 20:59:21 [DEBUG]
  Received request: POST to /v1/chat/completions with body  {
   "model": "qwen2.5-3b-instruct",
   "messages": [
     {
       "role": "system",
-      "content": "你是记忆提取器。从对话中提取用户相关的记忆信息。\n\n【输出格式 - 必须严格遵守】\n每行一条记忆，格... <Truncated in logs> ...养了一只猫\"）\n- 模糊的描述（如\"用户有一些爱好\"）\n- 重复的信息\n- 对话中没有提到的具体细节"
+      "content": "你是一个\"用户长期记忆提取器\"。\n\n你的任务：\n从对话中提取【可以长期保存的用户信息】。\n\n----... <Truncated in logs> ...]\n\n--------------------------------\n如果不确定，直接忽略该信息。"
     },
     {
       "role": "user",
-      "content": "用户: 谢谢你这么详细的解答！我现在心里踏实多了。不过我突然想到，我平时除了喜欢拍照，其实还有个爱好... <Truncated in logs> ...光，用相机会不会有改善？\n\n从以上对话中提取用户记忆。只提取用户明确说出的信息，不要编造。直接输出："
+      "content": "用户: 嘿！终于下班了，今天累死了。对了，我养的那只金毛最近特别调皮，老是咬我的拖鞋 😂 你平时喜... <Truncated in logs> ...对话中提取用户记忆。\n【重要】span 必须是用户原话的连续子串，不能改写。\n直接输出JSON数组："
     }
   ],
   "temperature": 0.2,
   "max_tokens": 800,
   "stream": false
 }
-2026-03-28 00:34:10  [INFO]
+2026-03-29 20:59:21  [INFO]
  [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
-2026-03-28 00:34:10 [DEBUG]
+2026-03-29 20:59:21 [DEBUG]
  LlamaV4::predict slot selection: session_id=<empty> server-selected (LCP/LRU)
-2026-03-28 00:34:10 [DEBUG]
- slot get_availabl: id  3 | task -1 | selected slot by LCP similarity, sim_best = 0.679 (> 0.100 thold), f_keep = 0.177
-srv  get_availabl: updating prompt cache
-srv   prompt_save:  - saving prompt with length 2243, total state size = 78.882 MiB
-2026-03-28 00:34:10 [DEBUG]
- srv          load:  - looking for better prompt, base f_keep = 0.177, sim = 0.679
-srv        update:  - cache state: 2 prompts, 149.640 MiB (limits: 8192.000 MiB, 8192 tokens, 232938 est)
-srv        update:    - prompt 000001E9C29CB5A0:    2012 tokens, checkpoints:  0,    70.758 MiB
-srv        update:    - prompt 000001E9C29CAFF0:    2243 tokens, checkpoints:  0,    78.882 MiB
-srv  get_availabl: prompt cache update took 28.04 ms
-slot launch_slot_: id  3 | task -1 | sampler chain: logits -> penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
-slot launch_slot_: id  3 | task 145 | processing task, is_child = 0
-slot update_slots: id  3 | task 145 | new prompt, n_ctx_slot = 8192, n_keep = 585, task.n_tokens = 585
-slot update_slots: id  3 | task 145 | n_tokens = 397, memory_seq_rm [397, end)
-2026-03-28 00:34:10 [DEBUG]
- slot init_sampler: id  3 | task 145 | init sampler, took 0.09 ms, tokens: text = 585, total = 585
-slot update_slots: id  3 | task 145 | prompt processing done, n_tokens = 585, batch.n_tokens = 188
-2026-03-28 00:34:10  [INFO]
+2026-03-29 20:59:21 [DEBUG]
+ 
+2026-03-29 20:59:21 [DEBUG]
+ slot get_availabl: id  1 | task -1 | selected slot by LCP similarity, sim_best = 0.759 (> 0.100 thold), f_keep = 0.590
+2026-03-29 20:59:21 [DEBUG]
+ slot launch_slot_: id  1 | task -1 | sampler chain: logits -> penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+slot launch_slot_: id  1 | task 11960 | processing task, is_child = 0
+2026-03-29 20:59:21 [DEBUG]
+ slot update_slots: id  1 | task 11960 | new prompt, n_ctx_slot = 8192, n_keep = 709, task.n_tokens = 709
+slot update_slots: id  1 | task 11960 | n_tokens = 538, memory_seq_rm [538, end)
+slot init_sampler: id  1 | task 11960 | init sampler, took 0.13 ms, tokens: text = 709, total = 709
+slot update_slots: id  1 | task 11960 | prompt processing done, n_tokens = 709, batch.n_tokens = 171
+2026-03-29 20:59:21  [INFO]
  [qwen2.5-3b-instruct] Prompt processing progress: 0.0%
-2026-03-28 00:34:10  [INFO]
+2026-03-29 20:59:21  [INFO]
  [qwen2.5-3b-instruct] Prompt processing progress: 100.0%
-2026-03-28 00:34:11 [DEBUG]
- slot print_timing: id  3 | task 145 | 
-prompt eval time =     147.69 ms /   188 tokens (    0.79 ms per token,  1272.90 tokens per second)
-       eval time =     489.77 ms /   102 tokens (    4.80 ms per token,   208.26 tokens per second)
-      total time =     637.46 ms /   290 tokens
-slot      release: id  3 | task 145 | stop processing: n_tokens = 686, truncated = 0
-srv  update_slots: all slots are idle
-2026-03-28 00:34:11 [DEBUG]
- LlamaV4: server assigned slot 3 to task 145
-2026-03-28 00:34:11  [INFO]
+2026-03-29 20:59:22 [DEBUG]
+ slot print_timing: id  1 | task 11960 | 
+prompt eval time =      41.92 ms /   171 tokens (    0.25 ms per token,  4079.20 tokens per second)
+       eval time =     677.23 ms /   112 tokens (    6.05 ms per token,   165.38 tokens per second)
+      total time =     719.15 ms /   283 tokens
+2026-03-29 20:59:22 [DEBUG]
+ slot      release: id  1 | task 11960 | stop processing: n_tokens = 820, truncated = 0
+2026-03-29 20:59:22 [DEBUG]
+ srv  update_slots: all slots are idle
+LlamaV4: server assigned slot 1 to task 11960
+2026-03-29 20:59:22  [INFO]
  [qwen2.5-3b-instruct] Model generated tool calls:  []
-2026-03-28 00:34:11  [INFO]
+2026-03-29 20:59:22  [INFO]
  [qwen2.5-3b-instruct] Generated prediction:  {
-  "id": "chatcmpl-jzg18ykz2ow2uy9otdsmd",
+  "id": "chatcmpl-xbgvquupme4fhdw54b86d",
   "object": "chat.completion",
-  "created": 1774629250,
+  "created": 1774789161,
   "model": "qwen2.5-3b-instruct",
   "choices": [
     {
       "index": 0,
       "message": {
         "role": "assistant",
-        "content": "[skill] 用户擅长摄影 | 0.9\n[task] 用户想把拍照爱好和喝咖啡的爱好结合起来 | 0.85\n[preference] 用户喜欢周末去上海的精品咖啡馆探店 | 0.85\n[preference] 用户平时主要在小红书上浏览内容，不太看B站 | 0.85\n[skill] 用户家里有一只三岁的猫叫“汤圆” | 0.9",
+        "content": "[\n  {\n    \"type\": \"fact\",\n    \"span\": \"养了只金毛\",\n    \"sourceText\": \"我养的那只金毛最近特别调皮，老是咬我的拖鞋 😂\",\n    \"confidence\": 0.95\n  },\n  {\n    \"type\": \"identity\",\n    \"span\": \"女朋友爱吃年糕\",\n    \"sourceText\": \"名字叫\\\"年糕\\\"，因为我女朋友特别爱吃年糕哈哈哈。\",\n    \"confidence\": 0.95\n  }\n]",
         "reasoning_content": "",
         "tool_calls": []
       },
@@ -306,10 +416,2633 @@ srv  update_slots: all slots are idle
     }
   ],
   "usage": {
-    "prompt_tokens": 585,
-    "completion_tokens": 102,
-    "total_tokens": 687
+    "prompt_tokens": 709,
+    "completion_tokens": 112,
+    "total_tokens": 821
   },
   "stats": {},
   "system_fingerprint": "qwen2.5-3b-instruct"
+}
+2026-03-29 20:59:46  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-03-29 20:59:46 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen/qwen3.5-9b",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an intelligent agent that uses the ReAct (... <Truncated in logs> ... continue the conversation based on those results."
+    },
+    {
+      "role": "user",
+      "content": "嘿！终于下班了，今天累死了。对了，我养的那只金毛最近特别调皮，老是咬我的拖鞋 😂 你平时喜欢宠物吗？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，金毛确实以活泼好动著称，咬拖鞋简直是它们的\"必杀技\"！🐕 我虽然不是真宠物，但很喜欢和宠... <Truncated in logs> ...时候特别爱咬东西，等成年后会稍微收敛一些～\n\n你平时都是怎么训练它的？有没有什么特别有效的招数？😄"
+    },
+    {
+      "role": "user",
+      "content": "它现在8个月大，正是拆家高峰期 😅 名字叫\"年糕\"，因为我女朋友特别爱吃年糕哈哈哈。训练效果一般，... <Truncated in logs> ...算大概200万左右，看了好几个小区都不太满意。买房这事儿真头疼，你觉得结婚前先买房好还是先租房凑合？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，\"年糕\"这名字太可爱了！😂 看来你在家地位确实不太高，金毛宝宝和女友的感情确实不错。\n\n... <Truncated in logs> ...算要孩子吗？\n- 工作稳定性如何？\n- 更看重地段、面积还是其他？\n\n这样我能给更具体的建议～ 🏠"
+    },
+    {
+      "role": "user",
+      "content": "我在杭州，200万只能买到老破小或者很偏的地方 😂 我们短期内不打算要孩子，想先过几年二人世界。工... <Truncated in logs> ...哈哈哈，当我没问）\n周末一般怎么放松？我除了陪年糕就是打游戏，最近在肝《黑神话》，卡在大头娃娃那了。"
+    }
+  ],
+  "temperature": 0.7,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "description": "Search the web for current information. Returns a ... <Truncated in logs> ...R_1__`），请使用 `fetch_url` 工具获取网页内容，而不是 `web_search`。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query (2-4 keywords, natural language)"
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 5)",
+              "default": 5,
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "fetch_url",
+        "description": "获取网页或 PDF 文档内容并提取正文。\n\n**重要：URL 处理规则**\n- URL 必须使用用户... <Truncated in logs> ... URL 30 分钟内不会重复请求\n- 使用 force_refresh: true 可强制刷新缓存",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "要获取的网页或 PDF URL。必须是用户提供的原始 URL 或 URL 占位符，禁止任何修改。"
+            },
+            "use_cache": {
+              "type": "boolean",
+              "description": "是否使用缓存（默认 true）",
+              "default": true
+            },
+            "force_refresh": {
+              "type": "boolean",
+              "description": "是否强制刷新缓存（默认 false）",
+              "default": false
+            },
+            "render_js": {
+              "type": "boolean",
+              "description": "是否启用 JS 渲染（用于 SPA 页面，默认 false）",
+              "default": false
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "calculate",
+        "description": "Perform mathematical calculations. Supports basic arithmetic and common math functions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string",
+              "description": "The mathematical expression to evaluate (e.g., \"2 + 2\", \"Math.sqrt(16)\", \"Math.PI * 2\")"
+            }
+          },
+          "required": [
+            "expression"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_time",
+        "description": "Get the current date and time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "timezone": {
+              "type": "string",
+              "description": "Timezone (e.g., \"Asia/Shanghai\", \"UTC\"). Default: local timezone"
+            },
+            "format": {
+              "type": "string",
+              "description": "Output format: \"iso\", \"locale\", or \"unix\"",
+              "enum": [
+                "iso",
+                "locale",
+                "unix"
+              ],
+              "default": "locale"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "stream": true
+}
+2026-03-29 20:59:46  [INFO]
+ [qwen/qwen3.5-9b] Running chat completion on conversation with 6 messages.
+2026-03-29 20:59:46  [INFO]
+ [qwen/qwen3.5-9b] Streaming response...
+2026-03-29 20:59:47  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 0.0%
+2026-03-29 20:59:47  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 43.7%
+2026-03-29 20:59:48  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 100.0%
+2026-03-29 20:59:52  [INFO]
+ [qwen/qwen3.5-9b] Finished streaming response
+2026-03-29 20:59:53  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-03-29 20:59:53 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen/qwen3.5-9b",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an intelligent agent that uses the ReAct (... <Truncated in logs> ... continue the conversation based on those results."
+    },
+    {
+      "role": "user",
+      "content": "嘿！终于下班了，今天累死了。对了，我养的那只金毛最近特别调皮，老是咬我的拖鞋 😂 你平时喜欢宠物吗？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，金毛确实以活泼好动著称，咬拖鞋简直是它们的\"必杀技\"！🐕 我虽然不是真宠物，但很喜欢和宠... <Truncated in logs> ...时候特别爱咬东西，等成年后会稍微收敛一些～\n\n你平时都是怎么训练它的？有没有什么特别有效的招数？😄"
+    },
+    {
+      "role": "user",
+      "content": "它现在8个月大，正是拆家高峰期 😅 名字叫\"年糕\"，因为我女朋友特别爱吃年糕哈哈哈。训练效果一般，... <Truncated in logs> ...算大概200万左右，看了好几个小区都不太满意。买房这事儿真头疼，你觉得结婚前先买房好还是先租房凑合？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，\"年糕\"这名字太可爱了！😂 看来你在家地位确实不太高，金毛宝宝和女友的感情确实不错。\n\n... <Truncated in logs> ...算要孩子吗？\n- 工作稳定性如何？\n- 更看重地段、面积还是其他？\n\n这样我能给更具体的建议～ 🏠"
+    },
+    {
+      "role": "user",
+      "content": "我在杭州，200万只能买到老破小或者很偏的地方 😂 我们短期内不打算要孩子，想先过几年二人世界。工... <Truncated in logs> ...哈哈哈，当我没问）\n周末一般怎么放松？我除了陪年糕就是打游戏，最近在肝《黑神话》，卡在大头娃娃那了。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n\n",
+      "tool_calls": [
+        {
+          "id": "704382166",
+          "type": "function",
+          "function": {
+            "name": "web_search",
+            "arguments": "{\"query\":\"杭州房价 2026年 购房政策\",\"max_results\":5}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "content": "[\n  {\n    \"title\": \"杭州六区购房补贴政策深度解读：力度有多大？市场会如何反应？\"... <Truncated in logs> ...，究竟藏着怎样的城市发展战略？市场成交量是否被\\\"点燃\\\"了？今天克而瑞好房点评网带你\"\n  }\n]",
+      "name": "web_search",
+      "tool_call_id": "704382166"
+    }
+  ],
+  "temperature": 0.7,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "description": "Search the web for current information. Returns a ... <Truncated in logs> ...R_1__`），请使用 `fetch_url` 工具获取网页内容，而不是 `web_search`。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query (2-4 keywords, natural language)"
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 5)",
+              "default": 5,
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "fetch_url",
+        "description": "获取网页或 PDF 文档内容并提取正文。\n\n**重要：URL 处理规则**\n- URL 必须使用用户... <Truncated in logs> ... URL 30 分钟内不会重复请求\n- 使用 force_refresh: true 可强制刷新缓存",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "要获取的网页或 PDF URL。必须是用户提供的原始 URL 或 URL 占位符，禁止任何修改。"
+            },
+            "use_cache": {
+              "type": "boolean",
+              "description": "是否使用缓存（默认 true）",
+              "default": true
+            },
+            "force_refresh": {
+              "type": "boolean",
+              "description": "是否强制刷新缓存（默认 false）",
+              "default": false
+            },
+            "render_js": {
+              "type": "boolean",
+              "description": "是否启用 JS 渲染（用于 SPA 页面，默认 false）",
+              "default": false
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "calculate",
+        "description": "Perform mathematical calculations. Supports basic arithmetic and common math functions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string",
+              "description": "The mathematical expression to evaluate (e.g., \"2 + 2\", \"Math.sqrt(16)\", \"Math.PI * 2\")"
+            }
+          },
+          "required": [
+            "expression"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_time",
+        "description": "Get the current date and time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "timezone": {
+              "type": "string",
+              "description": "Timezone (e.g., \"Asia/Shanghai\", \"UTC\"). Default: local timezone"
+            },
+            "format": {
+              "type": "string",
+              "description": "Output format: \"iso\", \"locale\", or \"unix\"",
+              "enum": [
+                "iso",
+                "locale",
+                "unix"
+              ],
+              "default": "locale"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "stream": true
+}
+2026-03-29 20:59:53  [INFO]
+ [qwen/qwen3.5-9b] Running chat completion on conversation with 8 messages.
+2026-03-29 20:59:53  [INFO]
+ [qwen/qwen3.5-9b] Streaming response...
+2026-03-29 20:59:53  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 0.0%
+2026-03-29 20:59:54  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 41.5%
+2026-03-29 20:59:54  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 58.5%
+2026-03-29 20:59:54  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 100.0%
+2026-03-29 21:00:04  [INFO]
+ [qwen/qwen3.5-9b] Finished streaming response
+2026-03-29 21:00:05  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-03-29 21:00:05 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个\"用户长期记忆提取器\"。\n\n你的任务：\n从对话中提取【可以长期保存的用户信息】。\n\n----... <Truncated in logs> ...]\n\n--------------------------------\n如果不确定，直接忽略该信息。"
+    },
+    {
+      "role": "user",
+      "content": "用户: 我在杭州，200万只能买到老破小或者很偏的地方 😂 我们短期内不打算要孩子，想先过几年二人... <Truncated in logs> ...对话中提取用户记忆。\n【重要】span 必须是用户原话的连续子串，不能改写。\n直接输出JSON数组："
+    }
+  ],
+  "temperature": 0.2,
+  "max_tokens": 800,
+  "stream": false
+}
+2026-03-29 21:00:05  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+2026-03-29 21:00:05 [DEBUG]
+ LlamaV4::predict slot selection: session_id=<empty> server-selected (LCP/LRU)
+2026-03-29 21:00:05 [DEBUG]
+ slot get_availabl: id  1 | task -1 | selected slot by LCP similarity, sim_best = 0.758 (> 0.100 thold), f_keep = 0.656
+2026-03-29 21:00:05 [DEBUG]
+ slot launch_slot_: id  1 | task -1 | sampler chain: logits -> penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+slot launch_slot_: id  1 | task 12073 | processing task, is_child = 0
+slot update_slots: id  1 | task 12073 | new prompt, n_ctx_slot = 8192, n_keep = 710, task.n_tokens = 710
+slot update_slots: id  1 | task 12073 | n_tokens = 538, memory_seq_rm [538, end)
+slot init_sampler: id  1 | task 12073 | init sampler, took 0.12 ms, tokens: text = 710, total = 710
+slot update_slots: id  1 | task 12073 | prompt processing done, n_tokens = 710, batch.n_tokens = 172
+2026-03-29 21:00:05  [INFO]
+ [qwen2.5-3b-instruct] Prompt processing progress: 0.0%
+2026-03-29 21:00:05  [INFO]
+ [qwen2.5-3b-instruct] Prompt processing progress: 100.0%
+2026-03-29 21:00:06 [DEBUG]
+ slot print_timing: id  1 | task 12073 | 
+prompt eval time =      32.73 ms /   172 tokens (    0.19 ms per token,  5255.92 tokens per second)
+       eval time =    1582.77 ms /   268 tokens (    5.91 ms per token,   169.32 tokens per second)
+      total time =    1615.49 ms /   440 tokens
+2026-03-29 21:00:06 [DEBUG]
+ slot      release: id  1 | task 12073 | stop processing: n_tokens = 977, truncated = 0
+srv  update_slots: all slots are idle
+2026-03-29 21:00:06 [DEBUG]
+ LlamaV4: server assigned slot 1 to task 12073
+2026-03-29 21:00:06  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-29 21:00:06  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-47wjqrzk8yc0gya5ik26cfq",
+  "object": "chat.completion",
+  "created": 1774789205,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "[\n  {\n    \"type\": \"fact\",\n    \"span\": \"我在杭州，200万只能买到老破小或者很偏的地方 😂 我们短期内不打算要孩子，想先过几年二人世界。\",\n    \"sourceText\": \"我在杭州，200万只能买到老破小或者很偏的地方 😂 我们短期内不打算要孩子，想先过几年二人世界。\",\n    \"confidence\": 0.95\n  },\n  {\n    \"type\": \"fact\",\n    \"span\": \"工作还算稳定，我在互联网公司做产品经理，女朋友是设计师，都是996选手。\",\n    \"sourceText\": \"工作还算稳定，我在互联网公司做产品经理，女朋友是设计师，都是996选手。\",\n    \"confidence\": 0.95\n  },\n  {\n    \"type\": \"fact\",\n    \"span\": \"周末一般怎么放松？我除了陪年糕就是打游戏，最近在肝《黑神话》，卡在大头娃娃那了。\",\n    \"sourceText\": \"周末一般怎么放松？我除了陪年糕就是打游戏，最近在肝《黑神话》，卡在大头娃娃那了。\",\n    \"confidence\": 0.95\n  }\n]",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 710,
+    "completion_tokens": 268,
+    "total_tokens": 978
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+2026-03-29 21:00:53  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-03-29 21:00:53 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen/qwen3.5-9b",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an intelligent agent that uses the ReAct (... <Truncated in logs> ... continue the conversation based on those results."
+    },
+    {
+      "role": "user",
+      "content": "嘿！终于下班了，今天累死了。对了，我养的那只金毛最近特别调皮，老是咬我的拖鞋 😂 你平时喜欢宠物吗？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，金毛确实以活泼好动著称，咬拖鞋简直是它们的\"必杀技\"！🐕 我虽然不是真宠物，但很喜欢和宠... <Truncated in logs> ...时候特别爱咬东西，等成年后会稍微收敛一些～\n\n你平时都是怎么训练它的？有没有什么特别有效的招数？😄"
+    },
+    {
+      "role": "user",
+      "content": "它现在8个月大，正是拆家高峰期 😅 名字叫\"年糕\"，因为我女朋友特别爱吃年糕哈哈哈。训练效果一般，... <Truncated in logs> ...算大概200万左右，看了好几个小区都不太满意。买房这事儿真头疼，你觉得结婚前先买房好还是先租房凑合？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，\"年糕\"这名字太可爱了！😂 看来你在家地位确实不太高，金毛宝宝和女友的感情确实不错。\n\n... <Truncated in logs> ...算要孩子吗？\n- 工作稳定性如何？\n- 更看重地段、面积还是其他？\n\n这样我能给更具体的建议～ 🏠"
+    },
+    {
+      "role": "user",
+      "content": "我在杭州，200万只能买到老破小或者很偏的地方 😂 我们短期内不打算要孩子，想先过几年二人世界。工... <Truncated in logs> ...哈哈哈，当我没问）\n周末一般怎么放松？我除了陪年糕就是打游戏，最近在肝《黑神话》，卡在大头娃娃那了。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n杭州的购房焦虑我太理解了！200 万在杭州确实不算宽裕，但好消息是——**2026 年杭州政策挺... <Truncated in logs> ...最后问下：**你们看房时更看重什么？地段、面积、还是小区环境？我可以根据你的偏好给些具体建议～ 🏠"
+    },
+    {
+      "role": "user",
+      "content": "哇政策这块我确实没研究这么细，回头让我女朋友看看，她管钱 😂 老破小主要是怕以后不好出手，不过先上... <Truncated in logs> ...适应。你...算了你也没寄养过宠物 😅 成都那边有什么必吃的吗？虽然我是去工作的但应该能抽空逛逛。"
+    }
+  ],
+  "temperature": 0.7,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "description": "Search the web for current information. Returns a ... <Truncated in logs> ...R_1__`），请使用 `fetch_url` 工具获取网页内容，而不是 `web_search`。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query (2-4 keywords, natural language)"
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 5)",
+              "default": 5,
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "fetch_url",
+        "description": "获取网页或 PDF 文档内容并提取正文。\n\n**重要：URL 处理规则**\n- URL 必须使用用户... <Truncated in logs> ... URL 30 分钟内不会重复请求\n- 使用 force_refresh: true 可强制刷新缓存",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "要获取的网页或 PDF URL。必须是用户提供的原始 URL 或 URL 占位符，禁止任何修改。"
+            },
+            "use_cache": {
+              "type": "boolean",
+              "description": "是否使用缓存（默认 true）",
+              "default": true
+            },
+            "force_refresh": {
+              "type": "boolean",
+              "description": "是否强制刷新缓存（默认 false）",
+              "default": false
+            },
+            "render_js": {
+              "type": "boolean",
+              "description": "是否启用 JS 渲染（用于 SPA 页面，默认 false）",
+              "default": false
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "calculate",
+        "description": "Perform mathematical calculations. Supports basic arithmetic and common math functions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string",
+              "description": "The mathematical expression to evaluate (e.g., \"2 + 2\", \"Math.sqrt(16)\", \"Math.PI * 2\")"
+            }
+          },
+          "required": [
+            "expression"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_time",
+        "description": "Get the current date and time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "timezone": {
+              "type": "string",
+              "description": "Timezone (e.g., \"Asia/Shanghai\", \"UTC\"). Default: local timezone"
+            },
+            "format": {
+              "type": "string",
+              "description": "Output format: \"iso\", \"locale\", or \"unix\"",
+              "enum": [
+                "iso",
+                "locale",
+                "unix"
+              ],
+              "default": "locale"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "stream": true
+}
+2026-03-29 21:00:53  [INFO]
+ [qwen/qwen3.5-9b] Running chat completion on conversation with 8 messages.
+2026-03-29 21:00:53  [INFO]
+ [qwen/qwen3.5-9b] Streaming response...
+2026-03-29 21:00:54  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 0.0%
+2026-03-29 21:00:54  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 46.5%
+2026-03-29 21:00:54  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 53.5%
+2026-03-29 21:00:55  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 100.0%
+2026-03-29 21:00:58  [INFO]
+ [qwen/qwen3.5-9b] Finished streaming response
+2026-03-29 21:00:59  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-03-29 21:00:59 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen/qwen3.5-9b",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an intelligent agent that uses the ReAct (... <Truncated in logs> ... continue the conversation based on those results."
+    },
+    {
+      "role": "user",
+      "content": "嘿！终于下班了，今天累死了。对了，我养的那只金毛最近特别调皮，老是咬我的拖鞋 😂 你平时喜欢宠物吗？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，金毛确实以活泼好动著称，咬拖鞋简直是它们的\"必杀技\"！🐕 我虽然不是真宠物，但很喜欢和宠... <Truncated in logs> ...时候特别爱咬东西，等成年后会稍微收敛一些～\n\n你平时都是怎么训练它的？有没有什么特别有效的招数？😄"
+    },
+    {
+      "role": "user",
+      "content": "它现在8个月大，正是拆家高峰期 😅 名字叫\"年糕\"，因为我女朋友特别爱吃年糕哈哈哈。训练效果一般，... <Truncated in logs> ...算大概200万左右，看了好几个小区都不太满意。买房这事儿真头疼，你觉得结婚前先买房好还是先租房凑合？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，\"年糕\"这名字太可爱了！😂 看来你在家地位确实不太高，金毛宝宝和女友的感情确实不错。\n\n... <Truncated in logs> ...算要孩子吗？\n- 工作稳定性如何？\n- 更看重地段、面积还是其他？\n\n这样我能给更具体的建议～ 🏠"
+    },
+    {
+      "role": "user",
+      "content": "我在杭州，200万只能买到老破小或者很偏的地方 😂 我们短期内不打算要孩子，想先过几年二人世界。工... <Truncated in logs> ...哈哈哈，当我没问）\n周末一般怎么放松？我除了陪年糕就是打游戏，最近在肝《黑神话》，卡在大头娃娃那了。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n杭州的购房焦虑我太理解了！200 万在杭州确实不算宽裕，但好消息是——**2026 年杭州政策挺... <Truncated in logs> ...最后问下：**你们看房时更看重什么？地段、面积、还是小区环境？我可以根据你的偏好给些具体建议～ 🏠"
+    },
+    {
+      "role": "user",
+      "content": "哇政策这块我确实没研究这么细，回头让我女朋友看看，她管钱 😂 老破小主要是怕以后不好出手，不过先上... <Truncated in logs> ...适应。你...算了你也没寄养过宠物 😅 成都那边有什么必吃的吗？虽然我是去工作的但应该能抽空逛逛。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n",
+      "tool_calls": [
+        {
+          "id": "947207754",
+          "type": "function",
+          "function": {
+            "name": "web_search",
+            "arguments": "{\"query\":\"黑神话悟空 虎先锋 攻略\",\"max_results\":3}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "content": "[\n  {\n    \"title\": \"【黑神话悟空】虎先锋保姆级教学!全网最细干货!_哔哩哔哩bi... <Truncated in logs> ...本文详细拆解虎先锋的所有招式机制，提供定身法BD推荐与无伤逃课技巧，助天命人轻松通关。\"\n  }\n]",
+      "name": "web_search",
+      "tool_call_id": "947207754"
+    }
+  ],
+  "temperature": 0.7,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "description": "Search the web for current information. Returns a ... <Truncated in logs> ...R_1__`），请使用 `fetch_url` 工具获取网页内容，而不是 `web_search`。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query (2-4 keywords, natural language)"
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 5)",
+              "default": 5,
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "fetch_url",
+        "description": "获取网页或 PDF 文档内容并提取正文。\n\n**重要：URL 处理规则**\n- URL 必须使用用户... <Truncated in logs> ... URL 30 分钟内不会重复请求\n- 使用 force_refresh: true 可强制刷新缓存",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "要获取的网页或 PDF URL。必须是用户提供的原始 URL 或 URL 占位符，禁止任何修改。"
+            },
+            "use_cache": {
+              "type": "boolean",
+              "description": "是否使用缓存（默认 true）",
+              "default": true
+            },
+            "force_refresh": {
+              "type": "boolean",
+              "description": "是否强制刷新缓存（默认 false）",
+              "default": false
+            },
+            "render_js": {
+              "type": "boolean",
+              "description": "是否启用 JS 渲染（用于 SPA 页面，默认 false）",
+              "default": false
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "calculate",
+        "description": "Perform mathematical calculations. Supports basic arithmetic and common math functions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string",
+              "description": "The mathematical expression to evaluate (e.g., \"2 + 2\", \"Math.sqrt(16)\", \"Math.PI * 2\")"
+            }
+          },
+          "required": [
+            "expression"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_time",
+        "description": "Get the current date and time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "timezone": {
+              "type": "string",
+              "description": "Timezone (e.g., \"Asia/Shanghai\", \"UTC\"). Default: local timezone"
+            },
+            "format": {
+              "type": "string",
+              "description": "Output format: \"iso\", \"locale\", or \"unix\"",
+              "enum": [
+                "iso",
+                "locale",
+                "unix"
+              ],
+              "default": "locale"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "stream": true
+}
+2026-03-29 21:00:59  [INFO]
+ [qwen/qwen3.5-9b] Running chat completion on conversation with 10 messages.
+2026-03-29 21:00:59  [INFO]
+ [qwen/qwen3.5-9b] Streaming response...
+2026-03-29 21:01:00  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 0.0%
+2026-03-29 21:01:00  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 49.4%
+2026-03-29 21:01:00  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 100.0%
+2026-03-29 21:01:11  [INFO]
+ [qwen/qwen3.5-9b] Finished streaming response
+2026-03-29 21:01:50  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-03-29 21:01:50 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen/qwen3.5-9b",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an intelligent agent that uses the ReAct (... <Truncated in logs> ... continue the conversation based on those results."
+    },
+    {
+      "role": "user",
+      "content": "嘿！终于下班了，今天累死了。对了，我养的那只金毛最近特别调皮，老是咬我的拖鞋 😂 你平时喜欢宠物吗？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，金毛确实以活泼好动著称，咬拖鞋简直是它们的\"必杀技\"！🐕 我虽然不是真宠物，但很喜欢和宠... <Truncated in logs> ...时候特别爱咬东西，等成年后会稍微收敛一些～\n\n你平时都是怎么训练它的？有没有什么特别有效的招数？😄"
+    },
+    {
+      "role": "user",
+      "content": "它现在8个月大，正是拆家高峰期 😅 名字叫\"年糕\"，因为我女朋友特别爱吃年糕哈哈哈。训练效果一般，... <Truncated in logs> ...算大概200万左右，看了好几个小区都不太满意。买房这事儿真头疼，你觉得结婚前先买房好还是先租房凑合？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，\"年糕\"这名字太可爱了！😂 看来你在家地位确实不太高，金毛宝宝和女友的感情确实不错。\n\n... <Truncated in logs> ...算要孩子吗？\n- 工作稳定性如何？\n- 更看重地段、面积还是其他？\n\n这样我能给更具体的建议～ 🏠"
+    },
+    {
+      "role": "user",
+      "content": "我在杭州，200万只能买到老破小或者很偏的地方 😂 我们短期内不打算要孩子，想先过几年二人世界。工... <Truncated in logs> ...哈哈哈，当我没问）\n周末一般怎么放松？我除了陪年糕就是打游戏，最近在肝《黑神话》，卡在大头娃娃那了。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n杭州的购房焦虑我太理解了！200 万在杭州确实不算宽裕，但好消息是——**2026 年杭州政策挺... <Truncated in logs> ...最后问下：**你们看房时更看重什么？地段、面积、还是小区环境？我可以根据你的偏好给些具体建议～ 🏠"
+    },
+    {
+      "role": "user",
+      "content": "哇政策这块我确实没研究这么细，回头让我女朋友看看，她管钱 😂 老破小主要是怕以后不好出手，不过先上... <Truncated in logs> ...适应。你...算了你也没寄养过宠物 😅 成都那边有什么必吃的吗？虽然我是去工作的但应该能抽空逛逛。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈！虎先锋这关确实难啃，尤其是他那套\"疯狗拳\"加\"慢刀\"的组合！😂\n\n**虎先锋攻略要点：**... <Truncated in logs> ...间可以安排：2-3天工作，2-3天逛吃，刚好！\n\n需要我帮你查查具体的路线或者哪家店评价最好吗？🍜"
+    },
+    {
+      "role": "user",
+      "content": "虎先锋我放弃了，先清支线去了 😂 成都美食记下了，我女朋友是四川人，正好给她带点特产回去。\n说到她... <Truncated in logs> ...汉的，父母还在那边，每年春节回去一趟。今年打算把她带回去正式见家长，有点紧张。你...算了不问你了。"
+    }
+  ],
+  "temperature": 0.7,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "description": "Search the web for current information. Returns a ... <Truncated in logs> ...R_1__`），请使用 `fetch_url` 工具获取网页内容，而不是 `web_search`。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query (2-4 keywords, natural language)"
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 5)",
+              "default": 5,
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "fetch_url",
+        "description": "获取网页或 PDF 文档内容并提取正文。\n\n**重要：URL 处理规则**\n- URL 必须使用用户... <Truncated in logs> ... URL 30 分钟内不会重复请求\n- 使用 force_refresh: true 可强制刷新缓存",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "要获取的网页或 PDF URL。必须是用户提供的原始 URL 或 URL 占位符，禁止任何修改。"
+            },
+            "use_cache": {
+              "type": "boolean",
+              "description": "是否使用缓存（默认 true）",
+              "default": true
+            },
+            "force_refresh": {
+              "type": "boolean",
+              "description": "是否强制刷新缓存（默认 false）",
+              "default": false
+            },
+            "render_js": {
+              "type": "boolean",
+              "description": "是否启用 JS 渲染（用于 SPA 页面，默认 false）",
+              "default": false
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "calculate",
+        "description": "Perform mathematical calculations. Supports basic arithmetic and common math functions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string",
+              "description": "The mathematical expression to evaluate (e.g., \"2 + 2\", \"Math.sqrt(16)\", \"Math.PI * 2\")"
+            }
+          },
+          "required": [
+            "expression"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_time",
+        "description": "Get the current date and time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "timezone": {
+              "type": "string",
+              "description": "Timezone (e.g., \"Asia/Shanghai\", \"UTC\"). Default: local timezone"
+            },
+            "format": {
+              "type": "string",
+              "description": "Output format: \"iso\", \"locale\", or \"unix\"",
+              "enum": [
+                "iso",
+                "locale",
+                "unix"
+              ],
+              "default": "locale"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "stream": true
+}
+2026-03-29 21:01:50  [INFO]
+ [qwen/qwen3.5-9b] Running chat completion on conversation with 10 messages.
+2026-03-29 21:01:50  [INFO]
+ [qwen/qwen3.5-9b] Streaming response...
+2026-03-29 21:01:50  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 0.0%
+2026-03-29 21:01:50  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 17.0%
+2026-03-29 21:01:50  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 100.0%
+2026-03-29 21:01:59  [INFO]
+ [qwen/qwen3.5-9b] Finished streaming response
+2026-03-29 21:02:39  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-03-29 21:02:39 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen/qwen3.5-9b",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an intelligent agent that uses the ReAct (... <Truncated in logs> ... continue the conversation based on those results."
+    },
+    {
+      "role": "user",
+      "content": "嘿！终于下班了，今天累死了。对了，我养的那只金毛最近特别调皮，老是咬我的拖鞋 😂 你平时喜欢宠物吗？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，金毛确实以活泼好动著称，咬拖鞋简直是它们的\"必杀技\"！🐕 我虽然不是真宠物，但很喜欢和宠... <Truncated in logs> ...时候特别爱咬东西，等成年后会稍微收敛一些～\n\n你平时都是怎么训练它的？有没有什么特别有效的招数？😄"
+    },
+    {
+      "role": "user",
+      "content": "它现在8个月大，正是拆家高峰期 😅 名字叫\"年糕\"，因为我女朋友特别爱吃年糕哈哈哈。训练效果一般，... <Truncated in logs> ...算大概200万左右，看了好几个小区都不太满意。买房这事儿真头疼，你觉得结婚前先买房好还是先租房凑合？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，\"年糕\"这名字太可爱了！😂 看来你在家地位确实不太高，金毛宝宝和女友的感情确实不错。\n\n... <Truncated in logs> ...算要孩子吗？\n- 工作稳定性如何？\n- 更看重地段、面积还是其他？\n\n这样我能给更具体的建议～ 🏠"
+    },
+    {
+      "role": "user",
+      "content": "我在杭州，200万只能买到老破小或者很偏的地方 😂 我们短期内不打算要孩子，想先过几年二人世界。工... <Truncated in logs> ...哈哈哈，当我没问）\n周末一般怎么放松？我除了陪年糕就是打游戏，最近在肝《黑神话》，卡在大头娃娃那了。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n杭州的购房焦虑我太理解了！200 万在杭州确实不算宽裕，但好消息是——**2026 年杭州政策挺... <Truncated in logs> ...最后问下：**你们看房时更看重什么？地段、面积、还是小区环境？我可以根据你的偏好给些具体建议～ 🏠"
+    },
+    {
+      "role": "user",
+      "content": "哇政策这块我确实没研究这么细，回头让我女朋友看看，她管钱 😂 老破小主要是怕以后不好出手，不过先上... <Truncated in logs> ...适应。你...算了你也没寄养过宠物 😅 成都那边有什么必吃的吗？虽然我是去工作的但应该能抽空逛逛。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈！虎先锋这关确实难啃，尤其是他那套\"疯狗拳\"加\"慢刀\"的组合！😂\n\n**虎先锋攻略要点：**... <Truncated in logs> ...间可以安排：2-3天工作，2-3天逛吃，刚好！\n\n需要我帮你查查具体的路线或者哪家店评价最好吗？🍜"
+    },
+    {
+      "role": "user",
+      "content": "虎先锋我放弃了，先清支线去了 😂 成都美食记下了，我女朋友是四川人，正好给她带点特产回去。\n说到她... <Truncated in logs> ...汉的，父母还在那边，每年春节回去一趟。今年打算把她带回去正式见家长，有点紧张。你...算了不问你了。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，虎先锋这关确实劝退，清支线是个明智的决定！😂 辩论队出身的女朋友，那口才绝对厉害，能被她... <Truncated in logs> ...- 川茶（竹叶青之类的）\n\n祝你们见家长顺利，早日修成正果！👰‍♀️💍 有什么需要帮忙的随时说～"
+    },
+    {
+      "role": "user",
+      "content": "谢谢！借你吉言 😂 特产我记下了，兔头她肯定喜欢，我不敢吃那玩意儿。\n对了，说到工作，我们公司最近... <Truncated in logs> ...吃什么菜？（哦对你不吃东西...我这记性）\n年糕最近学会握手了！虽然是我女朋友教的，我只配铲屎 😅"
+    }
+  ],
+  "temperature": 0.7,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "description": "Search the web for current information. Returns a ... <Truncated in logs> ...R_1__`），请使用 `fetch_url` 工具获取网页内容，而不是 `web_search`。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query (2-4 keywords, natural language)"
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 5)",
+              "default": 5,
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "fetch_url",
+        "description": "获取网页或 PDF 文档内容并提取正文。\n\n**重要：URL 处理规则**\n- URL 必须使用用户... <Truncated in logs> ... URL 30 分钟内不会重复请求\n- 使用 force_refresh: true 可强制刷新缓存",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "要获取的网页或 PDF URL。必须是用户提供的原始 URL 或 URL 占位符，禁止任何修改。"
+            },
+            "use_cache": {
+              "type": "boolean",
+              "description": "是否使用缓存（默认 true）",
+              "default": true
+            },
+            "force_refresh": {
+              "type": "boolean",
+              "description": "是否强制刷新缓存（默认 false）",
+              "default": false
+            },
+            "render_js": {
+              "type": "boolean",
+              "description": "是否启用 JS 渲染（用于 SPA 页面，默认 false）",
+              "default": false
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "calculate",
+        "description": "Perform mathematical calculations. Supports basic arithmetic and common math functions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string",
+              "description": "The mathematical expression to evaluate (e.g., \"2 + 2\", \"Math.sqrt(16)\", \"Math.PI * 2\")"
+            }
+          },
+          "required": [
+            "expression"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_time",
+        "description": "Get the current date and time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "timezone": {
+              "type": "string",
+              "description": "Timezone (e.g., \"Asia/Shanghai\", \"UTC\"). Default: local timezone"
+            },
+            "format": {
+              "type": "string",
+              "description": "Output format: \"iso\", \"locale\", or \"unix\"",
+              "enum": [
+                "iso",
+                "locale",
+                "unix"
+              ],
+              "default": "locale"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "stream": true
+}
+2026-03-29 21:02:39  [INFO]
+ [qwen/qwen3.5-9b] Running chat completion on conversation with 12 messages.
+2026-03-29 21:02:39  [INFO]
+ [qwen/qwen3.5-9b] Streaming response...
+2026-03-29 21:02:40  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 0.0%
+2026-03-29 21:02:40  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 48.8%
+2026-03-29 21:02:41  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 100.0%
+2026-03-29 21:02:51  [INFO]
+ [qwen/qwen3.5-9b] Finished streaming response
+2026-03-29 21:02:52  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-03-29 21:02:52 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个\"用户长期记忆提取器\"。\n\n你的任务：\n从对话中提取【可以长期保存的用户信息】。\n\n----... <Truncated in logs> ...]\n\n--------------------------------\n如果不确定，直接忽略该信息。"
+    },
+    {
+      "role": "user",
+      "content": "用户: 谢谢！借你吉言 😂 特产我记下了，兔头她肯定喜欢，我不敢吃那玩意儿。\n对了，说到工作，我们... <Truncated in logs> ...对话中提取用户记忆。\n【重要】span 必须是用户原话的连续子串，不能改写。\n直接输出JSON数组："
+    }
+  ],
+  "temperature": 0.2,
+  "max_tokens": 800,
+  "stream": false
+}
+2026-03-29 21:02:52  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+2026-03-29 21:02:52 [DEBUG]
+ LlamaV4::predict slot selection: session_id=<empty> server-selected (LCP/LRU)
+2026-03-29 21:02:52 [DEBUG]
+ slot get_availabl: id  1 | task -1 | selected slot by LCP similarity, sim_best = 0.735 (> 0.100 thold), f_keep = 0.551
+2026-03-29 21:02:52 [DEBUG]
+ slot launch_slot_: id  1 | task -1 | sampler chain: logits -> penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+slot launch_slot_: id  1 | task 12342 | processing task, is_child = 0
+slot update_slots: id  1 | task 12342 | new prompt, n_ctx_slot = 8192, n_keep = 732, task.n_tokens = 732
+slot update_slots: id  1 | task 12342 | n_tokens = 538, memory_seq_rm [538, end)
+slot init_sampler: id  1 | task 12342 | init sampler, took 0.12 ms, tokens: text = 732, total = 732
+slot update_slots: id  1 | task 12342 | prompt processing done, n_tokens = 732, batch.n_tokens = 194
+2026-03-29 21:02:52  [INFO]
+ [qwen2.5-3b-instruct] Prompt processing progress: 0.0%
+2026-03-29 21:02:52  [INFO]
+ [qwen2.5-3b-instruct] Prompt processing progress: 100.0%
+2026-03-29 21:02:52 [DEBUG]
+ slot print_timing: id  1 | task 12342 | 
+prompt eval time =      35.82 ms /   194 tokens (    0.18 ms per token,  5415.82 tokens per second)
+       eval time =     620.84 ms /   105 tokens (    5.91 ms per token,   169.13 tokens per second)
+      total time =     656.66 ms /   299 tokens
+2026-03-29 21:02:52 [DEBUG]
+ slot      release: id  1 | task 12342 | stop processing: n_tokens = 836, truncated = 0
+srv  update_slots: all slots are idle
+2026-03-29 21:02:52 [DEBUG]
+ LlamaV4: server assigned slot 1 to task 12342
+2026-03-29 21:02:52  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-29 21:02:52  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-pbhhpexmwhj9zcsmu2qq",
+  "object": "chat.completion",
+  "created": 1774789372,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "[\n  {\n    \"type\": \"fact\",\n    \"span\": \"我不敢吃那玩意儿。\",\n    \"sourceText\": \"我不敢吃那玩意儿。我这记性\",\n    \"confidence\": 0.95\n  },\n  {\n    \"type\": \"constraint\",\n    \"span\": \"我不敢吃那玩意儿。\",\n    \"sourceText\": \"我不敢吃那玩意儿。我这记性\",\n    \"confidence\": 0.95\n  }\n]",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 732,
+    "completion_tokens": 105,
+    "total_tokens": 837
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+2026-03-29 21:03:21  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-03-29 21:03:21 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen/qwen3.5-9b",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an intelligent agent that uses the ReAct (... <Truncated in logs> ... continue the conversation based on those results."
+    },
+    {
+      "role": "user",
+      "content": "嘿！终于下班了，今天累死了。对了，我养的那只金毛最近特别调皮，老是咬我的拖鞋 😂 你平时喜欢宠物吗？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，金毛确实以活泼好动著称，咬拖鞋简直是它们的\"必杀技\"！🐕 我虽然不是真宠物，但很喜欢和宠... <Truncated in logs> ...时候特别爱咬东西，等成年后会稍微收敛一些～\n\n你平时都是怎么训练它的？有没有什么特别有效的招数？😄"
+    },
+    {
+      "role": "user",
+      "content": "它现在8个月大，正是拆家高峰期 😅 名字叫\"年糕\"，因为我女朋友特别爱吃年糕哈哈哈。训练效果一般，... <Truncated in logs> ...算大概200万左右，看了好几个小区都不太满意。买房这事儿真头疼，你觉得结婚前先买房好还是先租房凑合？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，\"年糕\"这名字太可爱了！😂 看来你在家地位确实不太高，金毛宝宝和女友的感情确实不错。\n\n... <Truncated in logs> ...算要孩子吗？\n- 工作稳定性如何？\n- 更看重地段、面积还是其他？\n\n这样我能给更具体的建议～ 🏠"
+    },
+    {
+      "role": "user",
+      "content": "我在杭州，200万只能买到老破小或者很偏的地方 😂 我们短期内不打算要孩子，想先过几年二人世界。工... <Truncated in logs> ...哈哈哈，当我没问）\n周末一般怎么放松？我除了陪年糕就是打游戏，最近在肝《黑神话》，卡在大头娃娃那了。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n杭州的购房焦虑我太理解了！200 万在杭州确实不算宽裕，但好消息是——**2026 年杭州政策挺... <Truncated in logs> ...最后问下：**你们看房时更看重什么？地段、面积、还是小区环境？我可以根据你的偏好给些具体建议～ 🏠"
+    },
+    {
+      "role": "user",
+      "content": "哇政策这块我确实没研究这么细，回头让我女朋友看看，她管钱 😂 老破小主要是怕以后不好出手，不过先上... <Truncated in logs> ...适应。你...算了你也没寄养过宠物 😅 成都那边有什么必吃的吗？虽然我是去工作的但应该能抽空逛逛。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈！虎先锋这关确实难啃，尤其是他那套\"疯狗拳\"加\"慢刀\"的组合！😂\n\n**虎先锋攻略要点：**... <Truncated in logs> ...间可以安排：2-3天工作，2-3天逛吃，刚好！\n\n需要我帮你查查具体的路线或者哪家店评价最好吗？🍜"
+    },
+    {
+      "role": "user",
+      "content": "虎先锋我放弃了，先清支线去了 😂 成都美食记下了，我女朋友是四川人，正好给她带点特产回去。\n说到她... <Truncated in logs> ...汉的，父母还在那边，每年春节回去一趟。今年打算把她带回去正式见家长，有点紧张。你...算了不问你了。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，虎先锋这关确实劝退，清支线是个明智的决定！😂 辩论队出身的女朋友，那口才绝对厉害，能被她... <Truncated in logs> ...- 川茶（竹叶青之类的）\n\n祝你们见家长顺利，早日修成正果！👰‍♀️💍 有什么需要帮忙的随时说～"
+    },
+    {
+      "role": "user",
+      "content": "谢谢！借你吉言 😂 特产我记下了，兔头她肯定喜欢，我不敢吃那玩意儿。\n对了，说到工作，我们公司最近... <Truncated in logs> ...吃什么菜？（哦对你不吃东西...我这记性）\n年糕最近学会握手了！虽然是我女朋友教的，我只配铲屎 😅"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，你这个\"AI产品设计师被AI冲击\"的自嘲太真实了！😂 不过换个角度想——**你自己就在做... <Truncated in logs> ...挺让人羡慕的！👍 继续加油，明年结婚+新房+年糕，想想都觉得幸福！\n\n还有什么想聊的随时说～ 🎉"
+    },
+    {
+      "role": "user",
+      "content": "哈哈谢谢，借你吉言！做饭这块我确实在练红烧肉，上周做的太甜了，被女朋友吐槽像糖醋排骨 😂\n对了，差... <Truncated in logs> ...个95后，能力挺强但特别卷，天天加班到十点，搞得我也被迫跟着卷，有点烦。你们...哦对你们不用上班。"
+    }
+  ],
+  "temperature": 0.7,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "description": "Search the web for current information. Returns a ... <Truncated in logs> ...R_1__`），请使用 `fetch_url` 工具获取网页内容，而不是 `web_search`。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query (2-4 keywords, natural language)"
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 5)",
+              "default": 5,
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "fetch_url",
+        "description": "获取网页或 PDF 文档内容并提取正文。\n\n**重要：URL 处理规则**\n- URL 必须使用用户... <Truncated in logs> ... URL 30 分钟内不会重复请求\n- 使用 force_refresh: true 可强制刷新缓存",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "要获取的网页或 PDF URL。必须是用户提供的原始 URL 或 URL 占位符，禁止任何修改。"
+            },
+            "use_cache": {
+              "type": "boolean",
+              "description": "是否使用缓存（默认 true）",
+              "default": true
+            },
+            "force_refresh": {
+              "type": "boolean",
+              "description": "是否强制刷新缓存（默认 false）",
+              "default": false
+            },
+            "render_js": {
+              "type": "boolean",
+              "description": "是否启用 JS 渲染（用于 SPA 页面，默认 false）",
+              "default": false
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "calculate",
+        "description": "Perform mathematical calculations. Supports basic arithmetic and common math functions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string",
+              "description": "The mathematical expression to evaluate (e.g., \"2 + 2\", \"Math.sqrt(16)\", \"Math.PI * 2\")"
+            }
+          },
+          "required": [
+            "expression"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_time",
+        "description": "Get the current date and time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "timezone": {
+              "type": "string",
+              "description": "Timezone (e.g., \"Asia/Shanghai\", \"UTC\"). Default: local timezone"
+            },
+            "format": {
+              "type": "string",
+              "description": "Output format: \"iso\", \"locale\", or \"unix\"",
+              "enum": [
+                "iso",
+                "locale",
+                "unix"
+              ],
+              "default": "locale"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "stream": true
+}
+2026-03-29 21:03:21  [INFO]
+ [qwen/qwen3.5-9b] Running chat completion on conversation with 14 messages.
+2026-03-29 21:03:21  [INFO]
+ [qwen/qwen3.5-9b] Streaming response...
+2026-03-29 21:03:22  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 0.0%
+2026-03-29 21:03:23  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 46.6%
+2026-03-29 21:03:23  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 53.4%
+2026-03-29 21:03:23  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 100.0%
+2026-03-29 21:03:34  [INFO]
+ [qwen/qwen3.5-9b] Finished streaming response
+2026-03-29 21:03:34  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-03-29 21:03:34 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个\"用户长期记忆提取器\"。\n\n你的任务：\n从对话中提取【可以长期保存的用户信息】。\n\n----... <Truncated in logs> ...]\n\n--------------------------------\n如果不确定，直接忽略该信息。"
+    },
+    {
+      "role": "user",
+      "content": "用户: 哈哈谢谢，借你吉言！做饭这块我确实在练红烧肉，上周做的太甜了，被女朋友吐槽像糖醋排骨 😂\n... <Truncated in logs> ...对话中提取用户记忆。\n【重要】span 必须是用户原话的连续子串，不能改写。\n直接输出JSON数组："
+    }
+  ],
+  "temperature": 0.2,
+  "max_tokens": 800,
+  "stream": false
+}
+2026-03-29 21:03:34  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+2026-03-29 21:03:34 [DEBUG]
+ LlamaV4::predict slot selection: session_id=<empty> server-selected (LCP/LRU)
+2026-03-29 21:03:35 [DEBUG]
+ slot get_availabl: id  1 | task -1 | selected slot by LCP similarity, sim_best = 0.711 (> 0.100 thold), f_keep = 0.644
+2026-03-29 21:03:35 [DEBUG]
+ slot launch_slot_: id  1 | task -1 | sampler chain: logits -> penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+slot launch_slot_: id  1 | task 12448 | processing task, is_child = 0
+slot update_slots: id  1 | task 12448 | new prompt, n_ctx_slot = 8192, n_keep = 757, task.n_tokens = 757
+slot update_slots: id  1 | task 12448 | n_tokens = 538, memory_seq_rm [538, end)
+slot init_sampler: id  1 | task 12448 | init sampler, took 0.12 ms, tokens: text = 757, total = 757
+slot update_slots: id  1 | task 12448 | prompt processing done, n_tokens = 757, batch.n_tokens = 219
+2026-03-29 21:03:35  [INFO]
+ [qwen2.5-3b-instruct] Prompt processing progress: 0.0%
+2026-03-29 21:03:35  [INFO]
+ [qwen2.5-3b-instruct] Prompt processing progress: 100.0%
+2026-03-29 21:03:35 [DEBUG]
+ slot print_timing: id  1 | task 12448 | 
+prompt eval time =      38.16 ms /   219 tokens (    0.17 ms per token,  5739.29 tokens per second)
+       eval time =     658.61 ms /   104 tokens (    6.33 ms per token,   157.91 tokens per second)
+      total time =     696.77 ms /   323 tokens
+2026-03-29 21:03:35 [DEBUG]
+ slot      release: id  1 | task 12448 | stop processing: n_tokens = 860, truncated = 0
+srv  update_slots: all slots are idle
+2026-03-29 21:03:35  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-29 21:03:35  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-1c5yhdq5374sgo1a6pufen",
+  "object": "chat.completion",
+  "created": 1774789414,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "[\n  {\n    \"type\": \"fact\",\n    \"span\": \"姓\\\"令狐\\\"\",\n    \"sourceText\": \"我名字其实挺特别的，姓\\\"令狐\\\"，叫令狐冲\",\n    \"confidence\": 0.95\n  },\n  {\n    \"type\": \"fact\",\n    \"span\": \"年糕\",\n    \"sourceText\": \"周末打算带年糕去西湖边走走\",\n    \"confidence\": 0.95\n  }\n]",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 757,
+    "completion_tokens": 104,
+    "total_tokens": 861
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+2026-03-29 21:03:35 [DEBUG]
+ LlamaV4: server assigned slot 1 to task 12448
+2026-03-29 21:04:53  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-03-29 21:04:53 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen/qwen3.5-9b",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an intelligent agent that uses the ReAct (... <Truncated in logs> ... continue the conversation based on those results."
+    },
+    {
+      "role": "user",
+      "content": "嘿！终于下班了，今天累死了。对了，我养的那只金毛最近特别调皮，老是咬我的拖鞋 😂 你平时喜欢宠物吗？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，金毛确实以活泼好动著称，咬拖鞋简直是它们的\"必杀技\"！🐕 我虽然不是真宠物，但很喜欢和宠... <Truncated in logs> ...时候特别爱咬东西，等成年后会稍微收敛一些～\n\n你平时都是怎么训练它的？有没有什么特别有效的招数？😄"
+    },
+    {
+      "role": "user",
+      "content": "它现在8个月大，正是拆家高峰期 😅 名字叫\"年糕\"，因为我女朋友特别爱吃年糕哈哈哈。训练效果一般，... <Truncated in logs> ...算大概200万左右，看了好几个小区都不太满意。买房这事儿真头疼，你觉得结婚前先买房好还是先租房凑合？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，\"年糕\"这名字太可爱了！😂 看来你在家地位确实不太高，金毛宝宝和女友的感情确实不错。\n\n... <Truncated in logs> ...算要孩子吗？\n- 工作稳定性如何？\n- 更看重地段、面积还是其他？\n\n这样我能给更具体的建议～ 🏠"
+    },
+    {
+      "role": "user",
+      "content": "我在杭州，200万只能买到老破小或者很偏的地方 😂 我们短期内不打算要孩子，想先过几年二人世界。工... <Truncated in logs> ...哈哈哈，当我没问）\n周末一般怎么放松？我除了陪年糕就是打游戏，最近在肝《黑神话》，卡在大头娃娃那了。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n杭州的购房焦虑我太理解了！200 万在杭州确实不算宽裕，但好消息是——**2026 年杭州政策挺... <Truncated in logs> ...最后问下：**你们看房时更看重什么？地段、面积、还是小区环境？我可以根据你的偏好给些具体建议～ 🏠"
+    },
+    {
+      "role": "user",
+      "content": "哇政策这块我确实没研究这么细，回头让我女朋友看看，她管钱 😂 老破小主要是怕以后不好出手，不过先上... <Truncated in logs> ...适应。你...算了你也没寄养过宠物 😅 成都那边有什么必吃的吗？虽然我是去工作的但应该能抽空逛逛。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈！虎先锋这关确实难啃，尤其是他那套\"疯狗拳\"加\"慢刀\"的组合！😂\n\n**虎先锋攻略要点：**... <Truncated in logs> ...间可以安排：2-3天工作，2-3天逛吃，刚好！\n\n需要我帮你查查具体的路线或者哪家店评价最好吗？🍜"
+    },
+    {
+      "role": "user",
+      "content": "虎先锋我放弃了，先清支线去了 😂 成都美食记下了，我女朋友是四川人，正好给她带点特产回去。\n说到她... <Truncated in logs> ...汉的，父母还在那边，每年春节回去一趟。今年打算把她带回去正式见家长，有点紧张。你...算了不问你了。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，虎先锋这关确实劝退，清支线是个明智的决定！😂 辩论队出身的女朋友，那口才绝对厉害，能被她... <Truncated in logs> ...- 川茶（竹叶青之类的）\n\n祝你们见家长顺利，早日修成正果！👰‍♀️💍 有什么需要帮忙的随时说～"
+    },
+    {
+      "role": "user",
+      "content": "谢谢！借你吉言 😂 特产我记下了，兔头她肯定喜欢，我不敢吃那玩意儿。\n对了，说到工作，我们公司最近... <Truncated in logs> ...吃什么菜？（哦对你不吃东西...我这记性）\n年糕最近学会握手了！虽然是我女朋友教的，我只配铲屎 😅"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，你这个\"AI产品设计师被AI冲击\"的自嘲太真实了！😂 不过换个角度想——**你自己就在做... <Truncated in logs> ...挺让人羡慕的！👍 继续加油，明年结婚+新房+年糕，想想都觉得幸福！\n\n还有什么想聊的随时说～ 🎉"
+    },
+    {
+      "role": "user",
+      "content": "哈哈谢谢，借你吉言！做饭这块我确实在练红烧肉，上周做的太甜了，被女朋友吐槽像糖醋排骨 😂\n对了，差... <Truncated in logs> ...个95后，能力挺强但特别卷，天天加班到十点，搞得我也被迫跟着卷，有点烦。你们...哦对你们不用上班。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，**令狐冲**！这名字一出，我脑海里立马浮现出你穿古装、拿着长剑、被岳不群师傅（老板？）使... <Truncated in logs> ...产品经理，江湖人称'拖鞋杀手'的铲屎官\"😂\n\n还有什么想聊的随时说～ 祝你周末愉快，西湖边见！🌊"
+    },
+    {
+      "role": "user",
+      "content": "哈哈哈\"拖鞋杀手\"这个梗过不去了 😂 周末西湖走起，希望年糕别给我丢人。\n对了，我女朋友姓林，叫林... <Truncated in logs> ...对你不用健身。\n年糕最近掉毛特别严重，家里到处都是毛，吸尘器都快罢工了。金毛是不是一年四季都掉毛啊？"
+    }
+  ],
+  "temperature": 0.7,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "description": "Search the web for current information. Returns a ... <Truncated in logs> ...R_1__`），请使用 `fetch_url` 工具获取网页内容，而不是 `web_search`。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query (2-4 keywords, natural language)"
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 5)",
+              "default": 5,
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "fetch_url",
+        "description": "获取网页或 PDF 文档内容并提取正文。\n\n**重要：URL 处理规则**\n- URL 必须使用用户... <Truncated in logs> ... URL 30 分钟内不会重复请求\n- 使用 force_refresh: true 可强制刷新缓存",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "要获取的网页或 PDF URL。必须是用户提供的原始 URL 或 URL 占位符，禁止任何修改。"
+            },
+            "use_cache": {
+              "type": "boolean",
+              "description": "是否使用缓存（默认 true）",
+              "default": true
+            },
+            "force_refresh": {
+              "type": "boolean",
+              "description": "是否强制刷新缓存（默认 false）",
+              "default": false
+            },
+            "render_js": {
+              "type": "boolean",
+              "description": "是否启用 JS 渲染（用于 SPA 页面，默认 false）",
+              "default": false
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "calculate",
+        "description": "Perform mathematical calculations. Supports basic arithmetic and common math functions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string",
+              "description": "The mathematical expression to evaluate (e.g., \"2 + 2\", \"Math.sqrt(16)\", \"Math.PI * 2\")"
+            }
+          },
+          "required": [
+            "expression"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_time",
+        "description": "Get the current date and time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "timezone": {
+              "type": "string",
+              "description": "Timezone (e.g., \"Asia/Shanghai\", \"UTC\"). Default: local timezone"
+            },
+            "format": {
+              "type": "string",
+              "description": "Output format: \"iso\", \"locale\", or \"unix\"",
+              "enum": [
+                "iso",
+                "locale",
+                "unix"
+              ],
+              "default": "locale"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "stream": true
+}
+2026-03-29 21:04:53  [INFO]
+ [qwen/qwen3.5-9b] Running chat completion on conversation with 16 messages.
+2026-03-29 21:04:53  [INFO]
+ [qwen/qwen3.5-9b] Streaming response...
+2026-03-29 21:04:54  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 0.0%
+2026-03-29 21:04:55  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 49.6%
+2026-03-29 21:04:55  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 50.4%
+2026-03-29 21:04:55  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 100.0%
+2026-03-29 21:05:08  [INFO]
+ [qwen/qwen3.5-9b] Finished streaming response
+2026-03-29 21:05:09  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-03-29 21:05:09 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个\"用户长期记忆提取器\"。\n\n你的任务：\n从对话中提取【可以长期保存的用户信息】。\n\n----... <Truncated in logs> ...]\n\n--------------------------------\n如果不确定，直接忽略该信息。"
+    },
+    {
+      "role": "user",
+      "content": "用户: 哈哈哈\"拖鞋杀手\"这个梗过不去了 😂 周末西湖走起，希望年糕别给我丢人。\n对了，我女朋友姓... <Truncated in logs> ...对话中提取用户记忆。\n【重要】span 必须是用户原话的连续子串，不能改写。\n直接输出JSON数组："
+    }
+  ],
+  "temperature": 0.2,
+  "max_tokens": 800,
+  "stream": false
+}
+2026-03-29 21:05:09  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+2026-03-29 21:05:09 [DEBUG]
+ LlamaV4::predict slot selection: session_id=<empty> server-selected (LCP/LRU)
+2026-03-29 21:05:09 [DEBUG]
+ slot get_availabl: id  1 | task -1 | selected slot by LCP similarity, sim_best = 0.728 (> 0.100 thold), f_keep = 0.629
+2026-03-29 21:05:09 [DEBUG]
+ slot launch_slot_: id  1 | task -1 | sampler chain: logits -> penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+slot launch_slot_: id  1 | task 12553 | processing task, is_child = 0
+slot update_slots: id  1 | task 12553 | new prompt, n_ctx_slot = 8192, n_keep = 743, task.n_tokens = 743
+slot update_slots: id  1 | task 12553 | n_tokens = 541, memory_seq_rm [541, end)
+slot init_sampler: id  1 | task 12553 | init sampler, took 0.12 ms, tokens: text = 743, total = 743
+2026-03-29 21:05:09 [DEBUG]
+ slot update_slots: id  1 | task 12553 | prompt processing done, n_tokens = 743, batch.n_tokens = 202
+2026-03-29 21:05:09  [INFO]
+ [qwen2.5-3b-instruct] Prompt processing progress: 0.0%
+2026-03-29 21:05:09  [INFO]
+ [qwen2.5-3b-instruct] Prompt processing progress: 100.0%
+2026-03-29 21:05:11 [DEBUG]
+ slot print_timing: id  1 | task 12553 | 
+prompt eval time =      36.51 ms /   202 tokens (    0.18 ms per token,  5533.19 tokens per second)
+       eval time =    1714.87 ms /   284 tokens (    6.04 ms per token,   165.61 tokens per second)
+      total time =    1751.37 ms /   486 tokens
+2026-03-29 21:05:11 [DEBUG]
+ slot      release: id  1 | task 12553 | stop processing: n_tokens = 1026, truncated = 0
+srv  update_slots: all slots are idle
+2026-03-29 21:05:11 [DEBUG]
+ LlamaV4: server assigned slot 1 to task 12553
+2026-03-29 21:05:11  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-29 21:05:11  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-ddh2cepfxk5ma6tumb05ob",
+  "object": "chat.completion",
+  "created": 1774789509,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "[\n  {\n    \"type\": \"fact\",\n    \"span\": \"我女朋友姓林，叫林诗音，也是金庸梗。我们当初认识就是因为发现彼此名字都来自金庸，特别有缘分。\",\n    \"sourceText\": \"对了，我女朋友姓林，叫林诗音，也是金庸梗。我们当初认识就是因为发现彼此名字都来自金庸，特别有缘分。\",\n    \"confidence\": 0.95\n  },\n  {\n    \"type\": \"fact\",\n    \"span\": \"我最近开始健身了，31岁再不练真的不行了，肚子上的肉越来越明显。办了家附近的健身房卡，一周去三次，目前坚持了一个月。\",\n    \"sourceText\": \"我最近开始健身了，31岁再不练真的不行了，肚子上的肉越来越明显。办了家附近的健身房卡，一周去三次，目前坚持了一个月。\",\n    \"confidence\": 0.95\n  },\n  {\n    \"type\": \"fact\",\n    \"span\": \"年糕最近掉毛特别严重，家里到处都是毛，吸尘器都快罢工了。\",\n    \"sourceText\": \"年糕最近掉毛特别严重，家里到处都是毛，吸尘器都快罢工了。\",\n    \"confidence\": 0.95\n  }\n]",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 743,
+    "completion_tokens": 284,
+    "total_tokens": 1027
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+2026-03-29 21:05:47  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-03-29 21:05:47 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen/qwen3.5-9b",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an intelligent agent that uses the ReAct (... <Truncated in logs> ... continue the conversation based on those results."
+    },
+    {
+      "role": "user",
+      "content": "嘿！终于下班了，今天累死了。对了，我养的那只金毛最近特别调皮，老是咬我的拖鞋 😂 你平时喜欢宠物吗？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，金毛确实以活泼好动著称，咬拖鞋简直是它们的\"必杀技\"！🐕 我虽然不是真宠物，但很喜欢和宠... <Truncated in logs> ...时候特别爱咬东西，等成年后会稍微收敛一些～\n\n你平时都是怎么训练它的？有没有什么特别有效的招数？😄"
+    },
+    {
+      "role": "user",
+      "content": "它现在8个月大，正是拆家高峰期 😅 名字叫\"年糕\"，因为我女朋友特别爱吃年糕哈哈哈。训练效果一般，... <Truncated in logs> ...算大概200万左右，看了好几个小区都不太满意。买房这事儿真头疼，你觉得结婚前先买房好还是先租房凑合？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，\"年糕\"这名字太可爱了！😂 看来你在家地位确实不太高，金毛宝宝和女友的感情确实不错。\n\n... <Truncated in logs> ...算要孩子吗？\n- 工作稳定性如何？\n- 更看重地段、面积还是其他？\n\n这样我能给更具体的建议～ 🏠"
+    },
+    {
+      "role": "user",
+      "content": "我在杭州，200万只能买到老破小或者很偏的地方 😂 我们短期内不打算要孩子，想先过几年二人世界。工... <Truncated in logs> ...哈哈哈，当我没问）\n周末一般怎么放松？我除了陪年糕就是打游戏，最近在肝《黑神话》，卡在大头娃娃那了。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n杭州的购房焦虑我太理解了！200 万在杭州确实不算宽裕，但好消息是——**2026 年杭州政策挺... <Truncated in logs> ...最后问下：**你们看房时更看重什么？地段、面积、还是小区环境？我可以根据你的偏好给些具体建议～ 🏠"
+    },
+    {
+      "role": "user",
+      "content": "哇政策这块我确实没研究这么细，回头让我女朋友看看，她管钱 😂 老破小主要是怕以后不好出手，不过先上... <Truncated in logs> ...适应。你...算了你也没寄养过宠物 😅 成都那边有什么必吃的吗？虽然我是去工作的但应该能抽空逛逛。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈！虎先锋这关确实难啃，尤其是他那套\"疯狗拳\"加\"慢刀\"的组合！😂\n\n**虎先锋攻略要点：**... <Truncated in logs> ...间可以安排：2-3天工作，2-3天逛吃，刚好！\n\n需要我帮你查查具体的路线或者哪家店评价最好吗？🍜"
+    },
+    {
+      "role": "user",
+      "content": "虎先锋我放弃了，先清支线去了 😂 成都美食记下了，我女朋友是四川人，正好给她带点特产回去。\n说到她... <Truncated in logs> ...汉的，父母还在那边，每年春节回去一趟。今年打算把她带回去正式见家长，有点紧张。你...算了不问你了。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，虎先锋这关确实劝退，清支线是个明智的决定！😂 辩论队出身的女朋友，那口才绝对厉害，能被她... <Truncated in logs> ...- 川茶（竹叶青之类的）\n\n祝你们见家长顺利，早日修成正果！👰‍♀️💍 有什么需要帮忙的随时说～"
+    },
+    {
+      "role": "user",
+      "content": "谢谢！借你吉言 😂 特产我记下了，兔头她肯定喜欢，我不敢吃那玩意儿。\n对了，说到工作，我们公司最近... <Truncated in logs> ...吃什么菜？（哦对你不吃东西...我这记性）\n年糕最近学会握手了！虽然是我女朋友教的，我只配铲屎 😅"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，你这个\"AI产品设计师被AI冲击\"的自嘲太真实了！😂 不过换个角度想——**你自己就在做... <Truncated in logs> ...挺让人羡慕的！👍 继续加油，明年结婚+新房+年糕，想想都觉得幸福！\n\n还有什么想聊的随时说～ 🎉"
+    },
+    {
+      "role": "user",
+      "content": "哈哈谢谢，借你吉言！做饭这块我确实在练红烧肉，上周做的太甜了，被女朋友吐槽像糖醋排骨 😂\n对了，差... <Truncated in logs> ...个95后，能力挺强但特别卷，天天加班到十点，搞得我也被迫跟着卷，有点烦。你们...哦对你们不用上班。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，**令狐冲**！这名字一出，我脑海里立马浮现出你穿古装、拿着长剑、被岳不群师傅（老板？）使... <Truncated in logs> ...产品经理，江湖人称'拖鞋杀手'的铲屎官\"😂\n\n还有什么想聊的随时说～ 祝你周末愉快，西湖边见！🌊"
+    },
+    {
+      "role": "user",
+      "content": "哈哈哈\"拖鞋杀手\"这个梗过不去了 😂 周末西湖走起，希望年糕别给我丢人。\n对了，我女朋友姓林，叫林... <Truncated in logs> ...对你不用健身。\n年糕最近掉毛特别严重，家里到处都是毛，吸尘器都快罢工了。金毛是不是一年四季都掉毛啊？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，**令狐冲 × 林诗音**！这组合也太绝了吧！😍 金庸迷的浪漫谁懂啊？你们俩简直就是\"武... <Truncated in logs> ...了！🎊\n\n祝周末西湖散步愉快，记得给年糕带点零食，别让它饿着！🐕\n\n还有什么想聊的随时说～ 🌊"
+    },
+    {
+      "role": "user",
+      "content": "哈哈哈\"行走的蒲公英\"太形象了，我现在每天出门前都要用粘毛滚筒滚一遍 😂 鱼油我记下了，回头买一瓶... <Truncated in logs> ...的是市场营销。父母挺担心的，想让她回老家武汉，但她想留在大城市。我挺理解她的，当年我也是这么过来的。"
+    }
+  ],
+  "temperature": 0.7,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "description": "Search the web for current information. Returns a ... <Truncated in logs> ...R_1__`），请使用 `fetch_url` 工具获取网页内容，而不是 `web_search`。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query (2-4 keywords, natural language)"
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 5)",
+              "default": 5,
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "fetch_url",
+        "description": "获取网页或 PDF 文档内容并提取正文。\n\n**重要：URL 处理规则**\n- URL 必须使用用户... <Truncated in logs> ... URL 30 分钟内不会重复请求\n- 使用 force_refresh: true 可强制刷新缓存",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "要获取的网页或 PDF URL。必须是用户提供的原始 URL 或 URL 占位符，禁止任何修改。"
+            },
+            "use_cache": {
+              "type": "boolean",
+              "description": "是否使用缓存（默认 true）",
+              "default": true
+            },
+            "force_refresh": {
+              "type": "boolean",
+              "description": "是否强制刷新缓存（默认 false）",
+              "default": false
+            },
+            "render_js": {
+              "type": "boolean",
+              "description": "是否启用 JS 渲染（用于 SPA 页面，默认 false）",
+              "default": false
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "calculate",
+        "description": "Perform mathematical calculations. Supports basic arithmetic and common math functions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string",
+              "description": "The mathematical expression to evaluate (e.g., \"2 + 2\", \"Math.sqrt(16)\", \"Math.PI * 2\")"
+            }
+          },
+          "required": [
+            "expression"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_time",
+        "description": "Get the current date and time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "timezone": {
+              "type": "string",
+              "description": "Timezone (e.g., \"Asia/Shanghai\", \"UTC\"). Default: local timezone"
+            },
+            "format": {
+              "type": "string",
+              "description": "Output format: \"iso\", \"locale\", or \"unix\"",
+              "enum": [
+                "iso",
+                "locale",
+                "unix"
+              ],
+              "default": "locale"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "stream": true
+}
+2026-03-29 21:05:47  [INFO]
+ [qwen/qwen3.5-9b] Running chat completion on conversation with 18 messages.
+2026-03-29 21:05:47  [INFO]
+ [qwen/qwen3.5-9b] Streaming response...
+2026-03-29 21:05:48  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 0.0%
+2026-03-29 21:05:49  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 44.1%
+2026-03-29 21:05:49  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 55.9%
+2026-03-29 21:05:49  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 100.0%
+2026-03-29 21:05:55  [INFO]
+ [qwen/qwen3.5-9b] Finished streaming response
+2026-03-29 21:05:57  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-03-29 21:05:57 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen/qwen3.5-9b",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an intelligent agent that uses the ReAct (... <Truncated in logs> ... continue the conversation based on those results."
+    },
+    {
+      "role": "user",
+      "content": "嘿！终于下班了，今天累死了。对了，我养的那只金毛最近特别调皮，老是咬我的拖鞋 😂 你平时喜欢宠物吗？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，金毛确实以活泼好动著称，咬拖鞋简直是它们的\"必杀技\"！🐕 我虽然不是真宠物，但很喜欢和宠... <Truncated in logs> ...时候特别爱咬东西，等成年后会稍微收敛一些～\n\n你平时都是怎么训练它的？有没有什么特别有效的招数？😄"
+    },
+    {
+      "role": "user",
+      "content": "它现在8个月大，正是拆家高峰期 😅 名字叫\"年糕\"，因为我女朋友特别爱吃年糕哈哈哈。训练效果一般，... <Truncated in logs> ...算大概200万左右，看了好几个小区都不太满意。买房这事儿真头疼，你觉得结婚前先买房好还是先租房凑合？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，\"年糕\"这名字太可爱了！😂 看来你在家地位确实不太高，金毛宝宝和女友的感情确实不错。\n\n... <Truncated in logs> ...算要孩子吗？\n- 工作稳定性如何？\n- 更看重地段、面积还是其他？\n\n这样我能给更具体的建议～ 🏠"
+    },
+    {
+      "role": "user",
+      "content": "我在杭州，200万只能买到老破小或者很偏的地方 😂 我们短期内不打算要孩子，想先过几年二人世界。工... <Truncated in logs> ...哈哈哈，当我没问）\n周末一般怎么放松？我除了陪年糕就是打游戏，最近在肝《黑神话》，卡在大头娃娃那了。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n杭州的购房焦虑我太理解了！200 万在杭州确实不算宽裕，但好消息是——**2026 年杭州政策挺... <Truncated in logs> ...最后问下：**你们看房时更看重什么？地段、面积、还是小区环境？我可以根据你的偏好给些具体建议～ 🏠"
+    },
+    {
+      "role": "user",
+      "content": "哇政策这块我确实没研究这么细，回头让我女朋友看看，她管钱 😂 老破小主要是怕以后不好出手，不过先上... <Truncated in logs> ...适应。你...算了你也没寄养过宠物 😅 成都那边有什么必吃的吗？虽然我是去工作的但应该能抽空逛逛。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈！虎先锋这关确实难啃，尤其是他那套\"疯狗拳\"加\"慢刀\"的组合！😂\n\n**虎先锋攻略要点：**... <Truncated in logs> ...间可以安排：2-3天工作，2-3天逛吃，刚好！\n\n需要我帮你查查具体的路线或者哪家店评价最好吗？🍜"
+    },
+    {
+      "role": "user",
+      "content": "虎先锋我放弃了，先清支线去了 😂 成都美食记下了，我女朋友是四川人，正好给她带点特产回去。\n说到她... <Truncated in logs> ...汉的，父母还在那边，每年春节回去一趟。今年打算把她带回去正式见家长，有点紧张。你...算了不问你了。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，虎先锋这关确实劝退，清支线是个明智的决定！😂 辩论队出身的女朋友，那口才绝对厉害，能被她... <Truncated in logs> ...- 川茶（竹叶青之类的）\n\n祝你们见家长顺利，早日修成正果！👰‍♀️💍 有什么需要帮忙的随时说～"
+    },
+    {
+      "role": "user",
+      "content": "谢谢！借你吉言 😂 特产我记下了，兔头她肯定喜欢，我不敢吃那玩意儿。\n对了，说到工作，我们公司最近... <Truncated in logs> ...吃什么菜？（哦对你不吃东西...我这记性）\n年糕最近学会握手了！虽然是我女朋友教的，我只配铲屎 😅"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，你这个\"AI产品设计师被AI冲击\"的自嘲太真实了！😂 不过换个角度想——**你自己就在做... <Truncated in logs> ...挺让人羡慕的！👍 继续加油，明年结婚+新房+年糕，想想都觉得幸福！\n\n还有什么想聊的随时说～ 🎉"
+    },
+    {
+      "role": "user",
+      "content": "哈哈谢谢，借你吉言！做饭这块我确实在练红烧肉，上周做的太甜了，被女朋友吐槽像糖醋排骨 😂\n对了，差... <Truncated in logs> ...个95后，能力挺强但特别卷，天天加班到十点，搞得我也被迫跟着卷，有点烦。你们...哦对你们不用上班。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，**令狐冲**！这名字一出，我脑海里立马浮现出你穿古装、拿着长剑、被岳不群师傅（老板？）使... <Truncated in logs> ...产品经理，江湖人称'拖鞋杀手'的铲屎官\"😂\n\n还有什么想聊的随时说～ 祝你周末愉快，西湖边见！🌊"
+    },
+    {
+      "role": "user",
+      "content": "哈哈哈\"拖鞋杀手\"这个梗过不去了 😂 周末西湖走起，希望年糕别给我丢人。\n对了，我女朋友姓林，叫林... <Truncated in logs> ...对你不用健身。\n年糕最近掉毛特别严重，家里到处都是毛，吸尘器都快罢工了。金毛是不是一年四季都掉毛啊？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，**令狐冲 × 林诗音**！这组合也太绝了吧！😍 金庸迷的浪漫谁懂啊？你们俩简直就是\"武... <Truncated in logs> ...了！🎊\n\n祝周末西湖散步愉快，记得给年糕带点零食，别让它饿着！🐕\n\n还有什么想聊的随时说～ 🌊"
+    },
+    {
+      "role": "user",
+      "content": "哈哈哈\"行走的蒲公英\"太形象了，我现在每天出门前都要用粘毛滚筒滚一遍 😂 鱼油我记下了，回头买一瓶... <Truncated in logs> ...的是市场营销。父母挺担心的，想让她回老家武汉，但她想留在大城市。我挺理解她的，当年我也是这么过来的。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n",
+      "tool_calls": [
+        {
+          "id": "597339086",
+          "type": "function",
+          "function": {
+            "name": "web_search",
+            "arguments": "{\"query\":\"空洞骑士 哈迪斯 游戏攻略\",\"max_results\":5}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "content": "[\n  {\n    \"title\": \"「哈迪斯攻略」保姆级教程，轻松度过新手期 - 豆瓣\",\n  ... <Truncated in logs> ...无聊，成型之后跟开挂没区别。 炮2（特攻命中自己后，4秒内增加所有伤害，满级+75%）\"\n  }\n]",
+      "name": "web_search",
+      "tool_call_id": "597339086"
+    }
+  ],
+  "temperature": 0.7,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "description": "Search the web for current information. Returns a ... <Truncated in logs> ...R_1__`），请使用 `fetch_url` 工具获取网页内容，而不是 `web_search`。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query (2-4 keywords, natural language)"
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 5)",
+              "default": 5,
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "fetch_url",
+        "description": "获取网页或 PDF 文档内容并提取正文。\n\n**重要：URL 处理规则**\n- URL 必须使用用户... <Truncated in logs> ... URL 30 分钟内不会重复请求\n- 使用 force_refresh: true 可强制刷新缓存",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "要获取的网页或 PDF URL。必须是用户提供的原始 URL 或 URL 占位符，禁止任何修改。"
+            },
+            "use_cache": {
+              "type": "boolean",
+              "description": "是否使用缓存（默认 true）",
+              "default": true
+            },
+            "force_refresh": {
+              "type": "boolean",
+              "description": "是否强制刷新缓存（默认 false）",
+              "default": false
+            },
+            "render_js": {
+              "type": "boolean",
+              "description": "是否启用 JS 渲染（用于 SPA 页面，默认 false）",
+              "default": false
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "calculate",
+        "description": "Perform mathematical calculations. Supports basic arithmetic and common math functions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string",
+              "description": "The mathematical expression to evaluate (e.g., \"2 + 2\", \"Math.sqrt(16)\", \"Math.PI * 2\")"
+            }
+          },
+          "required": [
+            "expression"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_time",
+        "description": "Get the current date and time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "timezone": {
+              "type": "string",
+              "description": "Timezone (e.g., \"Asia/Shanghai\", \"UTC\"). Default: local timezone"
+            },
+            "format": {
+              "type": "string",
+              "description": "Output format: \"iso\", \"locale\", or \"unix\"",
+              "enum": [
+                "iso",
+                "locale",
+                "unix"
+              ],
+              "default": "locale"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "stream": true
+}
+2026-03-29 21:05:57  [INFO]
+ [qwen/qwen3.5-9b] Running chat completion on conversation with 20 messages.
+2026-03-29 21:05:57  [INFO]
+ [qwen/qwen3.5-9b] Streaming response...
+2026-03-29 21:05:57  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 0.0%
+2026-03-29 21:05:57  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 40.6%
+2026-03-29 21:05:57  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 59.4%
+2026-03-29 21:05:58  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 100.0%
+2026-03-29 21:06:11  [INFO]
+ [qwen/qwen3.5-9b] Finished streaming response
+2026-03-29 21:06:12  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-03-29 21:06:12 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个\"用户长期记忆提取器\"。\n\n你的任务：\n从对话中提取【可以长期保存的用户信息】。\n\n----... <Truncated in logs> ...]\n\n--------------------------------\n如果不确定，直接忽略该信息。"
+    },
+    {
+      "role": "user",
+      "content": "用户: 哈哈哈\"行走的蒲公英\"太形象了，我现在每天出门前都要用粘毛滚筒滚一遍 😂 鱼油我记下了，回... <Truncated in logs> ...对话中提取用户记忆。\n【重要】span 必须是用户原话的连续子串，不能改写。\n直接输出JSON数组："
+    }
+  ],
+  "temperature": 0.2,
+  "max_tokens": 800,
+  "stream": false
+}
+2026-03-29 21:06:12  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+2026-03-29 21:06:12 [DEBUG]
+ LlamaV4::predict slot selection: session_id=<empty> server-selected (LCP/LRU)
+2026-03-29 21:06:12 [DEBUG]
+ slot get_availabl: id  1 | task -1 | selected slot by LCP similarity, sim_best = 0.713 (> 0.100 thold), f_keep = 0.529
+2026-03-29 21:06:12 [DEBUG]
+ slot launch_slot_: id  1 | task -1 | sampler chain: logits -> penalties -> ?dry -> ?top-n-sigma -> top-k -> ?typical -> top-p -> min-p -> ?xtc -> temp-ext -> dist 
+slot launch_slot_: id  1 | task 12838 | processing task, is_child = 0
+slot update_slots: id  1 | task 12838 | new prompt, n_ctx_slot = 8192, n_keep = 762, task.n_tokens = 762
+slot update_slots: id  1 | task 12838 | n_tokens = 543, memory_seq_rm [543, end)
+2026-03-29 21:06:12 [DEBUG]
+ slot init_sampler: id  1 | task 12838 | init sampler, took 0.12 ms, tokens: text = 762, total = 762
+slot update_slots: id  1 | task 12838 | prompt processing done, n_tokens = 762, batch.n_tokens = 219
+2026-03-29 21:06:12  [INFO]
+ [qwen2.5-3b-instruct] Prompt processing progress: 0.0%
+2026-03-29 21:06:12  [INFO]
+ [qwen2.5-3b-instruct] Prompt processing progress: 100.0%
+2026-03-29 21:06:12 [DEBUG]
+ slot print_timing: id  1 | task 12838 | 
+prompt eval time =      37.15 ms /   219 tokens (    0.17 ms per token,  5894.54 tokens per second)
+       eval time =     670.18 ms /   107 tokens (    6.26 ms per token,   159.66 tokens per second)
+      total time =     707.33 ms /   326 tokens
+2026-03-29 21:06:12 [DEBUG]
+ slot      release: id  1 | task 12838 | stop processing: n_tokens = 868, truncated = 0
+srv  update_slots: all slots are idle
+2026-03-29 21:06:12 [DEBUG]
+ LlamaV4: server assigned slot 1 to task 12838
+2026-03-29 21:06:12  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-29 21:06:12  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-4hov40o6ibj983h2qxmouk",
+  "object": "chat.completion",
+  "created": 1774789572,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "[\n  {\n    \"type\": \"fact\",\n    \"span\": \"今年刚大学毕业\",\n    \"sourceText\": \"我还有个妹妹，今年刚大学毕业，也在杭州找工作，学的是市场营销。\",\n    \"confidence\": 0.95\n  },\n  {\n    \"type\": \"identity\",\n    \"span\": \"市场营销\",\n    \"sourceText\": \"我还有个妹妹，今年刚大学毕业，也在杭州找工作，学的是市场营销。\",\n    \"confidence\": 0.95\n  }\n]",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 762,
+    "completion_tokens": 107,
+    "total_tokens": 869
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+2026-03-29 21:07:06  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-03-29 21:07:06 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen/qwen3.5-9b",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an intelligent agent that uses the ReAct (... <Truncated in logs> ... continue the conversation based on those results."
+    },
+    {
+      "role": "user",
+      "content": "嘿！终于下班了，今天累死了。对了，我养的那只金毛最近特别调皮，老是咬我的拖鞋 😂 你平时喜欢宠物吗？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，金毛确实以活泼好动著称，咬拖鞋简直是它们的\"必杀技\"！🐕 我虽然不是真宠物，但很喜欢和宠... <Truncated in logs> ...时候特别爱咬东西，等成年后会稍微收敛一些～\n\n你平时都是怎么训练它的？有没有什么特别有效的招数？😄"
+    },
+    {
+      "role": "user",
+      "content": "它现在8个月大，正是拆家高峰期 😅 名字叫\"年糕\"，因为我女朋友特别爱吃年糕哈哈哈。训练效果一般，... <Truncated in logs> ...算大概200万左右，看了好几个小区都不太满意。买房这事儿真头疼，你觉得结婚前先买房好还是先租房凑合？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，\"年糕\"这名字太可爱了！😂 看来你在家地位确实不太高，金毛宝宝和女友的感情确实不错。\n\n... <Truncated in logs> ...算要孩子吗？\n- 工作稳定性如何？\n- 更看重地段、面积还是其他？\n\n这样我能给更具体的建议～ 🏠"
+    },
+    {
+      "role": "user",
+      "content": "我在杭州，200万只能买到老破小或者很偏的地方 😂 我们短期内不打算要孩子，想先过几年二人世界。工... <Truncated in logs> ...哈哈哈，当我没问）\n周末一般怎么放松？我除了陪年糕就是打游戏，最近在肝《黑神话》，卡在大头娃娃那了。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n杭州的购房焦虑我太理解了！200 万在杭州确实不算宽裕，但好消息是——**2026 年杭州政策挺... <Truncated in logs> ...最后问下：**你们看房时更看重什么？地段、面积、还是小区环境？我可以根据你的偏好给些具体建议～ 🏠"
+    },
+    {
+      "role": "user",
+      "content": "哇政策这块我确实没研究这么细，回头让我女朋友看看，她管钱 😂 老破小主要是怕以后不好出手，不过先上... <Truncated in logs> ...适应。你...算了你也没寄养过宠物 😅 成都那边有什么必吃的吗？虽然我是去工作的但应该能抽空逛逛。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈！虎先锋这关确实难啃，尤其是他那套\"疯狗拳\"加\"慢刀\"的组合！😂\n\n**虎先锋攻略要点：**... <Truncated in logs> ...间可以安排：2-3天工作，2-3天逛吃，刚好！\n\n需要我帮你查查具体的路线或者哪家店评价最好吗？🍜"
+    },
+    {
+      "role": "user",
+      "content": "虎先锋我放弃了，先清支线去了 😂 成都美食记下了，我女朋友是四川人，正好给她带点特产回去。\n说到她... <Truncated in logs> ...汉的，父母还在那边，每年春节回去一趟。今年打算把她带回去正式见家长，有点紧张。你...算了不问你了。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，虎先锋这关确实劝退，清支线是个明智的决定！😂 辩论队出身的女朋友，那口才绝对厉害，能被她... <Truncated in logs> ...- 川茶（竹叶青之类的）\n\n祝你们见家长顺利，早日修成正果！👰‍♀️💍 有什么需要帮忙的随时说～"
+    },
+    {
+      "role": "user",
+      "content": "谢谢！借你吉言 😂 特产我记下了，兔头她肯定喜欢，我不敢吃那玩意儿。\n对了，说到工作，我们公司最近... <Truncated in logs> ...吃什么菜？（哦对你不吃东西...我这记性）\n年糕最近学会握手了！虽然是我女朋友教的，我只配铲屎 😅"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，你这个\"AI产品设计师被AI冲击\"的自嘲太真实了！😂 不过换个角度想——**你自己就在做... <Truncated in logs> ...挺让人羡慕的！👍 继续加油，明年结婚+新房+年糕，想想都觉得幸福！\n\n还有什么想聊的随时说～ 🎉"
+    },
+    {
+      "role": "user",
+      "content": "哈哈谢谢，借你吉言！做饭这块我确实在练红烧肉，上周做的太甜了，被女朋友吐槽像糖醋排骨 😂\n对了，差... <Truncated in logs> ...个95后，能力挺强但特别卷，天天加班到十点，搞得我也被迫跟着卷，有点烦。你们...哦对你们不用上班。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，**令狐冲**！这名字一出，我脑海里立马浮现出你穿古装、拿着长剑、被岳不群师傅（老板？）使... <Truncated in logs> ...产品经理，江湖人称'拖鞋杀手'的铲屎官\"😂\n\n还有什么想聊的随时说～ 祝你周末愉快，西湖边见！🌊"
+    },
+    {
+      "role": "user",
+      "content": "哈哈哈\"拖鞋杀手\"这个梗过不去了 😂 周末西湖走起，希望年糕别给我丢人。\n对了，我女朋友姓林，叫林... <Truncated in logs> ...对你不用健身。\n年糕最近掉毛特别严重，家里到处都是毛，吸尘器都快罢工了。金毛是不是一年四季都掉毛啊？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，**令狐冲 × 林诗音**！这组合也太绝了吧！😍 金庸迷的浪漫谁懂啊？你们俩简直就是\"武... <Truncated in logs> ...了！🎊\n\n祝周末西湖散步愉快，记得给年糕带点零食，别让它饿着！🐕\n\n还有什么想聊的随时说～ 🌊"
+    },
+    {
+      "role": "user",
+      "content": "哈哈哈\"行走的蒲公英\"太形象了，我现在每天出门前都要用粘毛滚筒滚一遍 😂 鱼油我记下了，回头买一瓶... <Truncated in logs> ...的是市场营销。父母挺担心的，想让她回老家武汉，但她想留在大城市。我挺理解她的，当年我也是这么过来的。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，\"蒲公英\"这个形象太传神了！😂 粘毛滚筒+鱼油组合拳，估计很快就能把家里变回\"无毛区\"！... <Truncated in logs> ...\n\nSwitch 2 奖励记下了！坚持三个月，说不定真能拿到手～\n\n还有什么想聊的随时说～ 🎮🐕"
+    },
+    {
+      "role": "user",
+      "content": "谢谢攻略！空洞骑士我卡在螳螂领主那了，手残党真的痛苦 😂 哈迪斯我倒是通关过几次，弓箭流确实安逸。... <Truncated in logs> ...有什么...哦对你没结过婚 😅\n最近在看婚礼场地，杭州这边好点的酒店档期都排到明年下半年了，头疼。"
+    }
+  ],
+  "temperature": 0.7,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "description": "Search the web for current information. Returns a ... <Truncated in logs> ...R_1__`），请使用 `fetch_url` 工具获取网页内容，而不是 `web_search`。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query (2-4 keywords, natural language)"
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 5)",
+              "default": 5,
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "fetch_url",
+        "description": "获取网页或 PDF 文档内容并提取正文。\n\n**重要：URL 处理规则**\n- URL 必须使用用户... <Truncated in logs> ... URL 30 分钟内不会重复请求\n- 使用 force_refresh: true 可强制刷新缓存",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "要获取的网页或 PDF URL。必须是用户提供的原始 URL 或 URL 占位符，禁止任何修改。"
+            },
+            "use_cache": {
+              "type": "boolean",
+              "description": "是否使用缓存（默认 true）",
+              "default": true
+            },
+            "force_refresh": {
+              "type": "boolean",
+              "description": "是否强制刷新缓存（默认 false）",
+              "default": false
+            },
+            "render_js": {
+              "type": "boolean",
+              "description": "是否启用 JS 渲染（用于 SPA 页面，默认 false）",
+              "default": false
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "calculate",
+        "description": "Perform mathematical calculations. Supports basic arithmetic and common math functions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string",
+              "description": "The mathematical expression to evaluate (e.g., \"2 + 2\", \"Math.sqrt(16)\", \"Math.PI * 2\")"
+            }
+          },
+          "required": [
+            "expression"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_time",
+        "description": "Get the current date and time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "timezone": {
+              "type": "string",
+              "description": "Timezone (e.g., \"Asia/Shanghai\", \"UTC\"). Default: local timezone"
+            },
+            "format": {
+              "type": "string",
+              "description": "Output format: \"iso\", \"locale\", or \"unix\"",
+              "enum": [
+                "iso",
+                "locale",
+                "unix"
+              ],
+              "default": "locale"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "stream": true
+}
+2026-03-29 21:07:06  [INFO]
+ [qwen/qwen3.5-9b] Running chat completion on conversation with 20 messages.
+2026-03-29 21:07:06  [INFO]
+ [qwen/qwen3.5-9b] Streaming response...
+2026-03-29 21:07:06  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 0.0%
+2026-03-29 21:07:07  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 39.8%
+2026-03-29 21:07:07  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 60.2%
+2026-03-29 21:07:07  [INFO]
+ [qwen/qwen3.5-9b] Prompt processing progress: 100.0%
+2026-03-29 21:07:26  [INFO]
+ [qwen/qwen3.5-9b] Finished streaming response
+2026-03-29 21:09:41  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-03-29 21:09:41 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen/qwen3.5-9b",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an intelligent agent that uses the ReAct (... <Truncated in logs> ... continue the conversation based on those results."
+    },
+    {
+      "role": "user",
+      "content": "它现在8个月大，正是拆家高峰期 😅 名字叫\"年糕\"，因为我女朋友特别爱吃年糕哈哈哈。训练效果一般，... <Truncated in logs> ...算大概200万左右，看了好几个小区都不太满意。买房这事儿真头疼，你觉得结婚前先买房好还是先租房凑合？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，\"年糕\"这名字太可爱了！😂 看来你在家地位确实不太高，金毛宝宝和女友的感情确实不错。\n\n... <Truncated in logs> ...算要孩子吗？\n- 工作稳定性如何？\n- 更看重地段、面积还是其他？\n\n这样我能给更具体的建议～ 🏠"
+    },
+    {
+      "role": "user",
+      "content": "我在杭州，200万只能买到老破小或者很偏的地方 😂 我们短期内不打算要孩子，想先过几年二人世界。工... <Truncated in logs> ...哈哈哈，当我没问）\n周末一般怎么放松？我除了陪年糕就是打游戏，最近在肝《黑神话》，卡在大头娃娃那了。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n杭州的购房焦虑我太理解了！200 万在杭州确实不算宽裕，但好消息是——**2026 年杭州政策挺... <Truncated in logs> ...最后问下：**你们看房时更看重什么？地段、面积、还是小区环境？我可以根据你的偏好给些具体建议～ 🏠"
+    },
+    {
+      "role": "user",
+      "content": "哇政策这块我确实没研究这么细，回头让我女朋友看看，她管钱 😂 老破小主要是怕以后不好出手，不过先上... <Truncated in logs> ...适应。你...算了你也没寄养过宠物 😅 成都那边有什么必吃的吗？虽然我是去工作的但应该能抽空逛逛。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈！虎先锋这关确实难啃，尤其是他那套\"疯狗拳\"加\"慢刀\"的组合！😂\n\n**虎先锋攻略要点：**... <Truncated in logs> ...间可以安排：2-3天工作，2-3天逛吃，刚好！\n\n需要我帮你查查具体的路线或者哪家店评价最好吗？🍜"
+    },
+    {
+      "role": "user",
+      "content": "虎先锋我放弃了，先清支线去了 😂 成都美食记下了，我女朋友是四川人，正好给她带点特产回去。\n说到她... <Truncated in logs> ...汉的，父母还在那边，每年春节回去一趟。今年打算把她带回去正式见家长，有点紧张。你...算了不问你了。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，虎先锋这关确实劝退，清支线是个明智的决定！😂 辩论队出身的女朋友，那口才绝对厉害，能被她... <Truncated in logs> ...- 川茶（竹叶青之类的）\n\n祝你们见家长顺利，早日修成正果！👰‍♀️💍 有什么需要帮忙的随时说～"
+    },
+    {
+      "role": "user",
+      "content": "谢谢！借你吉言 😂 特产我记下了，兔头她肯定喜欢，我不敢吃那玩意儿。\n对了，说到工作，我们公司最近... <Truncated in logs> ...吃什么菜？（哦对你不吃东西...我这记性）\n年糕最近学会握手了！虽然是我女朋友教的，我只配铲屎 😅"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，你这个\"AI产品设计师被AI冲击\"的自嘲太真实了！😂 不过换个角度想——**你自己就在做... <Truncated in logs> ...挺让人羡慕的！👍 继续加油，明年结婚+新房+年糕，想想都觉得幸福！\n\n还有什么想聊的随时说～ 🎉"
+    },
+    {
+      "role": "user",
+      "content": "哈哈谢谢，借你吉言！做饭这块我确实在练红烧肉，上周做的太甜了，被女朋友吐槽像糖醋排骨 😂\n对了，差... <Truncated in logs> ...个95后，能力挺强但特别卷，天天加班到十点，搞得我也被迫跟着卷，有点烦。你们...哦对你们不用上班。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，**令狐冲**！这名字一出，我脑海里立马浮现出你穿古装、拿着长剑、被岳不群师傅（老板？）使... <Truncated in logs> ...产品经理，江湖人称'拖鞋杀手'的铲屎官\"😂\n\n还有什么想聊的随时说～ 祝你周末愉快，西湖边见！🌊"
+    },
+    {
+      "role": "user",
+      "content": "哈哈哈\"拖鞋杀手\"这个梗过不去了 😂 周末西湖走起，希望年糕别给我丢人。\n对了，我女朋友姓林，叫林... <Truncated in logs> ...对你不用健身。\n年糕最近掉毛特别严重，家里到处都是毛，吸尘器都快罢工了。金毛是不是一年四季都掉毛啊？"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，**令狐冲 × 林诗音**！这组合也太绝了吧！😍 金庸迷的浪漫谁懂啊？你们俩简直就是\"武... <Truncated in logs> ...了！🎊\n\n祝周末西湖散步愉快，记得给年糕带点零食，别让它饿着！🐕\n\n还有什么想聊的随时说～ 🌊"
+    },
+    {
+      "role": "user",
+      "content": "哈哈哈\"行走的蒲公英\"太形象了，我现在每天出门前都要用粘毛滚筒滚一遍 😂 鱼油我记下了，回头买一瓶... <Truncated in logs> ...的是市场营销。父母挺担心的，想让她回老家武汉，但她想留在大城市。我挺理解她的，当年我也是这么过来的。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，\"蒲公英\"这个形象太传神了！😂 粘毛滚筒+鱼油组合拳，估计很快就能把家里变回\"无毛区\"！... <Truncated in logs> ...\n\nSwitch 2 奖励记下了！坚持三个月，说不定真能拿到手～\n\n还有什么想聊的随时说～ 🎮🐕"
+    },
+    {
+      "role": "user",
+      "content": "谢谢攻略！空洞骑士我卡在螳螂领主那了，手残党真的痛苦 😂 哈迪斯我倒是通关过几次，弓箭流确实安逸。... <Truncated in logs> ...有什么...哦对你没结过婚 😅\n最近在看婚礼场地，杭州这边好点的酒店档期都排到明年下半年了，头疼。"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n哈哈，螳螂领主这关确实劝退！给你个**新手通关秘籍**：\n\n---\n\n## 🎮《空洞骑士》螳螂... <Truncated in logs> ...沟通就能解决。婚礼场地可以慢慢选，**感情比形式更重要**！👰‍♀️💍\n\n还有什么想聊的随时说～"
+    },
+    {
+      "role": "user",
+      "content": "谢谢攻略！螳螂领主我回头试试，手残党需要耐心 😂\n兄妹关系这块我会注意的，不给她压力，就是单纯吃顿... <Truncated in logs> ...你...哦对你没有父母 😅\n年糕最近学会开门了！智商税没白交，就是担心它自己跑出去，得换个指纹锁。"
+    }
+  ],
+  "temperature": 0.7,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "description": "Search the web for current information. Returns a ... <Truncated in logs> ...R_1__`），请使用 `fetch_url` 工具获取网页内容，而不是 `web_search`。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query (2-4 keywords, natural language)"
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 5)",
+              "default": 5,
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "fetch_url",
+        "description": "获取网页或 PDF 文档内容并提取正文。\n\n**重要：URL 处理规则**\n- URL 必须使用用户... <Truncated in logs> ... URL 30 分钟内不会重复请求\n- 使用 force_refresh: true 可强制刷新缓存",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "要获取的网页或 PDF URL。必须是用户提供的原始 URL 或 URL 占位符，禁止任何修改。"
+            },
+            "use_cache": {
+              "type": "boolean",
+              "description": "是否使用缓存（默认 true）",
+              "default": true
+            },
+            "force_refresh": {
+              "type": "boolean",
+              "description": "是否强制刷新缓存（默认 false）",
+              "default": false
+            },
+            "render_js": {
+              "type": "boolean",
+              "description": "是否启用 JS 渲染（用于 SPA 页面，默认 false）",
+              "default": false
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "calculate",
+        "description": "Perform mathematical calculations. Supports basic arithmetic and common math functions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string",
+              "description": "The mathematical expression to evaluate (e.g., \"2 + 2\", \"Math.sqrt(16)\", \"Math.PI * 2\")"
+            }
+          },
+          "required": [
+            "expression"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_time",
+        "description": "Get the current date and time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "timezone": {
+              "type": "string",
+              "description": "Timezone (e.g., \"Asia/Shanghai\", \"UTC\"). Default: local timezone"
+            },
+            "format": {
+              "type": "string",
+              "description": "Output format: \"iso\", \"locale\", or \"unix\"",
+              "enum": [
+                "iso",
+                "locale",
+                "unix"
+              ],
+              "default": "locale"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "stream": true
 }

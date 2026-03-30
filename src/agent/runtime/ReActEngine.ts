@@ -318,26 +318,33 @@ export class ReActEngine {
 
     let totalChars = history.reduce((sum, m) => sum + (m.content?.length || 0), 0);
 
+    let result: ConversationMessage[];
+    
     if (totalChars <= availableChars) {
       console.log(`[ReActEngine] 对话历史无需截断: ${history.length} 条, ${totalChars} chars`);
-      return history;
-    }
+      result = [...history];
+    } else {
+      result = [];
+      let currentChars = 0;
+      const recentMessages = [...history].reverse();
 
-    const result: ConversationMessage[] = [];
-    let currentChars = 0;
-    const recentMessages = [...history].reverse();
-
-    for (const msg of recentMessages) {
-      const msgLength = msg.content?.length || 0;
-      if (currentChars + msgLength <= availableChars || result.length < MIN_MESSAGES_TO_KEEP) {
-        result.unshift(msg);
-        currentChars += msgLength;
-      } else {
-        break;
+      for (const msg of recentMessages) {
+        const msgLength = msg.content?.length || 0;
+        if (currentChars + msgLength <= availableChars || result.length < MIN_MESSAGES_TO_KEEP) {
+          result.unshift(msg);
+          currentChars += msgLength;
+        } else {
+          break;
+        }
       }
+
+      console.log(`[ReActEngine] 对话历史截断: ${history.length} 条 → ${result.length} 条, 字符数: ${totalChars} → ${currentChars}`);
     }
 
-    console.log(`[ReActEngine] 对话历史截断: ${history.length} 条 → ${result.length} 条, 字符数: ${totalChars} → ${currentChars}`);
+    while (result.length > 0 && result[0].role !== 'user') {
+      console.log(`[ReActEngine] 移除开头的非 user 消息: ${result[0].role}`);
+      result.shift();
+    }
 
     return result;
   }

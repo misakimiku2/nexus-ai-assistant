@@ -133,7 +133,7 @@ export class SimilarityEngine {
     
     if (!embedding && this.generateEmbedding) {
       console.warn('[SimilarityEngine] No cached embedding, generating...');
-      embedding = await this.generateEmbedding(candidate.content);
+      embedding = await this.generateEmbedding(candidate.span);
       candidate.embedding = embedding;
     }
 
@@ -152,7 +152,7 @@ export class SimilarityEngine {
     const decision = this.makeDecision(candidate, similarMemories);
 
     console.log('[SimilarityEngine] Decision:', {
-      content: candidate.content.substring(0, 50),
+      content: candidate.span.substring(0, 50),
       type: candidate.type,
       action: decision.action,
       similarity: decision.similarity.toFixed(3),
@@ -180,7 +180,7 @@ export class SimilarityEngine {
     existing: MemoryItem,
     candidate: ParsedMemory
   ): Promise<MergeResult> {
-    const mergedContent = this.conservativeMerge(existing.content, candidate.content);
+    const mergedContent = this.conservativeMerge(existing.content, candidate.span);
     const mergedImportance = Math.max(existing.importance, candidate.importance);
 
     const wasMerged = mergedContent !== existing.content;

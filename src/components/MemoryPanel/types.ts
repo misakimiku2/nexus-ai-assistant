@@ -43,29 +43,23 @@ export type MemoryPanelTab = 'list' | 'hits' | 'logs' | 'operations' | 'candidat
 
 export const MEMORY_TYPE_LABELS: Record<MemoryType, string> = {
   identity: '身份特征',
-  fact: '已知事实',
   preference: '用户偏好',
-  task: '进行中任务',
   constraint: '限制条件',
-  skill: '用户能力',
+  fact: '用户事实',
 };
 
 export const MEMORY_TYPE_COLORS: Record<MemoryType, string> = {
   identity: 'text-purple-400',
-  fact: 'text-blue-400',
   preference: 'text-green-400',
-  task: 'text-yellow-400',
   constraint: 'text-red-400',
-  skill: 'text-cyan-400',
+  fact: 'text-blue-400',
 };
 
 export const MEMORY_TYPE_BG_COLORS: Record<MemoryType, string> = {
   identity: 'bg-purple-500/20',
-  fact: 'bg-blue-500/20',
   preference: 'bg-green-500/20',
-  task: 'bg-yellow-500/20',
   constraint: 'bg-red-500/20',
-  skill: 'bg-cyan-500/20',
+  fact: 'bg-blue-500/20',
 };
 
 export const LOG_TYPE_LABELS: Record<MemoryDebugLogType, string> = {

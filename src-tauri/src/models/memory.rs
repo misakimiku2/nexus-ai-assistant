@@ -4,33 +4,27 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "lowercase")]
 pub enum MemoryType {
     Identity,
-    Fact,
     Preference,
-    Task,
     Constraint,
-    Skill,
+    Fact,
 }
 
 impl MemoryType {
     pub fn as_str(&self) -> &'static str {
         match self {
             MemoryType::Identity => "identity",
-            MemoryType::Fact => "fact",
             MemoryType::Preference => "preference",
-            MemoryType::Task => "task",
             MemoryType::Constraint => "constraint",
-            MemoryType::Skill => "skill",
+            MemoryType::Fact => "fact",
         }
     }
 
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "identity" => Some(MemoryType::Identity),
-            "fact" => Some(MemoryType::Fact),
             "preference" => Some(MemoryType::Preference),
-            "task" => Some(MemoryType::Task),
             "constraint" => Some(MemoryType::Constraint),
-            "skill" => Some(MemoryType::Skill),
+            "fact" => Some(MemoryType::Fact),
             _ => None,
         }
     }
@@ -39,11 +33,9 @@ impl MemoryType {
 pub fn get_default_decay(memory_type: &MemoryType) -> f32 {
     match memory_type {
         MemoryType::Identity => 0.001,
-        MemoryType::Skill => 0.002,
         MemoryType::Constraint => 0.003,
         MemoryType::Preference => 0.005,
         MemoryType::Fact => 0.01,
-        MemoryType::Task => 0.02,
     }
 }
 
@@ -161,16 +153,12 @@ pub struct ExtractedItem {
     pub importance: f32,
 }
 
-pub type ExtractedTask = ExtractedItem;
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExtractedMemory {
     pub identity: Vec<ExtractedItem>,
     pub facts: Vec<ExtractedItem>,
     pub preferences: Vec<ExtractedItem>,
-    pub tasks: Vec<ExtractedTask>,
     pub constraints: Vec<ExtractedItem>,
-    pub skills: Vec<ExtractedItem>,
 }
 
 impl Default for ExtractedMemory {
@@ -179,9 +167,7 @@ impl Default for ExtractedMemory {
             identity: Vec::new(),
             facts: Vec::new(),
             preferences: Vec::new(),
-            tasks: Vec::new(),
             constraints: Vec::new(),
-            skills: Vec::new(),
         }
     }
 }

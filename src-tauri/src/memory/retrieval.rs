@@ -122,9 +122,7 @@ pub fn format_memories_for_prompt(memories: &[RetrievedMemory]) -> String {
     let identity: Vec<_> = memories.iter().filter(|m| m.item.memory_type == MemoryType::Identity).collect();
     let facts: Vec<_> = memories.iter().filter(|m| m.item.memory_type == MemoryType::Fact).collect();
     let preferences: Vec<_> = memories.iter().filter(|m| m.item.memory_type == MemoryType::Preference).collect();
-    let tasks: Vec<_> = memories.iter().filter(|m| m.item.memory_type == MemoryType::Task).collect();
     let constraints: Vec<_> = memories.iter().filter(|m| m.item.memory_type == MemoryType::Constraint).collect();
-    let skills: Vec<_> = memories.iter().filter(|m| m.item.memory_type == MemoryType::Skill).collect();
 
     if !identity.is_empty() {
         lines.push("### 身份特征".to_string());
@@ -150,36 +148,10 @@ pub fn format_memories_for_prompt(memories: &[RetrievedMemory]) -> String {
         lines.push(String::new());
     }
 
-    if !tasks.is_empty() {
-        lines.push("### 进行中的任务".to_string());
-        for t in tasks {
-            if let Some(meta) = &t.item.metadata {
-                lines.push(format!("- {} [{}]", t.item.content, meta.status.as_str()));
-                if let Some(progress) = &meta.progress {
-                    lines.push(format!("  进展: {}", progress));
-                }
-                if let Some(next_step) = &meta.next_step {
-                    lines.push(format!("  下一步: {}", next_step));
-                }
-            } else {
-                lines.push(format!("- {}", t.item.content));
-            }
-        }
-        lines.push(String::new());
-    }
-
     if !constraints.is_empty() {
         lines.push("### 限制条件".to_string());
         for c in constraints {
             lines.push(format!("- {}", c.item.content));
-        }
-        lines.push(String::new());
-    }
-
-    if !skills.is_empty() {
-        lines.push("### 用户能力".to_string());
-        for s in skills {
-            lines.push(format!("- {}", s.item.content));
         }
         lines.push(String::new());
     }

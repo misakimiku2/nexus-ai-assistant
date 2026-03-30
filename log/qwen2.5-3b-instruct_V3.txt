@@ -1,0 +1,350 @@
+2026-03-30 20:11:20 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个\"用户长期记忆提取器\"。\n\n你的任务：\n从对话中提取【可以长期保存的用户信息】。\n\n----... <Truncated in logs> ...]\n\n--------------------------------\n如果不确定，直接忽略该信息。"
+    },
+    {
+      "role": "user",
+      "content": "用户: 最近刚搬到一个新城市工作，有点不太适应。\n用户: 以前在大学城那边住了四年，周围都是熟悉的街... <Truncated in logs> ...对话中提取用户记忆。\n【重要】span 必须是用户原话的连续子串，不能改写。\n直接输出JSON数组："
+    }
+  ],
+  "temperature": 0.2,
+  "max_tokens": 800,
+  "stream": false
+}
+2026-03-30 20:11:20  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+
+2026-03-30 20:11:21  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-30 20:11:21  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-qod6jfqvt7isldpkp1xcbr",
+  "object": "chat.completion",
+  "created": 1774872680,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "[\n  {\n    \"type\": \"fact\",\n    \"span\": \"最近刚搬到一个新城市工作，有点不太适应。\",\n    \"resolvedText\": \"用户最近刚搬到一个新城市工作，有点不太适应。\",\n    \"sourceText\": \"用户: 最近刚搬到一个新城市工作，有点不太适应。\",\n    \"confidence\": 0.95\n  },\n  {\n    \"type\": \"fact\",\n    \"span\": \"以前在大学城那边住了四年，周围都是熟悉的街道和朋友，现在突然到了这个陌生的地方，感觉挺孤单的。\",\n    \"resolvedText\": \"用户以前在大学城那边住了四年，周围都是熟悉的街道和朋友，现在突然到了这个陌生的地方，感觉挺孤单的。\",\n    \"sourceText\": \"用户: 以前在大学城那边住了四年，周围都是熟悉的街道和朋友，现在突然到了这个陌生的地方，感觉挺孤单的。\",\n    \"confidence\": 0.95\n  }\n]",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 948,
+    "completion_tokens": 206,
+    "total_tokens": 1154
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+2026-03-30 20:12:35 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个\"用户长期记忆提取器\"。\n\n你的任务：\n从对话中提取【可以长期保存的用户信息】。\n\n----... <Truncated in logs> ...]\n\n--------------------------------\n如果不确定，直接忽略该信息。"
+    },
+    {
+      "role": "user",
+      "content": "用户: 哇，你回复得好详细啊，感觉被理解了挺温暖的。\n用户: 我搬到深圳来了，之前在长沙读书。\n用户... <Truncated in logs> ...对话中提取用户记忆。\n【重要】span 必须是用户原话的连续子串，不能改写。\n直接输出JSON数组："
+    }
+  ],
+  "temperature": 0.2,
+  "max_tokens": 800,
+  "stream": false
+}
+2026-03-30 20:12:35  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+
+2026-03-30 20:12:37  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-30 20:12:37  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-gyfhair5dokriu6dbbv8wt",
+  "object": "chat.completion",
+  "created": 1774872755,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "[\n  {\n    \"type\": \"fact\",\n    \"span\": \"我搬到深圳来了，之前在长沙读书。\",\n    \"resolvedText\": \"用户的居住地从长沙变为了深圳\",\n    \"sourceText\": \"我搬到深圳来了，之前在长沙读书。\",\n    \"confidence\": 0.95\n  },\n  {\n    \"type\": \"fact\",\n    \"span\": \"我现在住在南山区这边，公司附近，每天就是两点一线，还没怎么探索过这个城市。\",\n    \"resolvedText\": \"用户现在居住在深圳南山附近\",\n    \"sourceText\": \"我现在住在南山区这边，公司附近，每天就是两点一线，还没怎么探索过这个城市。\",\n    \"confidence\": 0.95\n  },\n  {\n    \"type\": \"identity\",\n    \"span\": \"我是做产品设计的\",\n    \"resolvedText\": \"用户的职位是产品设计师\",\n    \"sourceText\": \"我是做产品设计的\",\n    \"confidence\": 0.95\n  },\n  {\n    \"type\": \"preference\",\n    \"span\": \"我平时喜欢画画和摄影\",\n    \"resolvedText\": \"用户平时喜欢画画和摄影\",\n    \"sourceText\": \"我平时喜欢画画和摄影，你有这方面的兴趣吗？\",\n    \"confidence\": 0.95\n  }\n]",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1027,
+    "completion_tokens": 283,
+    "total_tokens": 1310
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+2026-03-30 20:16:34 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个\"用户长期记忆提取器\"。\n\n你的任务：\n从对话中提取【可以长期保存的用户信息】。\n\n----... <Truncated in logs> ...]\n\n--------------------------------\n如果不确定，直接忽略该信息。"
+    },
+    {
+      "role": "user",
+      "content": "用户: 其实我现在有点纠结，公司有个机会可以去上海出差两个月，挺难得的，可以接触大项目。\n用户: 但... <Truncated in logs> ...对话中提取用户记忆。\n【重要】span 必须是用户原话的连续子串，不能改写。\n直接输出JSON数组："
+    }
+  ],
+  "temperature": 0.2,
+  "max_tokens": 800,
+  "stream": false
+}
+2026-03-30 20:16:34  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+
+2026-03-30 20:16:35  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-30 20:16:35  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-932ps8zr50k84xpe7zvsc4",
+  "object": "chat.completion",
+  "created": 1774872994,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "[\n  {\n    \"type\": \"constraint\",\n    \"span\": \"但是我又怕刚在深圳有点起色，走了又要重新开始适应。\",\n    \"resolvedText\": \"用户害怕因为出差而失去在深圳的工作机会。\",\n    \"sourceText\": \"用户: 其实我现在有点纠结，公司有个机会可以去上海出差两个月，挺难得的，但是我又怕刚在深圳有点起色，走了又要重新开始适应。\",\n    \"confidence\": 0.95\n  },\n  {\n    \"type\": \"constraint\",\n    \"span\": \"而且...说实话，我有点怕一个人去陌生城市了，上次来深圳已经够折腾的。\",\n    \"resolvedText\": \"用户害怕独自一人前往陌生的城市。\",\n    \"sourceText\": \"用户: 其实我现在有点纠结，公司有个机会可以去上海出差两个月，挺难得的，但是我又怕刚在深圳有点起色，走了又要重新开始适应。而且...说实话，我有点怕一个人去陌生城市了，上次来深圳已经够折腾的。\",\n    \"confidence\": 0.95\n  }\n]",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 975,
+    "completion_tokens": 229,
+    "total_tokens": 1204
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+
+2026-03-30 20:17:48 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个\"用户长期记忆提取器\"。\n\n你的任务：\n从对话中提取【可以长期保存的用户信息】。\n\n----... <Truncated in logs> ...]\n\n--------------------------------\n如果不确定，直接忽略该信息。"
+    },
+    {
+      "role": "user",
+      "content": "用户: 你说得挺有道理的。\n用户: 我决定了，去。\n用户: 反正年轻嘛，折腾一下也没什么。\n用户: ... <Truncated in logs> ...对话中提取用户记忆。\n【重要】span 必须是用户原话的连续子串，不能改写。\n直接输出JSON数组："
+    }
+  ],
+  "temperature": 0.2,
+  "max_tokens": 800,
+  "stream": false
+}
+2026-03-30 20:17:48  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+
+2026-03-30 20:17:50  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-30 20:17:50  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-b74gt1wq29n7e7ftf67qn",
+  "object": "chat.completion",
+  "created": 1774873068,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "[\n  {\n    \"type\": \"fact\",\n    \"span\": \"反正年轻嘛，折腾一下也没什么。\",\n    \"resolvedText\": \"用户决定去\",\n    \"sourceText\": \"我说得挺有道理的。你说得挺有道理的。\",\n    \"confidence\": 0.95\n  },\n  {\n    \"type\": \"fact\",\n    \"span\": \"我想了想，上海应该也有很多老建筑可以拍，外滩那边，还有法租界的老房子，挺适合我画画的。\",\n    \"resolvedText\": \"用户想去上海拍照\",\n    \"sourceText\": \"反正年轻嘛，折腾一下也没什么。而且我想了想，上海应该也有很多老建筑可以拍，外滩那边，还有法租界的老房子，挺适合我画画的。\",\n    \"confidence\": 0.95\n  },\n  {\n    \"type\": \"fact\",\n    \"span\": \"对了，我还有个事想问问你意见——我最近在考虑养只猫，一个人住有时候晚上挺安静的，有个活物陪着可能会好点。\",\n    \"resolvedText\": \"用户想养一只猫\",\n    \"sourceText\": \"而且我想了想，上海应该也有很多老建筑可以拍，外滩那边，还有法租界的老房子，挺适合我画画的。对了，我还有个事想问问你意见——我最近在考虑养只猫，一个人住有时候晚上挺安静的，有个活物陪着可能会好点。\",\n    \"confidence\": 0.95\n  },\n  {\n    \"type\": \"fact\",\n    \"span\": \"但是我以前没养过宠物，小时候家里不让，说麻烦。\",\n    \"resolvedText\": \"用户之前没有养过宠物\",\n    \"sourceText\": \"对了，我还有个事想问问你意见——我最近在考虑养只猫，一个人住有时候晚上挺安静的，有个活物陪着可能会好点。但是我以前没养过宠物，小时候家里不让，说麻烦。\",\n    \"confidence\": 0.95\n  }\n]",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1021,
+    "completion_tokens": 432,
+    "total_tokens": 1453
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+
+2026-03-30 20:18:58 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个\"用户长期记忆提取器\"。\n\n你的任务：\n从对话中提取【可以长期保存的用户信息】。\n\n----... <Truncated in logs> ...]\n\n--------------------------------\n如果不确定，直接忽略该信息。"
+    },
+    {
+      "role": "user",
+      "content": "用户: 嗯，你说得对，我还是等上海出差回来再说吧，不然对它也不负责。\n用户: 对了，我突然想起个事，... <Truncated in logs> ...对话中提取用户记忆。\n【重要】span 必须是用户原话的连续子串，不能改写。\n直接输出JSON数组："
+    }
+  ],
+  "temperature": 0.2,
+  "max_tokens": 800,
+  "stream": false
+}
+2026-03-30 20:18:58  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+
+2026-03-30 20:19:00  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-30 20:19:00  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-wxht6yy2ocnoua5wb46gk",
+  "object": "chat.completion",
+  "created": 1774873138,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "[\n  {\n    \"type\": \"fact\",\n    \"span\": \"我小时候其实被狗咬过，就漳州老家那边，邻居家的土狗，没拴绳，我跑的时候它追上来咬了我腿一口，打了疫苗，但是之后我就特别怕狗，到现在也是，路上遇到狗我都绕远路走。\",\n    \"resolvedText\": \"用户小时候被邻居家的一只没有拴绳的土狗咬过腿，后来就特别怕狗，现在在路上遇到狗都会绕远路走。\",\n    \"sourceText\": \"我小时候其实被狗咬过，就漳州老家那边，邻居家的土狗，没拴绳，我跑的时候它追上来咬了我腿一口，打了疫苗，但是之后我就特别怕狗，到现在也是，路上遇到狗我都绕远路走。\",\n    \"confidence\": 0.95\n  },\n  {\n    \"type\": \"identity\",\n    \"span\": \"名字里有个\\\"楠\\\"字，是我妈取的，她说生我的时候窗外有棵大楠树，所以叫这个。\",\n    \"resolvedText\": \"用户的名字是妈妈根据出生时窗外的大楠树而取的。\",\n    \"sourceText\": \"名字里有个\\\"楠\\\"字，是我妈取的，她说生我的时候窗外有棵大楠树，所以叫这个。\",\n    \"confidence\": 0.95\n  }\n]",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1054,
+    "completion_tokens": 297,
+    "total_tokens": 1351
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+
+2026-03-30 20:19:45 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个\"用户长期记忆提取器\"。\n\n你的任务：\n从对话中提取【可以长期保存的用户信息】。\n\n----... <Truncated in logs> ...]\n\n--------------------------------\n如果不确定，直接忽略该信息。"
+    },
+    {
+      "role": "user",
+      "content": "用户: 哈哈，叫我楠挺好的，亲切。\n用户: 对了，我突然想起来，我小时候还有个特别丢人的事——我大概... <Truncated in logs> ...对话中提取用户记忆。\n【重要】span 必须是用户原话的连续子串，不能改写。\n直接输出JSON数组："
+    }
+  ],
+  "temperature": 0.2,
+  "max_tokens": 800,
+  "stream": false
+}
+2026-03-30 20:19:45  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+
+2026-03-30 20:19:47  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-30 20:19:47  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-8hdyju0yqfwktvpvfagqyl",
+  "object": "chat.completion",
+  "created": 1774873185,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "[\n  {\n    \"type\": \"identity\",\n    \"span\": \"我叫楠挺好的，亲切。\",\n    \"resolvedText\": \"用户的昵称是楠\",\n    \"sourceText\": \"哈哈，叫我楠挺好的，亲切。\",\n    \"confidence\": 0.95\n  },\n  {\n    \"type\": \"fact\",\n    \"span\": \"我小时候还有个特别丢人的事——我大概七八岁的时候，有次过年在亲戚家，偷偷拿红包里的钱去买零食，结果被发现了，被我爸当众骂了一顿，特别难堪。\",\n    \"resolvedText\": \"用户小时候偷拿了红包里的钱\",\n    \"sourceText\": \"对了，我突然想起来，我小时候还有个特别丢人的事——我大概七八岁的时候，有次过年在亲戚家，偷偷拿红包里的钱去买零食，结果被发现了，被我爸当众骂了一顿，特别难堪。\",\n    \"confidence\": 0.95\n  },\n  {\n    \"type\": \"constraint\",\n    \"span\": \"之后我就特别怕在人多的时候说话，开会发言都紧张，可能跟这个有关。\",\n    \"resolvedText\": \"用户害怕在人多的场合说话\",\n    \"sourceText\": \"之后我就特别怕在人多的时候说话，开会发言都紧张，可能跟这个有关。\",\n    \"confidence\": 0.95\n  },\n  {\n    \"type\": \"fact\",\n    \"span\": \"不过现在好多了，就是还是会尽量避免成为焦点。\",\n    \"resolvedText\": \"用户会尽量避免成为焦点\",\n    \"sourceText\": \"不过现在好多了，就是还是会尽量避免成为焦点。\",\n    \"confidence\": 0.95\n  },\n  {\n    \"type\": \"fact\",\n    \"span\": \"你懂音乐吗？\",\n    \"resolvedText\": \"用户想知道对方是否懂音乐\",\n    \"sourceText\": \"你懂音乐吗？\",\n    \"confidence\": 0.95\n  }\n]",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1061,
+    "completion_tokens": 423,
+    "total_tokens": 1484
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+
+2026-03-30 20:23:28 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个\"用户长期记忆提取器\"。\n\n你的任务：\n从对话中提取【可以长期保存的用户信息】。\n\n----... <Truncated in logs> ...]\n\n--------------------------------\n如果不确定，直接忽略该信息。"
+    },
+    {
+      "role": "user",
+      "content": "用户: 其实我学吉他还有个原因——我前女友以前弹吉他，她教过我几个和弦，但我们当时总是吵架，我觉得她... <Truncated in logs> ...对话中提取用户记忆。\n【重要】span 必须是用户原话的连续子串，不能改写。\n直接输出JSON数组："
+    }
+  ],
+  "temperature": 0.2,
+  "max_tokens": 800,
+  "stream": false
+}
+2026-03-30 20:23:28  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+
+2026-03-30 20:23:29  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-30 20:23:29  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-4d7efw2dl7wezkxt1z66v",
+  "object": "chat.completion",
+  "created": 1774873408,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "[\n  {\n    \"type\": \"identity\",\n    \"span\": \"我前女友以前弹吉他\",\n    \"resolvedText\": \"用户的前女友以前会弹吉他\",\n    \"sourceText\": \"我学吉他还有个原因——我前女友以前弹吉他，她教过我几个和弦，但我们当时总是吵架，我觉得她太强势，她觉得我不上进，最后就散了。\",\n    \"confidence\": 0.95\n  }\n]",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1009,
+    "completion_tokens": 99,
+    "total_tokens": 1108
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+
+
+
