@@ -1,0 +1,136 @@
+## Open Akita
+
+### 用户对话
+
+1. 最近工作压力好大啊，上周刚被老板批评了一顿，因为我负责的项目延期了。其实也不全是我的问题，主要是合作部门那边配合太慢，但老板不听解释。我现在每天加班到九点多，感觉特别累。你平时工作压力大吗？
+
+2. 谢谢你的建议，挺暖心的。其实我也想过整理复盘报告，但总觉得像是在找借口，怕老板觉得我在甩锅。
+对了，说到压力，我最近发现了一个解压的好方法——烘焙。上周末我第一次尝试做戚风蛋糕，虽然塌腰了，但吃起来还不错！我从小就喜欢闻面粉和黄油混合的味道，让我想起来小时候我妈周末经常烤饼干，整个屋子都是香的。你平时有什么喜欢的味道吗？
+
+3. 哈哈，你记性真好，确实之前提过想给女朋友做草莓千层。不过她其实对甜点一般，更喜欢吃辣的，我是四川人，她也是，所以我们经常一起去吃火锅。
+说起我妈的饼干配方，其实特别简单，就是黄油、面粉、糖，但她会在里面加一点橙皮屑，那个香味很特别。我妈现在在老家成都，我一个人在杭州工作，挺想她的。上个月刚给她买了台空气炸锅，她还在学习怎么用，昨天视频她还问我怎么烤红薯不糊。
+你小时候有什么特别的食物记忆吗？
+
+
+### 记忆列表
+- 事实：每天加班至 9 点多—主体: 当前用户 · 属性: 工作负荷—分数0.9
+- 偏好：喜欢吃辣，对甜点一般—主体: 女朋友 · 属性: 饮食偏好—分数0.8
+- 事实：饼干配方：黄油、面粉、糖，加一点橙皮屑—主体: 用户母亲 · 属性: 食谱配方 分数0.8
+- 事实：上周负责的项目延期，跨部门协作配合慢—主体: 当前项目 · 属性: 项目状态—分数0.8
+- 事实：学习使用空气炸锅，询问烤红薯不糊技巧—主体: 母亲 · 属性: 当前任务状态—分数0.6
+
+
+2026-03-31 21:39:37 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "只输出JSON"
+    },
+    {
+      "role": "user",
+      "content": "从用户消息中提取用于记忆检索的搜索关键词。\n\n用户消息: 工作压力 被批评 项目延期\n近期对话:\n[... <Truncated in logs> ...al\"}\n5. keywords 最多 6 个，每个 1-4 个词\n只输出 JSON，不要其他内容。"
+    }
+  ],
+  "max_tokens": 2048
+}
+2026-03-31 21:39:37  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+2026-03-31 21:39:37  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-31 21:39:37  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-m6blqj4atsm8g4bjm7voec",
+  "object": "chat.completion",
+  "created": 1774964377,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"keywords\": [\"工作压力\", \"被批评\", \"项目延期\"], \"intent\": \"search_memory\"}",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 231,
+    "completion_tokens": 23,
+    "total_tokens": 254,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    }
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+2026-03-31 21:39:48 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen/qwen3.5-9b",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是记忆提取专家。只输出 NONE 或 JSON 数组。"
+    },
+    {
+      "role": "user",
+      "content": "回顾整段对话，提取所有值得长期记住的信息。\n\n## 完整对话\n[用户]: 最近工作压力好大啊，上周刚... <Truncated in logs> ...次提到同一信息只提取一次\n- content 必须包含具体值（端口号、路径、参数等），不要用模糊描述"
+    }
+  ],
+  "max_tokens": 16384
+}
+
+2026-03-31 21:40:22 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "只输出JSON"
+    },
+    {
+      "role": "user",
+      "content": "从用户消息中提取用于记忆检索的搜索关键词。\n\n用户消息: 烘焙 妈妈烤饼干 面粉和黄油的味道\n近期对... <Truncated in logs> ...al\"}\n5. keywords 最多 6 个，每个 1-4 个词\n只输出 JSON，不要其他内容。"
+    }
+  ],
+  "max_tokens": 2048
+}
+2026-03-31 21:40:22  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+2026-03-31 21:40:22  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-31 21:40:22  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-pt3xhx2ox8ps3o26oo6ja",
+  "object": "chat.completion",
+  "created": 1774964422,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"keywords\": [\"烘焙\", \"妈妈烤饼干\", \"面粉和黄油\"], \"intent\": \"search_memory\"}",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 280,
+    "completion_tokens": 25,
+    "total_tokens": 305,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    }
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}

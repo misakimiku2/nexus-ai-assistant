@@ -1,0 +1,443 @@
+App.tsx:1080 [DEBUG] handleSendMessage - attachedFiles: []
+App.tsx:1081 [DEBUG] handleSendMessage - attachedFiles.length: 0
+App.tsx:1092 [DEBUG] userMessage created: {id: '17749517302674ky4mtj', role: 'user', content: '最近工作压力好大啊，上周刚被老板批评了一顿，因为我负责的项目延期了。其实也不全是我的问题，主要是合作部门那边配合太慢，但老板不听解释。我现在每天加班到九点多，感觉特别累。你平时工作压力大吗？', timestamp: 1774951730267, mode: 'chat', …}
+App.tsx:1093 [DEBUG] userMessage.attachments: undefined
+urlDetector.ts:69 [preprocessConversation] Total URLs in map: 0
+urlDetector.ts:70 [preprocessConversation] URL Map: {}
+AgentRuntime.ts:81 [AgentRuntime] Preprocessed conversation: {hasUrls: false, urlCount: 0, urls: {…}}
+ReActEngine.ts:236 [ReActEngine] 开始检索认知记忆, 模型类型: local
+TauriMemoryClient.ts:34 [TauriMemoryClient] 开始检索记忆, query: 最近工作压力好大啊，上周刚被老板批评了一顿，因为我负责的项目延期了。其实也不全是我的问题，主要是合作 options: {topK: 10, minImportance: 0.3, minSimilarity: 0.3, onlyActive: true, modelType: 'local', …}
+TauriMemoryClient.ts:37 [TauriMemoryClient] 检索完成, 返回 0 条记忆
+ReActEngine.ts:243 [ReActEngine] 检索到 0 条认知记忆
+App.tsx:219 [App] Memory retrieved: 0 memories
+ReActEngine.ts:307 [ReActEngine] 上下文预算: 模型=20000, 工具预留=2000, 回复预留=2000, 可用=16000 tokens (32000 chars)
+ReActEngine.ts:308 [ReActEngine] System prompt 长度: 3936 chars, 剩余可用: 28064 chars
+ReActEngine.ts:676 [ReActEngine] 触发记忆提取, 消息数: 2 , 总长度: 686
+MemoryExtractionService.ts:103 [MemoryExtraction] 增量提取检查: {总消息数: 2, 已处理: 0, 新消息数: 2, 新消息长度: 686}
+MemoryExtractionService.ts:123 [MemoryExtraction] 使用专用模型进行记忆提取
+PreFilterService.ts:37 [PreFilter] Filtered messages: {input: 2, output: 1}
+MemoryModelClient.ts:589 [MemoryModelClient] Model raw output length: 2
+MemoryModelClient.ts:437 [MemoryModelClient] Raw model output (strict) length: 2
+MemoryModelClient.ts:80 [MemoryParser] Fallback parse matched: 0
+MemoryModelClient.ts:452 [MemoryModelClient] Strict pass returned no safe candidates — running relaxed pass
+MemoryModelClient.ts:589 [MemoryModelClient] Model raw output length: 999
+MemoryModelClient.ts:459 [MemoryModelClient] Raw model output (relaxed) length: 999
+MemoryModelClient.ts:63 [MemoryParser] JSON parse matched: 5
+MemoryModelClient.ts:489 [MemoryModelClient] Extraction complete (relaxed): {parsed: 5, safe: 5}
+MemoryFilter.ts:88 [MemoryFilter] Rejected: no valid signal
+basicValidation @ MemoryFilter.ts:88
+filterMemories @ MemoryFilter.ts:50
+newExtractionPipeline @ MemoryExtractionService.ts:178
+await in newExtractionPipeline
+triggerExtraction @ MemoryExtractionService.ts:126
+(匿名) @ MemoryExtractionService.ts:439
+setTimeout
+triggerExtractionAsync @ MemoryExtractionService.ts:438
+triggerMemoryExtraction @ ReActEngine.ts:679
+run @ ReActEngine.ts:164
+MemoryFilter.ts:425 [MemoryFilter] Rejected: emotion keyword detected
+emotionFilter @ MemoryFilter.ts:425
+filterMemories @ MemoryFilter.ts:61
+newExtractionPipeline @ MemoryExtractionService.ts:178
+await in newExtractionPipeline
+triggerExtraction @ MemoryExtractionService.ts:126
+(匿名) @ MemoryExtractionService.ts:439
+setTimeout
+triggerExtractionAsync @ MemoryExtractionService.ts:438
+triggerMemoryExtraction @ ReActEngine.ts:679
+run @ ReActEngine.ts:164
+MemoryExtractionService.ts:188 [MemoryExtraction] Filter 过滤: 5 → 2
+TauriMemoryClient.ts:158 [TauriMemoryClient] 获取待审核候选记忆
+TauriMemoryClient.ts:74 [TauriMemoryClient] 获取所有记忆
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 7
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 12
+MemoryExtractionService.ts:357 [MemoryExtraction] 去重统计: {total: 2, skipped: 0, merged: 0}
+TauriMemoryClient.ts:184 [TauriMemoryClient] 添加候选记忆: fact 因为项目延期了
+TauriMemoryClient.ts:184 [TauriMemoryClient] 添加候选记忆: fact 我每天加班到晚上9点左右
+MemoryExtractionService.ts:225 [MemoryExtraction] 提取完成，添加了 2 条候选记忆 (原始: 5 , 去重后: 2 )
+App.tsx:1080 [DEBUG] handleSendMessage - attachedFiles: []
+App.tsx:1081 [DEBUG] handleSendMessage - attachedFiles.length: 0
+App.tsx:1092 [DEBUG] userMessage created: {id: '17749518836660frsysi', role: 'user', content: '嗯，谢谢你这么说，确实感觉好多了 😊\n这个项目我做了大概半年了，其实之前都还挺顺利的。说到和老板沟…猫，叫"年糕"，特别粘人。每天回家它都在门口等我，然后蹭我腿，感觉一天的疲惫都没了。你有养宠物吗？', timestamp: 1774951883666, mode: 'chat', …}
+App.tsx:1093 [DEBUG] userMessage.attachments: undefined
+urlDetector.ts:69 [preprocessConversation] Total URLs in map: 0
+urlDetector.ts:70 [preprocessConversation] URL Map: {}
+AgentRuntime.ts:81 [AgentRuntime] Preprocessed conversation: {hasUrls: false, urlCount: 0, urls: {…}}
+ReActEngine.ts:236 [ReActEngine] 开始检索认知记忆, 模型类型: local
+TauriMemoryClient.ts:34 [TauriMemoryClient] 开始检索记忆, query: 嗯，谢谢你这么说，确实感觉好多了 😊
+这个项目我做了大概半年了，其实之前都还挺顺利的。说到和老板沟 options: {topK: 10, minImportance: 0.3, minSimilarity: 0.3, onlyActive: true, modelType: 'local', …}
+TauriMemoryClient.ts:37 [TauriMemoryClient] 检索完成, 返回 0 条记忆
+ReActEngine.ts:243 [ReActEngine] 检索到 0 条认知记忆
+App.tsx:219 [App] Memory retrieved: 0 memories
+ReActEngine.ts:307 [ReActEngine] 上下文预算: 模型=20000, 工具预留=2000, 回复预留=2000, 可用=16000 tokens (32000 chars)
+ReActEngine.ts:308 [ReActEngine] System prompt 长度: 3936 chars, 剩余可用: 28064 chars
+ReActEngine.ts:676 [ReActEngine] 触发记忆提取, 消息数: 4 , 总长度: 1243
+MemoryExtractionService.ts:103 [MemoryExtraction] 增量提取检查: {总消息数: 4, 已处理: 2, 新消息数: 2, 新消息长度: 545}
+MemoryExtractionService.ts:123 [MemoryExtraction] 使用专用模型进行记忆提取
+PreFilterService.ts:37 [PreFilter] Filtered messages: {input: 2, output: 1}
+MemoryModelClient.ts:589 [MemoryModelClient] Model raw output length: 119
+MemoryModelClient.ts:437 [MemoryModelClient] Raw model output (strict) length: 119
+MemoryModelClient.ts:63 [MemoryParser] JSON parse matched: 1
+MemoryModelClient.ts:447 [MemoryModelClient] Extraction complete (strict): {parsed: 1, safe: 1}
+MemoryExtractionService.ts:188 [MemoryExtraction] Filter 过滤: 1 → 1
+TauriMemoryClient.ts:158 [TauriMemoryClient] 获取待审核候选记忆
+TauriMemoryClient.ts:74 [TauriMemoryClient] 获取所有记忆
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 7
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 7
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 12
+MemoryExtractionService.ts:357 [MemoryExtraction] 去重统计: {total: 1, skipped: 0, merged: 0}
+TauriMemoryClient.ts:184 [TauriMemoryClient] 添加候选记忆: fact 做过半年的工作
+MemoryExtractionService.ts:225 [MemoryExtraction] 提取完成，添加了 1 条候选记忆 (原始: 1 , 去重后: 1 )
+App.tsx:1080 [DEBUG] handleSendMessage - attachedFiles: []
+App.tsx:1081 [DEBUG] handleSendMessage - attachedFiles.length: 0
+App.tsx:1092 [DEBUG] userMessage created: {id: '1774951940824yh1v22s', role: 'user', content: '哈哈哈对，就是因为它圆滚滚的像年糕一样！而且它特别爱吃，名副其实了 😂\n\n有趣的互动可太多了！它有…拍了好多照片，特别是断桥那边，夕阳照在湖面上特别美。你平时喜欢旅游吗？有去过什么印象深刻的地方吗？', timestamp: 1774951940824, mode: 'chat', …}
+App.tsx:1093 [DEBUG] userMessage.attachments: undefined
+urlDetector.ts:69 [preprocessConversation] Total URLs in map: 0
+urlDetector.ts:70 [preprocessConversation] URL Map: {}
+AgentRuntime.ts:81 [AgentRuntime] Preprocessed conversation: {hasUrls: false, urlCount: 0, urls: {…}}
+ReActEngine.ts:236 [ReActEngine] 开始检索认知记忆, 模型类型: local
+TauriMemoryClient.ts:34 [TauriMemoryClient] 开始检索记忆, query: 哈哈哈对，就是因为它圆滚滚的像年糕一样！而且它特别爱吃，名副其实了 😂
+
+有趣的互动可太多了！它有 options: {topK: 10, minImportance: 0.3, minSimilarity: 0.3, onlyActive: true, modelType: 'local', …}
+TauriMemoryClient.ts:37 [TauriMemoryClient] 检索完成, 返回 0 条记忆
+ReActEngine.ts:243 [ReActEngine] 检索到 0 条认知记忆
+App.tsx:219 [App] Memory retrieved: 0 memories
+ReActEngine.ts:307 [ReActEngine] 上下文预算: 模型=20000, 工具预留=2000, 回复预留=2000, 可用=16000 tokens (32000 chars)
+ReActEngine.ts:308 [ReActEngine] System prompt 长度: 3936 chars, 剩余可用: 28064 chars
+ReActEngine.ts:324 [ReActEngine] 对话历史无需截断: 5 条, 1470 chars
+ReActEngine.ts:676 [ReActEngine] 触发记忆提取, 消息数: 6 , 总长度: 1970
+MemoryExtractionService.ts:103 [MemoryExtraction] 增量提取检查: {总消息数: 6, 已处理: 4, 新消息数: 2, 新消息长度: 727}
+MemoryExtractionService.ts:123 [MemoryExtraction] 使用专用模型进行记忆提取
+PreFilterService.ts:37 [PreFilter] Filtered messages: {input: 2, output: 1}
+MemoryModelClient.ts:589 [MemoryModelClient] Model raw output length: 2
+MemoryModelClient.ts:437 [MemoryModelClient] Raw model output (strict) length: 2
+MemoryModelClient.ts:80 [MemoryParser] Fallback parse matched: 0
+MemoryModelClient.ts:452 [MemoryModelClient] Strict pass returned no safe candidates — running relaxed pass
+MemoryModelClient.ts:589 [MemoryModelClient] Model raw output length: 656
+MemoryModelClient.ts:459 [MemoryModelClient] Raw model output (relaxed) length: 656
+MemoryModelClient.ts:120 [MemoryParser] JSON parse failed: SyntaxError: Expected ',' or '}' after property value in JSON at position 174 (line 3 column 57)
+    at JSON.parse (<anonymous>)
+    at MultiPassParser.jsonParse (MemoryModelClient.ts:91:27)
+    at MultiPassParser.parse (MemoryModelClient.ts:61:29)
+    at MemoryModelClient.extractCandidates (MemoryModelClient.ts:460:39)
+    at async MemoryExtractionService.newExtractionPipeline (MemoryExtractionService.ts:151:24)
+    at async MemoryExtractionService.triggerExtraction (MemoryExtractionService.ts:126:14)
+jsonParse @ MemoryModelClient.ts:120
+parse @ MemoryModelClient.ts:61
+extractCandidates @ MemoryModelClient.ts:460
+await in extractCandidates
+newExtractionPipeline @ MemoryExtractionService.ts:151
+triggerExtraction @ MemoryExtractionService.ts:126
+(匿名) @ MemoryExtractionService.ts:439
+setTimeout
+triggerExtractionAsync @ MemoryExtractionService.ts:438
+triggerMemoryExtraction @ ReActEngine.ts:679
+run @ ReActEngine.ts:164
+MemoryModelClient.ts:80 [MemoryParser] Fallback parse matched: 3
+MemoryModelClient.ts:210 [SafeExtract] Rejected: Content too long: 152 {type: 'fact', span: '{"type":"constraint","span":"我加班的时候它就跳上来，把屏幕挡住一半，好…就跳上来，把屏幕挡住一半，好像在说\\"别工作了陪我玩\\"。","confidence":0.6},', sourceText: '哈哈哈对，就是因为它圆滚滚的像年糕一样！而且它特别爱吃，名副其实了 😂\n\n有趣的互动可太多了！它有…拍了好多照片，特别是断桥那边，夕阳照在湖面上特别美。你平时喜欢旅游吗？有去过什么印象深刻的地方吗？', importance: 0.75}
+extract @ MemoryModelClient.ts:210
+extractCandidates @ MemoryModelClient.ts:488
+await in extractCandidates
+newExtractionPipeline @ MemoryExtractionService.ts:151
+triggerExtraction @ MemoryExtractionService.ts:126
+(匿名) @ MemoryExtractionService.ts:439
+setTimeout
+triggerExtractionAsync @ MemoryExtractionService.ts:438
+triggerMemoryExtraction @ ReActEngine.ts:679
+run @ ReActEngine.ts:164
+MemoryModelClient.ts:210 [SafeExtract] Rejected: Content too long: 115 {type: 'fact', span: '{"type":"fact","span":"它特别喜欢玩我的鞋带，每天早上出门找鞋都要跟它斗智斗勇…"它特别喜欢玩我的鞋带，每天早上出门找鞋都要跟它斗智斗勇。","confidence":0.8},', sourceText: '哈哈哈对，就是因为它圆滚滚的像年糕一样！而且它特别爱吃，名副其实了 😂\n\n有趣的互动可太多了！它有…拍了好多照片，特别是断桥那边，夕阳照在湖面上特别美。你平时喜欢旅游吗？有去过什么印象深刻的地方吗？', importance: 0.75}
+extract @ MemoryModelClient.ts:210
+extractCandidates @ MemoryModelClient.ts:488
+await in extractCandidates
+newExtractionPipeline @ MemoryExtractionService.ts:151
+triggerExtraction @ MemoryExtractionService.ts:126
+(匿名) @ MemoryExtractionService.ts:439
+setTimeout
+triggerExtractionAsync @ MemoryExtractionService.ts:438
+triggerMemoryExtraction @ ReActEngine.ts:679
+run @ ReActEngine.ts:164
+MemoryModelClient.ts:210 [SafeExtract] Rejected: Content too long: 104 {type: 'fact', span: '{"type":"fact","span":"你平时喜欢旅游吗？有去过什么印象深刻的地方吗？","s…Text":"你平时喜欢旅游吗？有去过什么印象深刻的地方吗？","confidence":0.6}', sourceText: '哈哈哈对，就是因为它圆滚滚的像年糕一样！而且它特别爱吃，名副其实了 😂\n\n有趣的互动可太多了！它有…拍了好多照片，特别是断桥那边，夕阳照在湖面上特别美。你平时喜欢旅游吗？有去过什么印象深刻的地方吗？', importance: 0.75}
+extract @ MemoryModelClient.ts:210
+extractCandidates @ MemoryModelClient.ts:488
+await in extractCandidates
+newExtractionPipeline @ MemoryExtractionService.ts:151
+triggerExtraction @ MemoryExtractionService.ts:126
+(匿名) @ MemoryExtractionService.ts:439
+setTimeout
+triggerExtractionAsync @ MemoryExtractionService.ts:438
+triggerMemoryExtraction @ ReActEngine.ts:679
+run @ ReActEngine.ts:164
+MemoryModelClient.ts:489 [MemoryModelClient] Extraction complete (relaxed): {parsed: 3, safe: 0}
+MemoryExtractionService.ts:166 [MemoryExtraction] 没有提取到候选记忆
+App.tsx:1080 [DEBUG] handleSendMessage - attachedFiles: []
+App.tsx:1081 [DEBUG] handleSendMessage - attachedFiles.length: 0
+App.tsx:1092 [DEBUG] userMessage created: {id: '1774952055773lclqjts', role: 'user', content: '这次时间太紧了，就只在西湖边走了走，灵隐寺和龙井村都没去成，有点遗憾 😔 照片拍得一般吧，我摄影技…的。有时候挺羡慕他的，生活简单稳定，不像我这么折腾。\n\n你和老朋友还有联系吗？那种认识很久的朋友。', timestamp: 1774952055773, mode: 'chat', …}
+App.tsx:1093 [DEBUG] userMessage.attachments: undefined
+urlDetector.ts:69 [preprocessConversation] Total URLs in map: 0
+urlDetector.ts:70 [preprocessConversation] URL Map: {}
+AgentRuntime.ts:81 [AgentRuntime] Preprocessed conversation: {hasUrls: false, urlCount: 0, urls: {…}}
+ReActEngine.ts:236 [ReActEngine] 开始检索认知记忆, 模型类型: local
+TauriMemoryClient.ts:34 [TauriMemoryClient] 开始检索记忆, query: 这次时间太紧了，就只在西湖边走了走，灵隐寺和龙井村都没去成，有点遗憾 😔 照片拍得一般吧，我摄影技 options: {topK: 10, minImportance: 0.3, minSimilarity: 0.3, onlyActive: true, modelType: 'local', …}
+TauriMemoryClient.ts:37 [TauriMemoryClient] 检索完成, 返回 0 条记忆
+ReActEngine.ts:243 [ReActEngine] 检索到 0 条认知记忆
+App.tsx:219 [App] Memory retrieved: 0 memories
+ReActEngine.ts:307 [ReActEngine] 上下文预算: 模型=20000, 工具预留=2000, 回复预留=2000, 可用=16000 tokens (32000 chars)
+ReActEngine.ts:308 [ReActEngine] System prompt 长度: 3936 chars, 剩余可用: 28064 chars
+ReActEngine.ts:324 [ReActEngine] 对话历史无需截断: 7 条, 2262 chars
+ReActEngine.ts:676 [ReActEngine] 触发记忆提取, 消息数: 8 , 总长度: 2767
+MemoryExtractionService.ts:103 [MemoryExtraction] 增量提取检查: {总消息数: 8, 已处理: 6, 新消息数: 2, 新消息长度: 797}
+MemoryExtractionService.ts:123 [MemoryExtraction] 使用专用模型进行记忆提取
+PreFilterService.ts:37 [PreFilter] Filtered messages: {input: 2, output: 1}
+MemoryModelClient.ts:589 [MemoryModelClient] Model raw output length: 25
+MemoryModelClient.ts:437 [MemoryModelClient] Raw model output (strict) length: 25
+MemoryModelClient.ts:80 [MemoryParser] Fallback parse matched: 0
+MemoryModelClient.ts:452 [MemoryModelClient] Strict pass returned no safe candidates — running relaxed pass
+MemoryModelClient.ts:589 [MemoryModelClient] Model raw output length: 766
+MemoryModelClient.ts:459 [MemoryModelClient] Raw model output (relaxed) length: 766
+MemoryModelClient.ts:63 [MemoryParser] JSON parse matched: 4
+MemoryModelClient.ts:489 [MemoryModelClient] Extraction complete (relaxed): {parsed: 4, safe: 4}
+MemoryExtractionService.ts:188 [MemoryExtraction] Filter 过滤: 4 → 4
+TauriMemoryClient.ts:158 [TauriMemoryClient] 获取待审核候选记忆
+TauriMemoryClient.ts:74 [TauriMemoryClient] 获取所有记忆
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 11
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 8
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 14
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 18
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 7
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 7
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 12
+MemoryExtractionService.ts:357 [MemoryExtraction] 去重统计: {total: 4, skipped: 0, merged: 0}
+TauriMemoryClient.ts:184 [TauriMemoryClient] 添加候选记忆: fact 一个名叫阿杰的高中同学
+TauriMemoryClient.ts:184 [TauriMemoryClient] 添加候选记忆: fact 阿杰上个月刚结婚
+TauriMemoryClient.ts:184 [TauriMemoryClient] 添加候选记忆: fact 阿杰现在在老家开了一个小餐馆
+TauriMemoryClient.ts:184 [TauriMemoryClient] 添加候选记忆: fact 阿杰的生活简单稳定，不像我这样折腾。
+MemoryExtractionService.ts:225 [MemoryExtraction] 提取完成，添加了 4 条候选记忆 (原始: 4 , 去重后: 4 )
+App.tsx:1080 [DEBUG] handleSendMessage - attachedFiles: []
+App.tsx:1081 [DEBUG] handleSendMessage - attachedFiles.length: 0
+App.tsx:1092 [DEBUG] userMessage created: {id: '1774952139759890qudf', role: 'user', content: '我们联系不算多，就是偶尔微信扯几句，但有事肯定找对方。上个月他结婚我随了份子钱，他还嫌我给多了，说等…觉太尴尬了，像面试一样。\n\n你呢，有没有"听过"什么有趣的感情故事？或者你觉得异地这种问题有解吗？', timestamp: 1774952139759, mode: 'chat', …}
+App.tsx:1093 [DEBUG] userMessage.attachments: undefined
+urlDetector.ts:69 [preprocessConversation] Total URLs in map: 0
+urlDetector.ts:70 [preprocessConversation] URL Map: {}
+AgentRuntime.ts:81 [AgentRuntime] Preprocessed conversation: {hasUrls: false, urlCount: 0, urls: {…}}
+ReActEngine.ts:236 [ReActEngine] 开始检索认知记忆, 模型类型: local
+TauriMemoryClient.ts:34 [TauriMemoryClient] 开始检索记忆, query: 我们联系不算多，就是偶尔微信扯几句，但有事肯定找对方。上个月他结婚我随了份子钱，他还嫌我给多了，说等 options: {topK: 10, minImportance: 0.3, minSimilarity: 0.3, onlyActive: true, modelType: 'local', …}
+TauriMemoryClient.ts:37 [TauriMemoryClient] 检索完成, 返回 0 条记忆
+ReActEngine.ts:243 [ReActEngine] 检索到 0 条认知记忆
+App.tsx:219 [App] Memory retrieved: 0 memories
+ReActEngine.ts:307 [ReActEngine] 上下文预算: 模型=20000, 工具预留=2000, 回复预留=2000, 可用=16000 tokens (32000 chars)
+ReActEngine.ts:308 [ReActEngine] System prompt 长度: 3936 chars, 剩余可用: 28064 chars
+ReActEngine.ts:324 [ReActEngine] 对话历史无需截断: 9 条, 3027 chars
+ReActEngine.ts:454 [ReActEngine] Tool call: web_search params: {query: '异地恋 成功率 心理学研究', max_results: 3}
+ReActEngine.ts:456 [ReActEngine] preprocessedUrls: {}
+builtin.ts:135 [web_search] Query: "异地恋 成功率 心理学研究", Engine: "auto", Tavily Enabled: false
+builtin.ts:171 [web_search] Using backend search
+builtin.ts:177 [web_search] Results from backend: {results: Array(10), source: 'baidu'}
+ReActEngine.ts:676 [ReActEngine] 触发记忆提取, 消息数: 11 , 总长度: 4092
+MemoryExtractionService.ts:103 [MemoryExtraction] 增量提取检查: {总消息数: 11, 已处理: 8, 新消息数: 3, 新消息长度: 1325}
+MemoryExtractionService.ts:123 [MemoryExtraction] 使用专用模型进行记忆提取
+PreFilterService.ts:37 [PreFilter] Filtered messages: {input: 3, output: 1}
+MemoryModelClient.ts:589 [MemoryModelClient] Model raw output length: 25
+MemoryModelClient.ts:437 [MemoryModelClient] Raw model output (strict) length: 25
+MemoryModelClient.ts:80 [MemoryParser] Fallback parse matched: 0
+MemoryModelClient.ts:452 [MemoryModelClient] Strict pass returned no safe candidates — running relaxed pass
+MemoryModelClient.ts:589 [MemoryModelClient] Model raw output length: 682
+MemoryModelClient.ts:459 [MemoryModelClient] Raw model output (relaxed) length: 682
+MemoryModelClient.ts:63 [MemoryParser] JSON parse matched: 3
+MemoryModelClient.ts:489 [MemoryModelClient] Extraction complete (relaxed): {parsed: 3, safe: 3}
+MemoryExtractionService.ts:188 [MemoryExtraction] Filter 过滤: 3 → 3
+TauriMemoryClient.ts:158 [TauriMemoryClient] 获取待审核候选记忆
+TauriMemoryClient.ts:74 [TauriMemoryClient] 获取所有记忆
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 37
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 32
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 48
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 11
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 8
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 14
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 18
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 7
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 7
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 12
+MemoryExtractionService.ts:357 [MemoryExtraction] 去重统计: {total: 3, skipped: 0, merged: 0}
+TauriMemoryClient.ts:184 [TauriMemoryClient] 添加候选记忆: fact 分手原因是由于两人工作地点不同，一人去深圳，另一人留在上海，关系逐渐变淡。
+TauriMemoryClient.ts:184 [TauriMemoryClient] 添加候选记忆: fact 妈妈经常催促我去相亲，我不愿意去，觉得相亲很尴尬，就像面试一样。
+TauriMemoryClient.ts:184 [TauriMemoryClient] 添加候选记忆: preference 在有事情发生时会联系对方，并且上个月他结婚时我给了份子钱，但他觉得金额过高，表示将来会加倍偿还。
+MemoryExtractionService.ts:225 [MemoryExtraction] 提取完成，添加了 3 条候选记忆 (原始: 3 , 去重后: 3 )
+App.tsx:1080 [DEBUG] handleSendMessage - attachedFiles: []
+App.tsx:1081 [DEBUG] handleSendMessage - attachedFiles.length: 0
+App.tsx:1092 [DEBUG] userMessage created: {id: '17749522055402vdjedx', role: 'user', content: '哈哈哈年糕已经绝育了，它的对象就是我的手和鞋带 😂\n\n你分析得挺透彻的，不过说实话我现在对恋爱没啥…我床上，把我吓个半死，以为凶手来了 😂\n\n你平时有什么"助眠神器"吗？或者你喜欢什么类型的内容？', timestamp: 1774952205540, mode: 'chat', …}
+App.tsx:1093 [DEBUG] userMessage.attachments: undefined
+urlDetector.ts:69 [preprocessConversation] Total URLs in map: 0
+urlDetector.ts:70 [preprocessConversation] URL Map: {}
+AgentRuntime.ts:81 [AgentRuntime] Preprocessed conversation: {hasUrls: false, urlCount: 0, urls: {…}}
+ReActEngine.ts:236 [ReActEngine] 开始检索认知记忆, 模型类型: local
+TauriMemoryClient.ts:34 [TauriMemoryClient] 开始检索记忆, query: 哈哈哈年糕已经绝育了，它的对象就是我的手和鞋带 😂
+
+你分析得挺透彻的，不过说实话我现在对恋爱没啥 options: {topK: 10, minImportance: 0.3, minSimilarity: 0.3, onlyActive: true, modelType: 'local', …}
+TauriMemoryClient.ts:37 [TauriMemoryClient] 检索完成, 返回 0 条记忆
+ReActEngine.ts:243 [ReActEngine] 检索到 0 条认知记忆
+App.tsx:219 [App] Memory retrieved: 0 memories
+ReActEngine.ts:307 [ReActEngine] 上下文预算: 模型=20000, 工具预留=2000, 回复预留=2000, 可用=16000 tokens (32000 chars)
+ReActEngine.ts:308 [ReActEngine] System prompt 长度: 3936 chars, 剩余可用: 28064 chars
+ReActEngine.ts:324 [ReActEngine] 对话历史无需截断: 11 条, 4304 chars
+ReActEngine.ts:676 [ReActEngine] 触发记忆提取, 消息数: 12 , 总长度: 4899
+MemoryExtractionService.ts:103 [MemoryExtraction] 增量提取检查: {总消息数: 12, 已处理: 11, 新消息数: 1, 新消息长度: 595}
+MemoryExtractionService.ts:123 [MemoryExtraction] 使用专用模型进行记忆提取
+PreFilterService.ts:37 [PreFilter] Filtered messages: {input: 1, output: 0}
+MemoryExtractionService.ts:142 [MemoryExtraction] PreFilter 后无有效消息
+App.tsx:1080 [DEBUG] handleSendMessage - attachedFiles: []
+App.tsx:1081 [DEBUG] handleSendMessage - attachedFiles.length: 0
+App.tsx:1092 [DEBUG] userMessage created: {id: '1774952261301wp79sw4', role: 'user', content: '主播声音就是那种低沉的男声，讲故事不紧不慢的，像在说睡前故事一样。我一般听个20分钟左右就睡着了，经…的，但那时候没有它真的睡不着。\n\n你有听过什么奇怪的童年习惯吗？或者你"知道"什么有趣的童年故事？', timestamp: 1774952261301, mode: 'chat', …}
+App.tsx:1093 [DEBUG] userMessage.attachments: undefined
+urlDetector.ts:69 [preprocessConversation] Total URLs in map: 0
+urlDetector.ts:70 [preprocessConversation] URL Map: {}
+AgentRuntime.ts:81 [AgentRuntime] Preprocessed conversation: {hasUrls: false, urlCount: 0, urls: {…}}
+ReActEngine.ts:236 [ReActEngine] 开始检索认知记忆, 模型类型: local
+TauriMemoryClient.ts:34 [TauriMemoryClient] 开始检索记忆, query: 主播声音就是那种低沉的男声，讲故事不紧不慢的，像在说睡前故事一样。我一般听个20分钟左右就睡着了，经 options: {topK: 10, minImportance: 0.3, minSimilarity: 0.3, onlyActive: true, modelType: 'local', …}
+TauriMemoryClient.ts:37 [TauriMemoryClient] 检索完成, 返回 0 条记忆
+ReActEngine.ts:243 [ReActEngine] 检索到 0 条认知记忆
+App.tsx:219 [App] Memory retrieved: 0 memories
+ReActEngine.ts:307 [ReActEngine] 上下文预算: 模型=20000, 工具预留=2000, 回复预留=2000, 可用=16000 tokens (32000 chars)
+ReActEngine.ts:308 [ReActEngine] System prompt 长度: 3936 chars, 剩余可用: 28064 chars
+ReActEngine.ts:324 [ReActEngine] 对话历史无需截断: 13 条, 5144 chars
+ReActEngine.ts:676 [ReActEngine] 触发记忆提取, 消息数: 14 , 总长度: 5849
+MemoryExtractionService.ts:103 [MemoryExtraction] 增量提取检查: {总消息数: 14, 已处理: 12, 新消息数: 2, 新消息长度: 950}
+MemoryExtractionService.ts:123 [MemoryExtraction] 使用专用模型进行记忆提取
+PreFilterService.ts:37 [PreFilter] Filtered messages: {input: 2, output: 1}
+MemoryModelClient.ts:589 [MemoryModelClient] Model raw output length: 2
+MemoryModelClient.ts:437 [MemoryModelClient] Raw model output (strict) length: 2
+MemoryModelClient.ts:80 [MemoryParser] Fallback parse matched: 0
+MemoryModelClient.ts:452 [MemoryModelClient] Strict pass returned no safe candidates — running relaxed pass
+MemoryModelClient.ts:589 [MemoryModelClient] Model raw output length: 613
+MemoryModelClient.ts:459 [MemoryModelClient] Raw model output (relaxed) length: 613
+MemoryModelClient.ts:63 [MemoryParser] JSON parse matched: 3
+MemoryModelClient.ts:489 [MemoryModelClient] Extraction complete (relaxed): {parsed: 3, safe: 3}
+MemoryExtractionService.ts:188 [MemoryExtraction] Filter 过滤: 3 → 3
+TauriMemoryClient.ts:158 [TauriMemoryClient] 获取待审核候选记忆
+TauriMemoryClient.ts:74 [TauriMemoryClient] 获取所有记忆
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 31
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 33
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 19
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 37
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 32
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 48
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 11
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 8
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 14
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 18
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 7
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 7
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 12
+MemoryExtractionService.ts:357 [MemoryExtraction] 去重统计: {total: 3, skipped: 0, merged: 0}
+TauriMemoryClient.ts:184 [TauriMemoryClient] 添加候选记忆: fact 我睡觉一定要抱着一个旧枕头,是我奶奶给我缝的,上面绣了个小老虎
+TauriMemoryClient.ts:184 [TauriMemoryClient] 添加候选记忆: fact 那个枕头我都用到高中了,边角都磨破了,我妈想给我换新的,我死活不肯
+TauriMemoryClient.ts:184 [TauriMemoryClient] 添加候选记忆: fact 后来上大学住宿舍,实在带不走才留在家里
+MemoryExtractionService.ts:225 [MemoryExtraction] 提取完成，添加了 3 条候选记忆 (原始: 3 , 去重后: 3 )
+App.tsx:1080 [DEBUG] handleSendMessage - attachedFiles: []
+App.tsx:1081 [DEBUG] handleSendMessage - attachedFiles.length: 0
+App.tsx:1092 [DEBUG] userMessage created: {id: '1774953695324pjzsf2e', role: 'user', content: '我小时候特别怕黑，而且坚信衣柜里有怪物。每天晚上睡觉前都要让我妈检查一遍衣柜，确认门关好了。现在想想…数字就头大，工作做报表都要深呼吸。\n\n你小时候有没有特别怕的科目？或者挨过最狠的一次骂是因为什么？', timestamp: 1774953695324, mode: 'chat', …}
+App.tsx:1093 [DEBUG] userMessage.attachments: undefined
+urlDetector.ts:69 [preprocessConversation] Total URLs in map: 0
+urlDetector.ts:70 [preprocessConversation] URL Map: {}
+AgentRuntime.ts:81 [AgentRuntime] Preprocessed conversation: {hasUrls: false, urlCount: 0, urls: {…}}
+ReActEngine.ts:236 [ReActEngine] 开始检索认知记忆, 模型类型: local
+TauriMemoryClient.ts:34 [TauriMemoryClient] 开始检索记忆, query: 我小时候特别怕黑，而且坚信衣柜里有怪物。每天晚上睡觉前都要让我妈检查一遍衣柜，确认门关好了。现在想想 options: {topK: 10, minImportance: 0.3, minSimilarity: 0.3, onlyActive: true, modelType: 'local', …}
+TauriMemoryClient.ts:37 [TauriMemoryClient] 检索完成, 返回 0 条记忆
+ReActEngine.ts:243 [ReActEngine] 检索到 0 条认知记忆
+App.tsx:219 [App] Memory retrieved: 0 memories
+ReActEngine.ts:307 [ReActEngine] 上下文预算: 模型=20000, 工具预留=2000, 回复预留=2000, 可用=16000 tokens (32000 chars)
+ReActEngine.ts:308 [ReActEngine] System prompt 长度: 3936 chars, 剩余可用: 28064 chars
+ReActEngine.ts:324 [ReActEngine] 对话历史无需截断: 15 条, 6145 chars
+ReActEngine.ts:676 [ReActEngine] 触发记忆提取, 消息数: 16 , 总长度: 6818
+MemoryExtractionService.ts:103 [MemoryExtraction] 增量提取检查: {总消息数: 16, 已处理: 14, 新消息数: 2, 新消息长度: 954}
+MemoryExtractionService.ts:123 [MemoryExtraction] 使用专用模型进行记忆提取
+PreFilterService.ts:37 [PreFilter] Filtered messages: {input: 2, output: 1}
+MemoryModelClient.ts:589 [MemoryModelClient] Model raw output length: 2
+MemoryModelClient.ts:437 [MemoryModelClient] Raw model output (strict) length: 2
+MemoryModelClient.ts:80 [MemoryParser] Fallback parse matched: 0
+MemoryModelClient.ts:452 [MemoryModelClient] Strict pass returned no safe candidates — running relaxed pass
+MemoryModelClient.ts:589 [MemoryModelClient] Model raw output length: 924
+MemoryModelClient.ts:459 [MemoryModelClient] Raw model output (relaxed) length: 924
+MemoryModelClient.ts:63 [MemoryParser] JSON parse matched: 7
+MemoryModelClient.ts:489 [MemoryModelClient] Extraction complete (relaxed): {parsed: 7, safe: 7}
+MemoryFilter.ts:88 [MemoryFilter] Rejected: no valid signal
+basicValidation @ MemoryFilter.ts:88
+filterMemories @ MemoryFilter.ts:50
+newExtractionPipeline @ MemoryExtractionService.ts:178
+await in newExtractionPipeline
+triggerExtraction @ MemoryExtractionService.ts:126
+(匿名) @ MemoryExtractionService.ts:439
+setTimeout
+triggerExtractionAsync @ MemoryExtractionService.ts:438
+triggerMemoryExtraction @ ReActEngine.ts:679
+run @ ReActEngine.ts:164
+MemoryFilter.ts:316 [MemoryFilter] Rejected: not exact span or boundary violation
+strictSpanValidation @ MemoryFilter.ts:316
+filterMemories @ MemoryFilter.ts:55
+newExtractionPipeline @ MemoryExtractionService.ts:178
+await in newExtractionPipeline
+triggerExtraction @ MemoryExtractionService.ts:126
+(匿名) @ MemoryExtractionService.ts:439
+setTimeout
+triggerExtractionAsync @ MemoryExtractionService.ts:438
+triggerMemoryExtraction @ ReActEngine.ts:679
+run @ ReActEngine.ts:164
+MemoryFilter.ts:317   span: 我养了一只橘猫叫年糕
+strictSpanValidation @ MemoryFilter.ts:317
+filterMemories @ MemoryFilter.ts:55
+newExtractionPipeline @ MemoryExtractionService.ts:178
+await in newExtractionPipeline
+triggerExtraction @ MemoryExtractionService.ts:126
+(匿名) @ MemoryExtractionService.ts:439
+setTimeout
+triggerExtractionAsync @ MemoryExtractionService.ts:438
+triggerMemoryExtraction @ ReActEngine.ts:679
+run @ ReActEngine.ts:164
+MemoryFilter.ts:318   source: 我小时候特别怕黑,而且坚信衣柜里有怪物.每天晚上睡觉前都要让我妈检查一遍衣柜,确认门关好了.现在想想挺搞笑的,但那时候真的怕得要死. 还有啊,我小时候特别挑食,不吃青菜,我妈就骗我说不吃青菜长不高.结果我信以为真,每次吃饭都偷偷把青菜藏在碗底,以为她看不见 😂 后来被发现,挨了好一顿骂. 对了,说到挨骂,我小时候成绩其实挺好的,就是数学特别差.五年级的时候有次考试考了68分,我爸气得把试卷撕了,我躲在房间里哭了一下午.从那以后我对数学就有阴影了,现在看到数字就头大,工作做报表都要深呼吸. 你小时候有没有特别怕的科目?或者挨过最狠的一次骂是因为什么?
+strictSpanValidation @ MemoryFilter.ts:318
+filterMemories @ MemoryFilter.ts:55
+newExtractionPipeline @ MemoryExtractionService.ts:178
+await in newExtractionPipeline
+triggerExtraction @ MemoryExtractionService.ts:126
+(匿名) @ MemoryExtractionService.ts:439
+setTimeout
+triggerExtractionAsync @ MemoryExtractionService.ts:438
+triggerMemoryExtraction @ ReActEngine.ts:679
+run @ ReActEngine.ts:164
+MemoryExtractionService.ts:188 [MemoryExtraction] Filter 过滤: 7 → 5
+TauriMemoryClient.ts:158 [TauriMemoryClient] 获取待审核候选记忆
+TauriMemoryClient.ts:74 [TauriMemoryClient] 获取所有记忆
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 9
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 11
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 16
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 15
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 12
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 31
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 33
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 19
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 37
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 32
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 48
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 11
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 8
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 14
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 18
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 7
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 7
+TauriMemoryClient.ts:244 [TauriMemoryClient] 生成 Embedding, content length: 12
+MemoryExtractionService.ts:357 [MemoryExtraction] 去重统计: {total: 5, skipped: 0, merged: 0}
+TauriMemoryClient.ts:184 [TauriMemoryClient] 添加候选记忆: fact 小时候特别害怕黑暗
+TauriMemoryClient.ts:184 [TauriMemoryClient] 添加候选记忆: preference 妈妈说不吃青菜会长不高
+TauriMemoryClient.ts:184 [TauriMemoryClient] 添加候选记忆: fact 小时候特别挑食，不吃蔬菜类的食物
+TauriMemoryClient.ts:184 [TauriMemoryClient] 添加候选记忆: preference 爸爸因为考试成绩生气并撕掉试卷
+TauriMemoryClient.ts:184 [TauriMemoryClient] 添加候选记忆: fact 小时候在数学方面表现不佳
+MemoryExtractionService.ts:225 [MemoryExtraction] 提取完成，添加了 5 条候选记忆 (原始: 7 , 去重后: 5 )
+TauriMemoryClient.ts:158 [TauriMemoryClient] 获取待审核候选记忆
+TauriMemoryClient.ts:158 [TauriMemoryClient] 获取待审核候选记忆
+TauriMemoryClient.ts:158 [TauriMemoryClient] 获取待审核候选记忆
+TauriMemoryClient.ts:158 [TauriMemoryClient] 获取待审核候选记忆
+TauriMemoryClient.ts:158 [TauriMemoryClient] 获取待审核候选记忆
+TauriMemoryClient.ts:158 [TauriMemoryClient] 获取待审核候选记忆
+TauriMemoryClient.ts:158 [TauriMemoryClient] 获取待审核候选记忆
+TauriMemoryClient.ts:158 [TauriMemoryClient] 获取待审核候选记忆
+TauriMemoryClient.ts:158 [TauriMemoryClient] 获取待审核候选记忆
+TauriMemoryClient.ts:158 [TauriMemoryClient] 获取待审核候选记忆
+TauriMemoryClient.ts:158 [TauriMemoryClient] 获取待审核候选记忆

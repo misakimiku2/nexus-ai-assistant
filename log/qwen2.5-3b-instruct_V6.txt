@@ -1,0 +1,650 @@
+2026-03-31 18:09:00  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-31 18:09:00  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-3pw0gd3uk3qasf3ws8y8bf",
+  "object": "chat.completion",
+  "created": 1774951740,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "[]",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 435,
+    "completion_tokens": 2,
+    "total_tokens": 437,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    }
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+2026-03-31 18:09:00 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个记忆抽取器。\n\n任务：从「单条用户消息」中提取可能的记忆候选，允许在不确定时也列出潜在事实，... <Truncated in logs> ...<<END>>>\n\n本 prompt 用于 relaxed 回退，允许返回置信略低的候选以避免漏报。"
+    },
+    {
+      "role": "user",
+      "content": "SOURCE: 最近工作压力好大啊，上周刚被老板批评了一顿，因为我负责的项目延期了。其实也不全是我的问题，主要是合作部门那边配合太慢，但老板不听解释。我现在每天加班到九点多，感觉特别累。你平时工作压力大吗？"
+    }
+  ],
+  "temperature": 0.15,
+  "max_tokens": 800,
+  "stream": false
+}
+2026-03-31 18:09:00  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+2026-03-31 18:09:04  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-31 18:09:04  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-udd5i5cjlniva6s19zctm",
+  "object": "chat.completion",
+  "created": 1774951740,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "<<<MEMORY>>>\n[\n  {\"type\":\"fact\",\"span\":\"最近工作压力好大啊\",\"resolvedText\":\"工作压力很大\",\"sourceText\":\"最近工作压力好大啊，上周刚被老板批评了一顿，因为我负责的项目延期了。其实也不全是我的问题，主要是合作部门那边配合太慢，但老板不听解释。我现在每天加班到九点多，感觉特别累。你平时工作压力大吗？\",\"confidence\":0.8},\n  {\"type\":\"fact\",\"span\":\"上周刚被老板批评了一顿\",\"resolvedText\":\"上周老板批评了我\",\"sourceText\":\"最近工作压力好大啊，上周刚被老板批评了一顿，因为我负责的项目延期了。其实也不全是我的问题，主要是合作部门那边配合太慢，但老板不听解释。我现在每天加班到九点多，感觉特别累。你平时工作压力大吗？\",\"confidence\":0.8},\n  {\"type\":\"fact\",\"span\":\"因为负责的项目延期了\",\"resolvedText\":\"因为项目延期了\",\"sourceText\":\"最近工作压力好大啊，上周刚被老板批评了一顿，因为我负责的项目延期了。其实也不全是我的问题，主要是合作部门那边配合太慢，但老板不听解释。我现在每天加班到九点多，感觉特别累。你平时工作压力大吗？\",\"confidence\":0.8},\n  {\"type\":\"fact\",\"span\":\"现在每天加班到九点多\",\"resolvedText\":\"我每天加班到晚上9点左右\",\"sourceText\":\"最近工作压力好大啊，上周刚被老板批评了一顿，因为我负责的项目延期了。其实也不全是我的问题，主要是合作部门那边配合太慢，但老板不听解释。我现在每天加班到九点多，感觉特别累。你平时工作压力大吗？\",\"confidence\":0.8},\n  {\"type\":\"preference\",\"span\":\"我养了一只橘猫叫年糕\",\"resolvedText\":\"有一只名为年糕的橘猫\",\"sourceText\":\"最近工作压力好大啊，上周刚被老板批评了一顿，因为我负责的项目延期了。其实也不全是我的问题，主要是合作部门那边配合太慢，但老板不听解释。我现在每天加班到九点多，感觉特别累。你平时工作压力大吗？\",\"confidence\":0.1}\n]\n<<<END>>>",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 414,
+    "completion_tokens": 488,
+    "total_tokens": 902,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    }
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+2026-03-31 18:09:45  [INFO]
+ [qwen/qwen3.5-9b] Done reasoning. Reasoned for 54234.28 seconds.
+2026-03-31 18:11:27  [INFO]
+ [qwen/qwen3.5-9b] Finished streaming response
+2026-03-31 18:11:28 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个记忆抽取器。\n\n任务：从「单条用户消息」中严格抽取高置信度的记忆候选，仅输出严格的 JSON... <Truncated in logs> ...本 prompt 为严格抽取用途，避免任何语义扩写或推断；复杂的语义归纳将由后端规则或更大模型处理。"
+    },
+    {
+      "role": "user",
+      "content": "SOURCE: 嗯，谢谢你这么说，确实感觉好多了 😊\n这个项目我做了大概半年了，其实之前都还挺顺利... <Truncated in logs> ...橘猫，叫\"年糕\"，特别粘人。每天回家它都在门口等我，然后蹭我腿，感觉一天的疲惫都没了。你有养宠物吗？"
+    }
+  ],
+  "temperature": 0,
+  "max_tokens": 800,
+  "stream": false
+}
+2026-03-31 18:11:28  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+2026-03-31 18:11:28  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-31 18:11:28  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-k2nnnv4ht7sjicvrwrzung",
+  "object": "chat.completion",
+  "created": 1774951888,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "[\n{\"type\":\"fact\",\"span\":\"我做了大概半年了\",\"resolvedText\":\"做过半年的工作\",\"sourceText\":\"这个项目我做了大概半年了，其实之前都还挺顺利的。\",\"confidence\":0.9}\n]",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 495,
+    "completion_tokens": 48,
+    "total_tokens": 543,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    }
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+2026-03-31 18:12:27 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个记忆抽取器。\n\n任务：从「单条用户消息」中严格抽取高置信度的记忆候选，仅输出严格的 JSON... <Truncated in logs> ...本 prompt 为严格抽取用途，避免任何语义扩写或推断；复杂的语义归纳将由后端规则或更大模型处理。"
+    },
+    {
+      "role": "user",
+      "content": "SOURCE: 哈哈哈对，就是因为它圆滚滚的像年糕一样！而且它特别爱吃，名副其实了 😂\n\n有趣的互... <Truncated in logs> ...我拍了好多照片，特别是断桥那边，夕阳照在湖面上特别美。你平时喜欢旅游吗？有去过什么印象深刻的地方吗？"
+    }
+  ],
+  "temperature": 0,
+  "max_tokens": 800,
+  "stream": false
+}
+2026-03-31 18:12:27  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+2026-03-31 18:12:27  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-31 18:12:27  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-rmrmn70swdchnvd3zadb6",
+  "object": "chat.completion",
+  "created": 1774951947,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "[]",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 530,
+    "completion_tokens": 2,
+    "total_tokens": 532,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    }
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+2026-03-31 18:12:27 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个记忆抽取器。\n\n任务：从「单条用户消息」中提取可能的记忆候选，允许在不确定时也列出潜在事实，... <Truncated in logs> ...<<END>>>\n\n本 prompt 用于 relaxed 回退，允许返回置信略低的候选以避免漏报。"
+    },
+    {
+      "role": "user",
+      "content": "SOURCE: 哈哈哈对，就是因为它圆滚滚的像年糕一样！而且它特别爱吃，名副其实了 😂\n\n有趣的互... <Truncated in logs> ...我拍了好多照片，特别是断桥那边，夕阳照在湖面上特别美。你平时喜欢旅游吗？有去过什么印象深刻的地方吗？"
+    }
+  ],
+  "temperature": 0.15,
+  "max_tokens": 800,
+  "stream": false
+}
+2026-03-31 18:12:27  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+2026-03-31 18:12:28  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-31 18:12:28  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-4c5ay37acxqh8xkok7b7d",
+  "object": "chat.completion",
+  "created": 1774951947,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "<<<MEMORY>>>\n[\n  {\"type\":\"preference\",\"span\":\"它特别爱吃，名副其实了 😂\",\"sourceText\":\"对啊，就是因为它圆滚滚的像年糕一样！而且它特别爱吃，名副其实了 😂\",\"confidence\":0.7},\n  {\"type\":\"constraint\",\"span\":\"我加班的时候它就跳上来，把屏幕挡住一半，好像在说\"别工作了陪我玩\"。\",\"sourceText\":\"它有个怪癖，特别喜欢趴在我键盘上，我加班的时候它就跳上来，把屏幕挡住一半，好像在说\\\"别工作了陪我玩\\\"。\",\"confidence\":0.6},\n  {\"type\":\"fact\",\"span\":\"它特别喜欢玩我的鞋带，每天早上出门找鞋都要跟它斗智斗勇。\",\"sourceText\":\"它特别喜欢玩我的鞋带，每天早上出门找鞋都要跟它斗智斗勇。\",\"confidence\":0.8},\n  {\"type\":\"fact\",\"span\":\"我上周去了一趟杭州出差，顺便去西湖边走了走。那边风景真好，就是人有点多。\",\"sourceText\":\"我上周去了一趟杭州出差，顺便去西湖边走了走。那边风景真好，就是人有点多。\",\"confidence\":0.7},\n  {\"type\":\"fact\",\"span\":\"你平时喜欢旅游吗？有去过什么印象深刻的地方吗？\",\"sourceText\":\"你平时喜欢旅游吗？有去过什么印象深刻的地方吗？\",\"confidence\":0.6}\n]\n<<<END>>>",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 509,
+    "completion_tokens": 320,
+    "total_tokens": 829,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    }
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+2026-03-31 18:14:21 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个记忆抽取器。\n\n任务：从「单条用户消息」中严格抽取高置信度的记忆候选，仅输出严格的 JSON... <Truncated in logs> ...本 prompt 为严格抽取用途，避免任何语义扩写或推断；复杂的语义归纳将由后端规则或更大模型处理。"
+    },
+    {
+      "role": "user",
+      "content": "SOURCE: 这次时间太紧了，就只在西湖边走了走，灵隐寺和龙井村都没去成，有点遗憾 😔 照片拍得... <Truncated in logs> ...好的。有时候挺羡慕他的，生活简单稳定，不像我这么折腾。\n\n你和老朋友还有联系吗？那种认识很久的朋友。"
+    }
+  ],
+  "temperature": 0,
+  "max_tokens": 800,
+  "stream": false
+}
+2026-03-31 18:14:21  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+2026-03-31 18:14:21  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-31 18:14:21  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-7ixjtf3qx97bqnpf4ehk8",
+  "object": "chat.completion",
+  "created": 1774952061,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "<<<MEMORY>>>\n[]\n<<<END>>>",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 578,
+    "completion_tokens": 9,
+    "total_tokens": 587,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    }
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+2026-03-31 18:14:21 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个记忆抽取器。\n\n任务：从「单条用户消息」中提取可能的记忆候选，允许在不确定时也列出潜在事实，... <Truncated in logs> ...<<END>>>\n\n本 prompt 用于 relaxed 回退，允许返回置信略低的候选以避免漏报。"
+    },
+    {
+      "role": "user",
+      "content": "SOURCE: 这次时间太紧了，就只在西湖边走了走，灵隐寺和龙井村都没去成，有点遗憾 😔 照片拍得... <Truncated in logs> ...好的。有时候挺羡慕他的，生活简单稳定，不像我这么折腾。\n\n你和老朋友还有联系吗？那种认识很久的朋友。"
+    }
+  ],
+  "temperature": 0.15,
+  "max_tokens": 800,
+  "stream": false
+}
+2026-03-31 18:14:21  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+2026-03-31 18:14:23  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-31 18:14:23  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-17o2fsnedm63saf1q80b7e",
+  "object": "chat.completion",
+  "created": 1774952061,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "<<<MEMORY>>>\n[\n  {\"type\":\"fact\",\"span\":\"我高中有个死党叫阿杰\",\"resolvedText\":\"一个名叫阿杰的高中同学\",\"sourceText\":\"我高中有个死党叫阿杰，我们从高一就认识了，到现在十几年了。他上个月刚结婚，我去当伴郎，穿那个西装热死我了。他现在在老家开了个小餐馆，卖烧烤，生意还挺好的。有时候挺羡慕他的，生活简单稳定，不像我这么折腾。\",\"confidence\":0.8},\n  {\"type\":\"fact\",\"span\":\"他上个月刚结婚\",\"resolvedText\":\"阿杰上个月刚结婚\",\"sourceText\":\"他上个月刚结婚，我去当伴郎，穿那个西装热死我了。他现在在老家开了个小餐馆，卖烧烤，生意还挺好的。有时候挺羡慕他的，生活简单稳定，不像我这么折腾。\",\"confidence\":0.8},\n  {\"type\":\"fact\",\"span\":\"他现在在老家开了个小餐馆\",\"resolvedText\":\"阿杰现在在老家开了一个小餐馆\",\"sourceText\":\"他上个月刚结婚，我去当伴郎，穿那个西装热死我了。他现在在老家开了个小餐馆，卖烧烤，生意还挺好的。有时候挺羡慕他的，生活简单稳定，不像我这么折腾。\",\"confidence\":0.8},\n  {\"type\":\"fact\",\"span\":\"有时候挺羡慕他的，生活简单稳定，不像我这么折腾。\",\"resolvedText\":\"阿杰的生活简单稳定，不像我这样折腾。\",\"sourceText\":\"他上个月刚结婚，我去当伴郎，穿那个西装热死我了。他现在在老家开了个小餐馆，卖烧烤，生意还挺好的。有时候挺羡慕他的，生活简单稳定，不像我这么折腾。\",\"confidence\":0.8}\n]\n<<<END>>>",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 557,
+    "completion_tokens": 381,
+    "total_tokens": 938,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    }
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+2026-03-31 18:15:51 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个记忆抽取器。\n\n任务：从「单条用户消息」中严格抽取高置信度的记忆候选，仅输出严格的 JSON... <Truncated in logs> ...本 prompt 为严格抽取用途，避免任何语义扩写或推断；复杂的语义归纳将由后端规则或更大模型处理。"
+    },
+    {
+      "role": "user",
+      "content": "SOURCE: 我们联系不算多，就是偶尔微信扯几句，但有事肯定找对方。上个月他结婚我随了份子钱，他还... <Truncated in logs> ...感觉太尴尬了，像面试一样。\n\n你呢，有没有\"听过\"什么有趣的感情故事？或者你觉得异地这种问题有解吗？"
+    }
+  ],
+  "temperature": 0,
+  "max_tokens": 800,
+  "stream": false
+}
+2026-03-31 18:15:51  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+2026-03-31 18:15:51  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-31 18:15:51  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-y1rtud431cin2ulneicgzq",
+  "object": "chat.completion",
+  "created": 1774952151,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "<<<MEMORY>>>\n[]\n<<<END>>>",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 549,
+    "completion_tokens": 9,
+    "total_tokens": 558,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    }
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+2026-03-31 18:15:51 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个记忆抽取器。\n\n任务：从「单条用户消息」中提取可能的记忆候选，允许在不确定时也列出潜在事实，... <Truncated in logs> ...<<END>>>\n\n本 prompt 用于 relaxed 回退，允许返回置信略低的候选以避免漏报。"
+    },
+    {
+      "role": "user",
+      "content": "SOURCE: 我们联系不算多，就是偶尔微信扯几句，但有事肯定找对方。上个月他结婚我随了份子钱，他还... <Truncated in logs> ...感觉太尴尬了，像面试一样。\n\n你呢，有没有\"听过\"什么有趣的感情故事？或者你觉得异地这种问题有解吗？"
+    }
+  ],
+  "temperature": 0.15,
+  "max_tokens": 800,
+  "stream": false
+}
+2026-03-31 18:15:51  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+2026-03-31 18:15:53  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-31 18:15:53  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-r2m450co7l65wivruo35",
+  "object": "chat.completion",
+  "created": 1774952151,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "<<<MEMORY>>>\n[\n  {\"type\":\"fact\",\"span\":\"分手原因挺俗的，就是工作异地，她去了深圳，我留在上海，慢慢就淡了。\",\"resolvedText\":\"分手原因是由于两人工作地点不同，一人去深圳，另一人留在上海，关系逐渐变淡。\",\"sourceText\":\"说到对象...唉，我单身挺久了。之前谈过一段，两年前分的，对方是我大学同学，在一起四年。分手原因挺俗的，就是工作异地，她去了深圳，我留在上海，慢慢就淡了。\",\"confidence\":0.8},\n  {\"type\":\"fact\",\"span\":\"我妈老催我相亲，我不想去，感觉太尴尬了，像面试一样。\",\"resolvedText\":\"妈妈经常催促我去相亲，我不愿意去，觉得相亲很尴尬，就像面试一样。\",\"sourceText\":\"现在就是上班、回家撸猫、周末打打游戏，挺规律的。我妈老催我相亲，我不想去，感觉太尴尬了，像面试一样。\",\"confidence\":0.7},\n  {\"type\":\"preference\",\"span\":\"但有事肯定找对方。上个月他结婚我随了份子钱，他还嫌我给多了，说等我有对象了要双倍还我 😂\",\"resolvedText\":\"在有事情发生时会联系对方，并且上个月他结婚时我给了份子钱，但他觉得金额过高，表示将来会加倍偿还。\",\"sourceText\":\"我们联系不算多，就是偶尔微信扯几句，但有事肯定找对方。上个月他结婚我随了份子钱，他还嫌我给多了，说等我有对象了要双倍还我 😂\",\"confidence\":0.8}\n]\n<<<END>>>",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 528,
+    "completion_tokens": 365,
+    "total_tokens": 893,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    }
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+2026-03-31 18:17:48 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个记忆抽取器。\n\n任务：从「单条用户消息」中严格抽取高置信度的记忆候选，仅输出严格的 JSON... <Truncated in logs> ...本 prompt 为严格抽取用途，避免任何语义扩写或推断；复杂的语义归纳将由后端规则或更大模型处理。"
+    },
+    {
+      "role": "user",
+      "content": "SOURCE: 主播声音就是那种低沉的男声，讲故事不紧不慢的，像在说睡前故事一样。我一般听个20分钟... <Truncated in logs> ...傻的，但那时候没有它真的睡不着。\n\n你有听过什么奇怪的童年习惯吗？或者你\"知道\"什么有趣的童年故事？"
+    }
+  ],
+  "temperature": 0,
+  "max_tokens": 800,
+  "stream": false
+}
+2026-03-31 18:17:48  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+2026-03-31 18:17:48  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-31 18:17:48  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-g4eeakd17t5d0woln8njz",
+  "object": "chat.completion",
+  "created": 1774952268,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "[]",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 538,
+    "completion_tokens": 2,
+    "total_tokens": 540,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    }
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+2026-03-31 18:17:48 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个记忆抽取器。\n\n任务：从「单条用户消息」中提取可能的记忆候选，允许在不确定时也列出潜在事实，... <Truncated in logs> ...<<END>>>\n\n本 prompt 用于 relaxed 回退，允许返回置信略低的候选以避免漏报。"
+    },
+    {
+      "role": "user",
+      "content": "SOURCE: 主播声音就是那种低沉的男声，讲故事不紧不慢的，像在说睡前故事一样。我一般听个20分钟... <Truncated in logs> ...傻的，但那时候没有它真的睡不着。\n\n你有听过什么奇怪的童年习惯吗？或者你\"知道\"什么有趣的童年故事？"
+    }
+  ],
+  "temperature": 0.15,
+  "max_tokens": 800,
+  "stream": false
+}
+2026-03-31 18:17:48  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+2026-03-31 18:17:50  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-31 18:17:50  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-291rpxqn197d5o2l6dscnk",
+  "object": "chat.completion",
+  "created": 1774952268,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "[\n  {\n    \"type\": \"fact\",\n    \"span\": \"我睡觉一定要抱着一个旧枕头，是我奶奶给我缝的，上面绣了个小老虎。\",\n    \"sourceText\": \"我睡觉一定要抱着一个旧枕头，是我奶奶给我缝的，上面绣了个小老虎。那个枕头我都用到高中了，边角都磨破了，我妈想给我换新的，我死活不肯。后来上大学住宿舍，实在带不走才留在家里。\",\n    \"confidence\": 0.9\n  },\n  {\n    \"type\": \"fact\",\n    \"span\": \"那个枕头我都用到高中了，边角都磨破了，我妈想给我换新的，我死活不肯。\",\n    \"sourceText\": \"我睡觉一定要抱着一个旧枕头，是我奶奶给我缝的，上面绣了个小老虎。那个枕头我都用到高中了，边角都磨破了，我妈想给我换新的，我死活不肯。后来上大学住宿舍，实在带不走才留在家里。\",\n    \"confidence\": 0.9\n  },\n  {\n    \"type\": \"fact\",\n    \"span\": \"后来上大学住宿舍，实在带不走才留在家里。\",\n    \"sourceText\": \"我睡觉一定要抱着一个旧枕头，是我奶奶给我缝的，上面绣了个小老虎。那个枕头我都用到高中了，边角都磨破了，我妈想给我换新的，我死活不肯。后来上大学住宿舍，实在带不走才留在家里。\",\n    \"confidence\": 0.9\n  }\n]",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 517,
+    "completion_tokens": 336,
+    "total_tokens": 853,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    }
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+2026-03-31 18:41:42 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个记忆抽取器。\n\n任务：从「单条用户消息」中严格抽取高置信度的记忆候选，仅输出严格的 JSON... <Truncated in logs> ...本 prompt 为严格抽取用途，避免任何语义扩写或推断；复杂的语义归纳将由后端规则或更大模型处理。"
+    },
+    {
+      "role": "user",
+      "content": "SOURCE: 我小时候特别怕黑，而且坚信衣柜里有怪物。每天晚上睡觉前都要让我妈检查一遍衣柜，确认门... <Truncated in logs> ...到数字就头大，工作做报表都要深呼吸。\n\n你小时候有没有特别怕的科目？或者挨过最狠的一次骂是因为什么？"
+    }
+  ],
+  "temperature": 0,
+  "max_tokens": 800,
+  "stream": false
+}
+2026-03-31 18:41:42  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+2026-03-31 18:41:42  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-31 18:41:42  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-qsyypdftsp8u92t6lgicx",
+  "object": "chat.completion",
+  "created": 1774953702,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "[]",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 563,
+    "completion_tokens": 2,
+    "total_tokens": 565,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    }
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+2026-03-31 18:41:42 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen2.5-3b-instruct",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个记忆抽取器。\n\n任务：从「单条用户消息」中提取可能的记忆候选，允许在不确定时也列出潜在事实，... <Truncated in logs> ...<<END>>>\n\n本 prompt 用于 relaxed 回退，允许返回置信略低的候选以避免漏报。"
+    },
+    {
+      "role": "user",
+      "content": "SOURCE: 我小时候特别怕黑，而且坚信衣柜里有怪物。每天晚上睡觉前都要让我妈检查一遍衣柜，确认门... <Truncated in logs> ...到数字就头大，工作做报表都要深呼吸。\n\n你小时候有没有特别怕的科目？或者挨过最狠的一次骂是因为什么？"
+    }
+  ],
+  "temperature": 0.15,
+  "max_tokens": 800,
+  "stream": false
+}
+2026-03-31 18:41:42  [INFO]
+ [qwen2.5-3b-instruct] Running chat completion on conversation with 2 messages.
+2026-03-31 18:41:44  [INFO]
+ [qwen2.5-3b-instruct] Model generated tool calls:  []
+2026-03-31 18:41:44  [INFO]
+ [qwen2.5-3b-instruct] Generated prediction:  {
+  "id": "chatcmpl-kltfy8ds7nn1ijjd469p8",
+  "object": "chat.completion",
+  "created": 1774953702,
+  "model": "qwen2.5-3b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "<<<MEMORY>>>\n[\n  {\"type\":\"preference\",\"span\":\"我养了一只橘猫叫年糕\",\"resolvedText\":\"有一只名为年糕的橘猫\",\"sourceText\":\"我养了一只橘猫叫年糕，它每天晚上都趴在我腿上睡觉。\",\"confidence\":0.8},\n  {\"type\":\"constraint\",\"span\":\"我妈检查衣柜确认门关好\",\"resolvedText\":\"妈妈检查衣柜确保门关好\",\"sourceText\":\"每天晚上睡觉前都要让我妈检查一遍衣柜，确认门关好了。\",\"confidence\":0.7},\n  {\"type\":\"fact\",\"span\":\"我小时候特别怕黑\",\"resolvedText\":\"小时候特别害怕黑暗\",\"sourceText\":\"我小时候特别怕黑，而且坚信衣柜里有怪物。\",\"confidence\":0.9},\n  {\"type\":\"preference\",\"span\":\"我妈骗我说不吃青菜长不高\",\"resolvedText\":\"妈妈说不吃青菜会长不高\",\"sourceText\":\"我妈就骗我说不吃青菜长不高。\",\"confidence\":0.7},\n  {\"type\":\"fact\",\"span\":\"我小时候特别挑食，不吃青菜\",\"resolvedText\":\"小时候特别挑食，不吃蔬菜类的食物\",\"sourceText\":\"我小时候特别挑食，不吃青菜，我妈就骗我说不吃青菜长不高。\",\"confidence\":0.8},\n  {\"type\":\"preference\",\"span\":\"我爸气得把试卷撕了\",\"resolvedText\":\"爸爸因为考试成绩生气并撕掉试卷\",\"sourceText\":\"五年级的时候有次考试考了68分，我爸气得把试卷撕了。\",\"confidence\":0.7},\n  {\"type\":\"fact\",\"span\":\"我小时候数学特别差\",\"resolvedText\":\"小时候在数学方面表现不佳\",\"sourceText\":\"我小时候成绩其实挺好的，就是数学特别差。\",\"confidence\":0.9}\n]\n<<<END>>>",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 542,
+    "completion_tokens": 385,
+    "total_tokens": 927,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    }
+  },
+  "stats": {},
+  "system_fingerprint": "qwen2.5-3b-instruct"
+}
+
+

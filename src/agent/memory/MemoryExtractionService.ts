@@ -143,9 +143,24 @@ class MemoryExtractionService {
       return null;
     }
 
-    const conversation = this.preFilter.formatForExtraction(filteredMessages);
+    // 按单条用户消息逐条调用模型，降低混淆与重复
+    const allCandidates: ParsedMemory[] = [];
+    for (const msg of filteredMessages) {
+      try {
+        const conv = `SOURCE: ${msg.content}`;
+        const parsed = await this.modelClient.extractCandidates(conv, msg.content);
+        if (parsed && parsed.length > 0) {
+          // attach original message id in sourceText already set in model client
+          for (const p of parsed) {
+            allCandidates.push(p);
+          }
+        }
+      } catch (e) {
+        console.warn('[MemoryExtraction] 单条提取失败，继续下条:', e);
+      }
+    }
 
-    const candidates = await this.modelClient.extractCandidates(conversation);
+    const candidates = allCandidates;
 
     if (candidates.length === 0) {
       console.log('[MemoryExtraction] 没有提取到候选记忆');
@@ -184,17 +199,22 @@ class MemoryExtractionService {
       return null;
     }
 
-    const candidateMemories: CandidateMemory[] = dedupedCandidates.map(c => ({
-      id: crypto.randomUUID(),
-      content: c.span,
-      memoryType: c.type,
-      confidence: c.importance,
-      sourceSessionId: sessionId,
-      sourceMessageIds: filteredMessages.map(m => m.id || crypto.randomUUID()),
-      createdAt: Date.now(),
-      status: 'pending' as CandidateStatus,
-      importance: c.importance,
-    }));
+    const candidateMemories: CandidateMemory[] = dedupedCandidates.map(c => {
+      // try to find the originating message id by matching sourceText
+      const match = filteredMessages.find(m => (m.content || '').trim() === (c.sourceText || c.span || '').trim());
+      const sourceIds = match ? [match.id || crypto.randomUUID()] : [crypto.randomUUID()];
+      return {
+        id: crypto.randomUUID(),
+        content: c.span,
+        memoryType: c.type,
+        confidence: c.importance,
+        sourceSessionId: sessionId,
+        sourceMessageIds: sourceIds,
+        createdAt: Date.now(),
+        status: 'pending' as CandidateStatus,
+        importance: c.importance,
+      };
+    });
 
     for (const candidate of candidateMemories) {
       await TauriMemoryClient.addCandidateMemory(candidate);

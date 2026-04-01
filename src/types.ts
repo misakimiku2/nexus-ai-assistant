@@ -149,7 +149,7 @@ export interface Agent {
   knowledgeFolders?: string[];
 }
 
-export type MemoryType = 'identity' | 'preference' | 'constraint' | 'fact';
+export type MemoryType = 'identity' | 'preference' | 'constraint' | 'fact' | 'rule' | 'experience' | 'skill' | 'error';
 
 export type TaskStatus = 'pending' | 'in_progress' | 'done' | 'cancelled';
 
