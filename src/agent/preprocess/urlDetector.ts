@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { FetchResult } from '../tools/types';
+import { ContentPart } from '../types';
 
 const URL_REGEX = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/gi;
 
@@ -42,24 +43,45 @@ export function resetUrlPlaceholderCounter(): void {
 }
 
 export interface PreprocessedConversation {
-  messages: Array<{ role: string; content: string }>;
+  messages: Array<{ role: string; content: string | ContentPart[] }>;
   urlMap: Map<string, string>;
   processedUserInput: string;
 }
 
+function extractTextFromContent(content: string | ContentPart[]): string {
+  if (typeof content === 'string') {
+    return content;
+  }
+  const textPart = content.find(part => part.type === 'text');
+  return textPart?.text || '';
+}
+
 export function preprocessConversation(
   currentUserInput: string,
-  conversationHistory: Array<{ role: string; content: string }>
+  conversationHistory: Array<{ role: string; content: string | ContentPart[] }>
 ): PreprocessedConversation {
   const urlMap = new Map<string, string>();
-  const processedMessages: Array<{ role: string; content: string }> = [];
+  const processedMessages: Array<{ role: string; content: string | ContentPart[] }> = [];
   
   for (const msg of conversationHistory) {
-    const processed = processTextWithUrls(msg.content, urlMap);
-    processedMessages.push({
-      role: msg.role,
-      content: processed,
-    });
+    if (typeof msg.content === 'string') {
+      const processed = processTextWithUrls(msg.content, urlMap);
+      processedMessages.push({
+        role: msg.role,
+        content: processed,
+      });
+    } else {
+      const contentParts: ContentPart[] = msg.content.map(part => {
+        if (part.type === 'text' && part.text) {
+          return { ...part, text: processTextWithUrls(part.text, urlMap) };
+        }
+        return part;
+      });
+      processedMessages.push({
+        role: msg.role,
+        content: contentParts,
+      });
+    }
   }
   
   const processedUserInput = processTextWithUrls(currentUserInput, urlMap);

@@ -7,6 +7,7 @@ import {
   AgentConfig,
   DEFAULT_AGENT_CONFIG,
   ToolCallRecord,
+  ContentPart,
 } from '../types';
 import { ReActEngine } from './ReActEngine';
 import { agentStateManager } from './AgentState';
@@ -68,7 +69,8 @@ export class AgentRuntime {
 
   async execute(
     userInput: string,
-    conversationHistory: ConversationMessage[] = []
+    conversationHistory: ConversationMessage[] = [],
+    imageAttachments?: { data: string; name: string }[]
   ): Promise<string> {
     resetUrlPlaceholderCounter();
     const preprocessed = preprocessConversation(userInput, conversationHistory);
@@ -88,6 +90,7 @@ export class AgentRuntime {
       conversationHistory: preprocessed.messages as ConversationMessage[],
       availableTools: ToolRegistry.getEnabledToolNames(),
       preprocessedUrls: preprocessed.urlMap,
+      imageAttachments,
       onStatusChange: (status) => {
         agentStateManager.updateStatus(this.agent.id, status);
         this.callbacks.onStatusChange?.(status);

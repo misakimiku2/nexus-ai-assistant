@@ -77,6 +77,7 @@ export interface AgentExecutionContext {
   conversationHistory: ConversationMessage[];
   availableTools: string[];
   preprocessedUrls?: Map<string, string>;
+  imageAttachments?: { data: string; name: string }[];
   onStatusChange?: (status: AgentStatus) => void;
   onTaskUpdate?: (task: Task) => void;
   onToolCall?: (record: ToolCallRecord) => void;
@@ -87,9 +88,17 @@ export interface AgentExecutionContext {
   onIterationCountChange?: (count: number) => void;
 }
 
+export interface ContentPart {
+  type: 'text' | 'image_url';
+  text?: string;
+  image_url?: {
+    url: string;
+  };
+}
+
 export interface ConversationMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
-  content: string;
+  content: string | ContentPart[];
   name?: string;
   toolCallId?: string;
   toolCalls?: ToolCallRequest[];

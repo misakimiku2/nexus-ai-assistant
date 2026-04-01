@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Agent, SearchResult } from '../types';
+import { Agent, SearchResult, Attachment } from '../types';
 import {
   AgentRuntime,
   initializeDefaultRuntime,
@@ -10,6 +10,7 @@ import {
   ReasoningStep,
   ToolCallRecord,
   ConversationMessage,
+  ContentPart,
 } from '../agent/types';
 import { DEFAULT_AGENT } from '../data/agents';
 
@@ -20,7 +21,7 @@ interface UseAgentExecutionResult {
   iterationCount: number;
   pendingAuthToolCall: ToolCallRecord | null;
   isAgentMode: boolean;
-  execute: (input: string, conversationHistory: ConversationMessage[]) => Promise<string>;
+  execute: (input: string, conversationHistory: ConversationMessage[], imageAttachments?: { data: string; name: string }[]) => Promise<string>;
   approveToolCall: () => void;
   rejectToolCall: () => void;
   abort: () => void;
@@ -49,7 +50,16 @@ interface AgentExecutionCallbacks {
 
 function parseWebSearchResults(output: string): SearchResult[] {
   try {
-    const parsed = JSON.parse(output);
+    let jsonStr = output;
+    
+    if (output.includes('AI Answer:') && output.includes('Search Results:')) {
+      const searchResultsIndex = output.indexOf('Search Results:');
+      if (searchResultsIndex !== -1) {
+        jsonStr = output.substring(searchResultsIndex + 'Search Results:'.length).trim();
+      }
+    }
+    
+    const parsed = JSON.parse(jsonStr);
     if (Array.isArray(parsed)) {
       return parsed.map((item: any) => ({
         title: item.title || item.name || 'Unknown',
@@ -183,7 +193,8 @@ export function useAgentExecution(
 
   const execute = useCallback(async (
     input: string,
-    conversationHistory: ConversationMessage[]
+    conversationHistory: ConversationMessage[],
+    imageAttachments?: { data: string; name: string }[]
   ): Promise<string> => {
     if (!runtimeRef.current) {
       if (currentAgent) {
@@ -199,7 +210,7 @@ export function useAgentExecution(
     setIterationCount(0);
 
     try {
-      const result = await runtimeRef.current!.execute(input, conversationHistory);
+      const result = await runtimeRef.current!.execute(input, conversationHistory, imageAttachments);
       return result;
     } catch (error) {
       setStatus('failed');

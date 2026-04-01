@@ -13,6 +13,21 @@
     "core:window:allow-close",
     "core:window:allow-start-dragging",
     "core:window:allow-is-maximized",
-    "shell:allow-open"
+    "shell:allow-open",
+    "fs:default",
+    "fs:allow-read-file",
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$DESKTOP/**" },
+        { "path": "$DOCUMENTS/**" },
+        { "path": "$DOWNLOADS/**" },
+        { "path": "$PICTURES/**" },
+        { "path": "$MUSIC/**" },
+        { "path": "$VIDEOS/**" },
+        { "path": "/" }
+      ]
+    }
   ]
 }

@@ -9,6 +9,7 @@ import {
   LLMResponse,
   ToolCallRequest,
   DEFAULT_AGENT_CONFIG,
+  ContentPart,
 } from '../types';
 import { ToolRegistry } from '../tools/ToolRegistry';
 import {
@@ -166,13 +167,29 @@ export class ReActEngine {
       messages.push(msg);
     }
 
-    const lastMessage = messages[messages.length - 1];
     const lastUserMessage = this.context.conversationHistory
       .filter(m => m.role === 'user')
       .pop();
     
-    if (!lastUserMessage || lastUserMessage.content !== userInput) {
-      messages.push({ role: 'user', content: userInput });
+    const lastMessageText = typeof lastUserMessage?.content === 'string' 
+      ? lastUserMessage.content 
+      : (lastUserMessage?.content as ContentPart[])?.find((c: ContentPart) => c.type === 'text')?.text || '';
+    
+    if (!lastUserMessage || lastMessageText !== userInput) {
+      const imageAttachments = this.context.imageAttachments;
+      
+      if (imageAttachments && imageAttachments.length > 0) {
+        const content: ContentPart[] = [{ type: 'text', text: userInput }];
+        for (const img of imageAttachments) {
+          content.push({
+            type: 'image_url',
+            image_url: { url: img.data }
+          });
+        }
+        messages.push({ role: 'user', content });
+      } else {
+        messages.push({ role: 'user', content: userInput });
+      }
     }
 
     return messages;

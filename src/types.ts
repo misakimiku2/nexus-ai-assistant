@@ -2,6 +2,15 @@ import { AgentStatus, ReasoningStep, ToolCallRecord } from './agent/types';
 
 export type MessageRole = 'user' | 'assistant' | 'system';
 
+export interface Attachment {
+  id: string;
+  type: 'image' | 'document';
+  name: string;
+  data: string;
+  mimeType: string;
+  size?: number;
+}
+
 export interface AgentExecutionData {
   reasoningSteps: ReasoningStep[];
   toolCalls: ToolCallRecord[];
@@ -47,6 +56,7 @@ export interface Message {
   versions?: MessageVersion[];
   currentVersionIndex?: number;
   agentExecution?: AgentExecutionData;
+  attachments?: Attachment[];
 }
 
 export interface SearchResult {

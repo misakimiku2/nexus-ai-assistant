@@ -25,6 +25,58 @@ const openExternalLink = async (url: string) => {
   }
 };
 
+const MAX_IMAGE_WIDTH = 330;
+
+interface MessageImageProps {
+  src: string;
+  alt: string;
+  isDarkMode: boolean;
+}
+
+const MessageImage: React.FC<MessageImageProps> = ({ src, alt, isDarkMode }) => {
+  const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(null);
+
+  useEffect(() => {
+    const img = new Image();
+    img.onload = () => {
+      setDimensions({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.src = src;
+  }, [src]);
+
+  const displayWidth = dimensions 
+    ? Math.min(dimensions.width, MAX_IMAGE_WIDTH) 
+    : MAX_IMAGE_WIDTH;
+  
+  const displayHeight = dimensions && dimensions.width > MAX_IMAGE_WIDTH
+    ? Math.round((MAX_IMAGE_WIDTH / dimensions.width) * dimensions.height)
+    : dimensions?.height || 0;
+
+  return (
+    <div 
+      className={cn(
+        "rounded-lg overflow-hidden border inline-block",
+        isDarkMode ? "border-zinc-600" : "border-zinc-200"
+      )}
+      style={{ 
+        maxWidth: `${displayWidth}px`,
+        width: dimensions ? `${displayWidth}px` : 'auto'
+      }}
+    >
+      <img 
+        src={src} 
+        alt={alt}
+        className="block"
+        style={{ 
+          imageRendering: 'auto',
+          width: dimensions ? '100%' : 'auto',
+          height: 'auto'
+        }}
+      />
+    </div>
+  );
+};
+
 interface ChatViewProps {
   pendingAction: PendingAction | null;
   handleApproveAction: () => void;
@@ -846,7 +898,34 @@ export const ChatView: React.FC<ChatViewProps> = ({
                           </div>
                         </div>
                       ) : (
-                        <div className="whitespace-pre-wrap break-words break-all">{msg.content}</div>
+                        <div className="flex flex-col gap-2">
+                          <div className="whitespace-pre-wrap break-words break-all">{msg.content}</div>
+                          {msg.attachments && msg.attachments.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {msg.attachments.map(attachment => (
+                                <div key={attachment.id}>
+                                  {attachment.type === 'image' ? (
+                                    <MessageImage 
+                                      src={attachment.data} 
+                                      alt={attachment.name}
+                                      isDarkMode={isDarkMode}
+                                    />
+                                  ) : (
+                                    <div className={cn(
+                                      "flex items-center gap-1.5 px-2 py-1 rounded-lg border text-xs",
+                                      isDarkMode 
+                                        ? "bg-zinc-700 border-zinc-600 text-zinc-300" 
+                                        : "bg-zinc-100 border-zinc-200 text-zinc-600"
+                                    )}>
+                                      <FileText size={12} />
+                                      <span className="max-w-[100px] truncate">{attachment.name}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}

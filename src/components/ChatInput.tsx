@@ -19,12 +19,55 @@ import {
   Layout,
   Terminal,
   ChevronRight,
-  Mic
+  Mic,
+  Upload
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import { AppMode } from '../types';
+import { AppMode, Attachment } from '../types';
 import { useGlobalState } from '../context/GlobalStateContext';
+import { AttachmentList } from './AttachmentPreview';
+import { listen } from '@tauri-apps/api/event';
+import { readFile } from '@tauri-apps/plugin-fs';
+
+const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/svg+xml'];
+const ACCEPTED_DOCUMENT_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
+  'text/csv',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/javascript',
+  'text/typescript',
+  'text/x-python',
+  'text/x-java',
+  'text/x-c',
+  'text/x-cpp',
+  'text/x-go',
+  'text/x-rust',
+  'text/x-php',
+  'text/x-ruby',
+  'text/x-swift',
+  'text/x-kotlin',
+  'text/html',
+  'text/css',
+  'application/json',
+  'application/xml',
+  'text/yaml',
+  'text/markdown',
+  'text/x-sh',
+  'application/x-sh',
+  'application/sql'
+];
+const ACCEPTED_FILE_EXTENSIONS = [
+  '.pdf', '.doc', '.docx', '.txt', '.csv', '.xlsx',
+  '.js', '.jsx', '.ts', '.tsx', '.py', '.java', '.c', '.cpp', '.h', '.hpp',
+  '.cs', '.go', '.rs', '.php', '.rb', '.swift', '.kt', '.kts',
+  '.html', '.css', '.scss', '.less', '.json', '.xml', '.yaml', '.yml',
+  '.md', '.sh', '.bash', '.sql'
+];
 
 interface ChatInputProps {
   input: string;
@@ -32,16 +75,19 @@ interface ChatInputProps {
   appMode: AppMode;
   setAppMode: (mode: AppMode) => void;
   isDarkMode: boolean;
-  attachedImage: string | null;
-  setAttachedImage: (image: string | null) => void;
+  attachments: Attachment[];
+  setAttachments: (attachments: Attachment[]) => void;
   handleSendMessage: () => void;
   handleStopAI?: () => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
-  handleImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleFileUpload: (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'document') => void;
+  removeAttachment: (id: string) => void;
   maxContextLength: number;
   isWebSearchEnabled: boolean;
   setIsWebSearchEnabled: (enabled: boolean) => void;
 }
+
+const MAX_ATTACHMENTS = 10;
 
 export const ChatInput: React.FC<ChatInputProps> = ({
   input,
@@ -49,12 +95,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   appMode,
   setAppMode,
   isDarkMode,
-  attachedImage,
-  setAttachedImage,
+  attachments,
+  setAttachments,
   handleSendMessage,
   handleStopAI,
   fileInputRef,
-  handleImageUpload,
+  handleFileUpload,
+  removeAttachment,
   maxContextLength,
   isWebSearchEnabled,
   setIsWebSearchEnabled
@@ -66,12 +113,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const [isAgentMenuOpen, setIsAgentMenuOpen] = React.useState(false);
   const [isRecording, setIsRecording] = React.useState(false);
   const [expandedAgents, setExpandedAgents] = React.useState<Set<string>>(new Set());
+  const [isDragOver, setIsDragOver] = React.useState(false);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const documentInputRef = React.useRef<HTMLInputElement>(null);
   const attachmentMenuRef = React.useRef<HTMLDivElement>(null);
   const agentMenuRef = React.useRef<HTMLDivElement>(null);
   const recognitionRef = React.useRef<any>(null);
   const originalInputRef = React.useRef(input);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  
+  const canAddMoreAttachments = attachments.length < MAX_ATTACHMENTS;
   
   const currentSession = sessions.find(s => s.id === currentSessionId);
   const activeAgentId = currentSession?.activeAgents?.[0];
@@ -122,6 +173,189 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const canAddMoreAttachmentsRef = React.useRef(canAddMoreAttachments);
+  canAddMoreAttachmentsRef.current = canAddMoreAttachments;
+  
+  const unlistenFnsRef = React.useRef<{
+    dragEnter: (() => void) | null;
+    dragLeave: (() => void) | null;
+    dragDrop: (() => void) | null;
+  }>({ dragEnter: null, dragLeave: null, dragDrop: null });
+
+  React.useEffect(() => {
+    let mounted = true;
+
+    const setupTauriDragListeners = async () => {
+      console.log('[Drag] Setting up Tauri drag listeners');
+      try {
+        const dragEnterUnlisten = await listen<{ paths: string[] }>('tauri://drag-enter', (event) => {
+          console.log('[Drag] drag-enter event:', event.payload.paths);
+          if (!canAddMoreAttachmentsRef.current) return;
+          const paths = event.payload.paths;
+          const hasValidFiles = paths.some(path => {
+            const ext = '.' + path.split('.').pop()?.toLowerCase();
+            return ACCEPTED_FILE_EXTENSIONS.includes(ext) || 
+                   ACCEPTED_IMAGE_TYPES.some(t => path.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/));
+          });
+          if (hasValidFiles) {
+            setIsDragOver(true);
+          }
+        });
+
+        const dragLeaveUnlisten = await listen('tauri://drag-leave', () => {
+          console.log('[Drag] drag-leave event');
+          setIsDragOver(false);
+        });
+
+        const dragDropUnlisten = await listen<{ paths: string[] }>('tauri://drag-drop', (event) => {
+          console.log('[Drag] drag-drop event:', event.payload.paths);
+          setIsDragOver(false);
+          if (!canAddMoreAttachmentsRef.current) return;
+          
+          const paths = event.payload.paths;
+          const validPaths = paths.filter(path => {
+            const ext = '.' + path.split('.').pop()?.toLowerCase();
+            return ACCEPTED_FILE_EXTENSIONS.includes(ext) || 
+                   ACCEPTED_IMAGE_TYPES.some(t => path.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/));
+          });
+          
+          console.log('[Drag] validPaths:', validPaths);
+          
+          if (validPaths.length > 0) {
+            handleDropFilesFromPaths(validPaths);
+          }
+        });
+        
+        if (mounted) {
+          unlistenFnsRef.current = {
+            dragEnter: dragEnterUnlisten,
+            dragLeave: dragLeaveUnlisten,
+            dragDrop: dragDropUnlisten
+          };
+          console.log('[Drag] Listeners setup complete');
+        } else {
+          console.log('[Drag] Component unmounted during setup, cleaning up');
+          dragEnterUnlisten();
+          dragLeaveUnlisten();
+          dragDropUnlisten();
+        }
+      } catch (error) {
+        console.log('Tauri drag events not available, using web drag API');
+      }
+    };
+
+    setupTauriDragListeners();
+
+    return () => {
+      console.log('[Drag] Cleaning up Tauri drag listeners');
+      mounted = false;
+      unlistenFnsRef.current.dragEnter?.();
+      unlistenFnsRef.current.dragLeave?.();
+      unlistenFnsRef.current.dragDrop?.();
+      unlistenFnsRef.current = { dragEnter: null, dragLeave: null, dragDrop: null };
+    };
+  }, []);
+
+  const handleDropFilesFromPaths = async (paths: string[]) => {
+    console.log('[handleDropFilesFromPaths] called with paths:', paths);
+    const maxFiles = 10;
+    
+    const pathsToProcess = paths.slice(0, maxFiles);
+    console.log('[handleDropFilesFromPaths] pathsToProcess:', pathsToProcess);
+
+    for (const path of pathsToProcess) {
+      try {
+        const fileName = path.split(/[/\\]/).pop() || 'unknown';
+        const isImage = /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(fileName);
+        
+        console.log('[handleDropFilesFromPaths] processing file:', fileName, 'isImage:', isImage);
+        
+        const fileData = await readFile(path);
+        
+        const mimeType = getMimeType(fileName);
+        const base64 = arrayBufferToBase64(fileData);
+        const dataUrl = `data:${mimeType};base64,${base64}`;
+        
+        const attachment: Attachment = {
+          id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+          type: isImage ? 'image' : 'document',
+          name: fileName,
+          data: dataUrl,
+          mimeType: mimeType,
+          size: fileData.length
+        };
+        
+        console.log('[handleDropFilesFromPaths] adding attachment:', attachment.id, attachment.name);
+        
+        setAttachments(prev => {
+          if (prev.length >= maxFiles) return prev;
+          return [...prev, attachment];
+        });
+      } catch (error) {
+        console.error('Failed to read file:', path, error);
+      }
+    }
+  };
+
+  const getMimeType = (fileName: string): string => {
+    const ext = fileName.split('.').pop()?.toLowerCase() || '';
+    const mimeTypes: Record<string, string> = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'webp': 'image/webp',
+      'bmp': 'image/bmp',
+      'svg': 'image/svg+xml',
+      'pdf': 'application/pdf',
+      'doc': 'application/msword',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'txt': 'text/plain',
+      'csv': 'text/csv',
+      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'js': 'text/javascript',
+      'jsx': 'text/javascript',
+      'ts': 'text/typescript',
+      'tsx': 'text/typescript',
+      'py': 'text/x-python',
+      'java': 'text/x-java',
+      'c': 'text/x-c',
+      'cpp': 'text/x-cpp',
+      'h': 'text/x-c',
+      'hpp': 'text/x-cpp',
+      'cs': 'text/x-csharp',
+      'go': 'text/x-go',
+      'rs': 'text/x-rust',
+      'php': 'text/x-php',
+      'rb': 'text/x-ruby',
+      'swift': 'text/x-swift',
+      'kt': 'text/x-kotlin',
+      'kts': 'text/x-kotlin',
+      'html': 'text/html',
+      'css': 'text/css',
+      'scss': 'text/x-scss',
+      'less': 'text/x-less',
+      'json': 'application/json',
+      'xml': 'application/xml',
+      'yaml': 'text/yaml',
+      'yml': 'text/yaml',
+      'md': 'text/markdown',
+      'sh': 'text/x-sh',
+      'bash': 'text/x-sh',
+      'sql': 'application/sql'
+    };
+    return mimeTypes[ext] || 'application/octet-stream';
+  };
+
+  const arrayBufferToBase64 = (buffer: Uint8Array): string => {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  };
 
   // Auto-expand textarea height
   React.useEffect(() => {
@@ -195,20 +429,68 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   return (
     <motion.div 
+      ref={containerRef}
       layout
       transition={{ duration: 0.3, ease: "easeInOut" }}
       className={cn("pt-0 relative z-20", appMode === 'command' ? "p-4" : "p-6")}
     >
+      <AnimatePresence>
+        {isDragOver && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="absolute inset-0 z-30 pointer-events-none"
+          >
+            <div className={cn(
+              "absolute inset-0 rounded-2xl border-2 border-dashed m-2",
+              isDarkMode 
+                ? "border-indigo-400 bg-indigo-500/10" 
+                : "border-indigo-500 bg-indigo-50/80"
+            )}>
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                <div className={cn(
+                  "p-4 rounded-full",
+                  isDarkMode ? "bg-indigo-500/20" : "bg-indigo-100"
+                )}>
+                  <Upload className={cn(
+                    "w-8 h-8",
+                    isDarkMode ? "text-indigo-400" : "text-indigo-500"
+                  )} />
+                </div>
+                <div className="text-center">
+                  <p className={cn(
+                    "text-sm font-medium",
+                    isDarkMode ? "text-indigo-300" : "text-indigo-600"
+                  )}>
+                    释放以添加文件
+                  </p>
+                  <p className={cn(
+                    "text-xs mt-1",
+                    isDarkMode ? "text-indigo-400/70" : "text-indigo-500/70"
+                  )}>
+                    支持图片和文档文件
+                  </p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div className="max-w-4xl mx-auto relative" style={{ fontFamily }}>
-        {attachedImage && (
-          <div className="absolute bottom-full left-0 mb-4 p-2 glass rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2">
-            <img src={attachedImage} alt="Preview" className="w-12 h-12 rounded-lg object-cover" />
-            <button 
-              onClick={() => setAttachedImage(null)}
-              className="p-1 rounded-full hover:bg-red-500/20 text-red-500 transition-colors"
-            >
-              <X size={14} />
-            </button>
+        {attachments.length > 0 && (
+          <div className="absolute bottom-full left-0 mb-4 p-2 glass rounded-xl animate-in fade-in slide-in-from-bottom-2">
+            <AttachmentList
+              attachments={attachments}
+              onRemove={removeAttachment}
+              isDarkMode={isDarkMode}
+            />
+            {attachments.length >= MAX_ATTACHMENTS && (
+              <span className="text-[10px] text-amber-500 mt-1 block">
+                已达到附件上限 ({MAX_ATTACHMENTS} 个)
+              </span>
+            )}
           </div>
         )}
         
@@ -382,13 +664,19 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 <div className="relative" ref={attachmentMenuRef}>
                   <button 
                     onClick={() => setIsAttachmentMenuOpen(!isAttachmentMenuOpen)}
-                    className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-zinc-500/10 text-zinc-500 transition-colors shrink-0"
-                    title="添加附件"
+                    className={cn(
+                      "flex items-center justify-center w-8 h-8 rounded-lg transition-colors shrink-0",
+                      canAddMoreAttachments 
+                        ? "hover:bg-zinc-500/10 text-zinc-500" 
+                        : "text-zinc-300 dark:text-zinc-600 cursor-not-allowed"
+                    )}
+                    title={canAddMoreAttachments ? "添加附件" : `已达到附件上限 (${MAX_ATTACHMENTS} 个)`}
+                    disabled={!canAddMoreAttachments}
                   >
                     <Plus size={18} />
                   </button>
                   
-                  {isAttachmentMenuOpen && (
+                  {isAttachmentMenuOpen && canAddMoreAttachments && (
                     <div className="absolute bottom-full left-0 mb-2 w-32 bg-white dark:bg-zinc-700 rounded-lg shadow-xl border border-zinc-200 dark:border-zinc-600 overflow-hidden z-50">
                       <button 
                         onClick={() => {
@@ -517,10 +805,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 ) : (
                   <button 
                     onClick={onSend}
-                    disabled={(!input.trim() && !attachedImage) || isStreaming}
+                    disabled={(!input.trim() && attachments.length === 0) || isStreaming}
                     className={cn(
                       "p-2 rounded-xl transition-all",
-                      input.trim() || attachedImage
+                      input.trim() || attachments.length > 0
                         ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20" 
                         : "bg-zinc-500/10 text-zinc-500 opacity-50 cursor-not-allowed"
                     )}
@@ -535,16 +823,18 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             <input 
               type="file" 
               ref={fileInputRef} 
-              onChange={handleImageUpload} 
+              onChange={(e) => handleFileUpload(e, 'image')} 
               className="hidden" 
-              accept="image/*" 
+              accept="image/*"
+              multiple
             />
             <input 
               type="file" 
               ref={documentInputRef} 
-              onChange={handleImageUpload} 
+              onChange={(e) => handleFileUpload(e, 'document')} 
               className="hidden" 
-              accept=".pdf,.doc,.docx,.txt,.csv,.xlsx" 
+              accept=".pdf,.doc,.docx,.txt,.csv,.xlsx,.js,.jsx,.ts,.tsx,.py,.java,.c,.cpp,.h,.hpp,.cs,.go,.rs,.php,.rb,.swift,.kt,.kts,.html,.css,.scss,.less,.json,.xml,.yaml,.yml,.md,.sh,.bash,.sql"
+              multiple
             />
           </div>
       </div>

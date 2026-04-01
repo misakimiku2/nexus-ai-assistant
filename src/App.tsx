@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Plus, Command, Bot } from 'lucide-react';
 import { cn } from './lib/utils';
-import { Message, SearchResult, AppMode, McpServer, PendingAction, TabType, SearchGroup, ModelProvider } from './types';
+import { Message, SearchResult, AppMode, McpServer, PendingAction, TabType, SearchGroup, ModelProvider, Attachment, MessageRole } from './types';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { ChatView } from './components/ChatView';
@@ -24,7 +24,7 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from './hooks/useTranslation';
-import { ConversationMessage, ReasoningStep, ToolCallRecord, AgentStatus } from './agent/types';
+import { ConversationMessage, ReasoningStep, ToolCallRecord, AgentStatus, ContentPart } from './agent/types';
 import { DEFAULT_AGENT } from './data/agents';
 
 export default function App() {
@@ -64,7 +64,7 @@ export default function App() {
   const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(false);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-  const [attachedImage, setAttachedImage] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
 
   // Resizing State
   const [commandChatWidth, setCommandChatWidth] = useState(350);
@@ -353,7 +353,7 @@ export default function App() {
     setNewMcpArgs('');
   };
 
-  const requestAI = async (currentMsgs: Message[], systemPromptToUse: string, originalInput: string, existingAssistantId?: string) => {
+  const requestAI = async (currentMsgs: Message[], systemPromptToUse: string, originalInput: string, existingAssistantId?: string, attachments?: Attachment[]) => {
     setIsStreaming(true);
     
     // Determine the API URL, Model Name, and API Key to use
@@ -741,12 +741,107 @@ export default function App() {
       }
 
       // --- 8GB VRAM 深度上下文压缩策略 ---
-      let apiMessages = currentMsgs.map(m => ({ 
-        role: m.role, 
-        content: cleanContentForApi(m.content) 
-      }));
+      let apiMessages: Array<{ role: MessageRole; content: string | any[] }> = currentMsgs.map(m => {
+        if (m.attachments && m.attachments.length > 0) {
+          const imageAttachments = m.attachments.filter(a => a.type === 'image');
+          const documentAttachments = m.attachments.filter(a => a.type === 'document');
+          
+          let textContent = cleanContentForApi(m.content);
+          
+          if (documentAttachments.length > 0) {
+            textContent += '\n\n[附件文件]\n';
+            for (const doc of documentAttachments) {
+              textContent += `\n--- ${doc.name} ---\n`;
+              try {
+                const base64Data = doc.data.split(',')[1];
+                const decodedContent = atob(base64Data);
+                const utf8Content = new TextDecoder('utf-8').decode(new Uint8Array([...decodedContent].map(c => c.charCodeAt(0))));
+                textContent += utf8Content.substring(0, 10000);
+                if (utf8Content.length > 10000) {
+                  textContent += '\n... [文件内容过长，已截断]';
+                }
+              } catch {
+                textContent += '[无法解析文件内容]';
+              }
+              textContent += '\n--- 文件结束 ---\n';
+            }
+          }
+          
+          if (imageAttachments.length > 0) {
+            const content: any[] = [{ type: 'text', text: textContent }];
+            for (const img of imageAttachments) {
+              content.push({
+                type: 'image_url',
+                image_url: { url: img.data }
+              });
+            }
+            return { role: m.role, content };
+          }
+          
+          return { role: m.role, content: textContent };
+        }
+        return { role: m.role, content: cleanContentForApi(m.content) };
+      });
+      
+      if (attachments && attachments.length > 0) {
+        let lastUserMsgIndex = -1;
+        for (let i = apiMessages.length - 1; i >= 0; i--) {
+          if (apiMessages[i].role === 'user') {
+            lastUserMsgIndex = i;
+            break;
+          }
+        }
+        if (lastUserMsgIndex !== -1) {
+          const imageAttachments = attachments.filter(a => a.type === 'image');
+          const documentAttachments = attachments.filter(a => a.type === 'document');
+          
+          const currentContent = apiMessages[lastUserMsgIndex].content;
+          let textContent: string;
+          if (typeof currentContent === 'string') {
+            textContent = currentContent;
+          } else {
+            const textPart = currentContent.find((c: any) => c.type === 'text');
+            textContent = textPart?.text || '';
+          }
+          
+          if (documentAttachments.length > 0) {
+            textContent += '\n\n[附件文件]\n';
+            for (const doc of documentAttachments) {
+              textContent += `\n--- ${doc.name} ---\n`;
+              try {
+                const base64Data = doc.data.split(',')[1];
+                const decodedContent = atob(base64Data);
+                const utf8Content = new TextDecoder('utf-8').decode(new Uint8Array([...decodedContent].map(c => c.charCodeAt(0))));
+                textContent += utf8Content.substring(0, 10000);
+                if (utf8Content.length > 10000) {
+                  textContent += '\n... [文件内容过长，已截断]';
+                }
+              } catch {
+                textContent += '[无法解析文件内容]';
+              }
+              textContent += '\n--- 文件结束 ---\n';
+            }
+          }
+          
+          if (imageAttachments.length > 0) {
+            const content: any[] = [{ type: 'text', text: textContent }];
+            for (const img of imageAttachments) {
+              content.push({
+                type: 'image_url',
+                image_url: { url: img.data }
+              });
+            }
+            apiMessages[lastUserMsgIndex] = { role: 'user', content };
+          } else {
+            apiMessages[lastUserMsgIndex] = { role: 'user', content: textContent };
+          }
+        }
+      }
 
-      let totalTokens = estimateTokens(systemPromptToUse) + apiMessages.reduce((acc, m) => acc + estimateTokens(m.content), 0);
+      let totalTokens = estimateTokens(systemPromptToUse) + apiMessages.reduce((acc, m) => {
+        const contentStr = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+        return acc + estimateTokens(contentStr);
+      }, 0);
       addLog(t.logs.aiRequestStart.replace('{tokens}', String(totalTokens)).replace('{max}', String(maxContextLength)), 'info');
 
       if (totalTokens > maxContextLength * 0.85) {
@@ -755,11 +850,12 @@ export default function App() {
         // 策略 1: 历史代码块骨架化 (保留当前最新消息)
         apiMessages = apiMessages.map((msg, index) => {
           if (index === apiMessages.length - 1) return msg; // 不压缩当前输入
-          if (!msg.content.includes('```')) return msg;
+          const contentStr = typeof msg.content === 'string' ? msg.content : '';
+          if (!contentStr.includes('```')) return msg;
 
           return {
             ...msg,
-            content: msg.content.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
+            content: contentStr.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
               const lines = code.split('\n').length;
               if (lines > 15) {
                 return `\`\`\`${lang}\n/* [${t.context.codeBlockCollapsed.replace('{lines}', String(lines))}] */\n\`\`\``;
@@ -769,7 +865,10 @@ export default function App() {
           };
         });
 
-        const compressedTokens1 = estimateTokens(systemPromptToUse) + apiMessages.reduce((acc, m) => acc + estimateTokens(m.content), 0);
+        const compressedTokens1 = estimateTokens(systemPromptToUse) + apiMessages.reduce((acc, m) => {
+          const contentStr = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+          return acc + estimateTokens(contentStr);
+        }, 0);
         if (compressedTokens1 < totalTokens) {
           addLog(t.logs.codeBlockSkeletonized.replace('{released}', String(totalTokens - compressedTokens1)), 'info');
         }
@@ -783,7 +882,10 @@ export default function App() {
             { role: 'system', content: t.context.historyReleased },
             ...tail
           ];
-          const compressedTokens2 = estimateTokens(systemPromptToUse) + apiMessages.reduce((acc, m) => acc + estimateTokens(m.content), 0);
+          const compressedTokens2 = estimateTokens(systemPromptToUse) + apiMessages.reduce((acc, m) => {
+            const contentStr = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+            return acc + estimateTokens(contentStr);
+          }, 0);
           addLog(t.logs.headTailApplied.replace('{tokens}', String(compressedTokens2)), 'info');
           totalTokens = compressedTokens2;
         }
@@ -994,32 +1096,35 @@ export default function App() {
   };
 
   const handleSendMessage = async () => {
-    if (!input.trim() && !attachedImage) return;
+    if (!input.trim() && attachments.length === 0) return;
 
+    const messageContent = input.trim() || (attachments.length > 0 ? t.image.placeholder : '');
     const userMessage: Message = {
       id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
       role: 'user',
-      content: input.trim() || (attachedImage ? t.image.placeholder : ''),
+      content: messageContent,
       timestamp: Date.now(),
-      mode: appMode
+      mode: appMode,
+      attachments: attachments.length > 0 ? [...attachments] : undefined
     };
 
     addLog(t.logs.messageSent.replace('{length}', String(input.trim().length)), 'info');
 
     let currentMsgs = [...messages, userMessage];
 
-    const originalInput = input;
+    const originalInput = messageContent;
+    const currentAttachments = [...attachments];
     setInput('');
-    setAttachedImage(null);
+    setAttachments([]);
 
     if (agentExecution.isAgentMode && agentExecution.currentAgent) {
-      await handleAgentExecution(currentMsgs, originalInput);
+      await handleAgentExecution(currentMsgs, originalInput, currentAttachments);
     } else {
-      await requestAI(currentMsgs, systemPrompt, originalInput);
+      await requestAI(currentMsgs, systemPrompt, originalInput, undefined, currentAttachments);
     }
   };
 
-  const handleAgentExecution = async (currentMsgs: Message[], originalInput: string) => {
+  const handleAgentExecution = async (currentMsgs: Message[], originalInput: string, attachments?: Attachment[]) => {
     if (!agentExecution.currentAgent) return;
 
     const assistantMessageId = Date.now().toString() + Math.random().toString(36).substring(2, 9);
@@ -1043,12 +1148,71 @@ export default function App() {
     setScrollResetKey(k => k + 1);
 
     try {
-      const conversationHistory: ConversationMessage[] = currentMsgs.map(m => ({
-        role: m.role as 'system' | 'user' | 'assistant',
-        content: m.content,
-      }));
+      let enhancedInput = originalInput;
+      const imageAttachments = attachments?.filter(a => a.type === 'image') || [];
+      const documentAttachments = attachments?.filter(a => a.type === 'document') || [];
+      
+      if (documentAttachments.length > 0) {
+        enhancedInput += '\n\n[附件文件]\n';
+        for (const doc of documentAttachments) {
+          enhancedInput += `\n--- ${doc.name} ---\n`;
+          try {
+            const base64Data = doc.data.split(',')[1];
+            const decodedContent = atob(base64Data);
+            const utf8Content = new TextDecoder('utf-8').decode(new Uint8Array([...decodedContent].map(c => c.charCodeAt(0))));
+            enhancedInput += utf8Content.substring(0, 10000);
+            if (utf8Content.length > 10000) {
+              enhancedInput += '\n... [文件内容过长，已截断]';
+            }
+          } catch {
+            enhancedInput += '[无法解析文件内容]';
+          }
+          enhancedInput += '\n--- 文件结束 ---\n';
+        }
+      }
+      
+      const conversationHistory: ConversationMessage[] = currentMsgs.map(m => {
+        if (m.attachments && m.attachments.length > 0) {
+          const imgs = m.attachments.filter(a => a.type === 'image');
+          const docs = m.attachments.filter(a => a.type === 'document');
+          
+          let textContent = m.content;
+          if (docs.length > 0) {
+            textContent += '\n\n[附件文件]\n';
+            for (const doc of docs) {
+              textContent += `\n--- ${doc.name} ---\n`;
+              try {
+                const base64Data = doc.data.split(',')[1];
+                const decodedContent = atob(base64Data);
+                const utf8Content = new TextDecoder('utf-8').decode(new Uint8Array([...decodedContent].map(c => c.charCodeAt(0))));
+                textContent += utf8Content.substring(0, 10000);
+                if (utf8Content.length > 10000) {
+                  textContent += '\n... [文件内容过长，已截断]';
+                }
+              } catch {
+                textContent += '[无法解析文件内容]';
+              }
+              textContent += '\n--- 文件结束 ---\n';
+            }
+          }
+          
+          if (imgs.length > 0) {
+            const content: ContentPart[] = [{ type: 'text', text: textContent }];
+            for (const img of imgs) {
+              content.push({
+                type: 'image_url',
+                image_url: { url: img.data }
+              });
+            }
+            return { role: m.role as 'system' | 'user' | 'assistant', content };
+          }
+          
+          return { role: m.role as 'system' | 'user' | 'assistant', content: textContent };
+        }
+        return { role: m.role as 'system' | 'user' | 'assistant', content: m.content };
+      });
 
-      const result = await agentExecution.execute(originalInput, conversationHistory);
+      const result = await agentExecution.execute(enhancedInput, conversationHistory);
 
       setMessages(prev => prev.map(m => {
         if (m.id === assistantMessageId) {
@@ -1144,15 +1308,45 @@ export default function App() {
     }));
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'document') => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const currentCount = attachments.length;
+    const maxFiles = 10;
+    const availableSlots = maxFiles - currentCount;
+    
+    if (availableSlots <= 0) {
+      return;
+    }
+
+    const filesToProcess = Array.from(files).slice(0, availableSlots);
+
+    filesToProcess.forEach(file => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setAttachedImage(reader.result as string);
+        const mimeType = file.type || 'application/octet-stream';
+        const isImage = mimeType.startsWith('image/');
+        
+        const attachment: Attachment = {
+          id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+          type: isImage ? 'image' : 'document',
+          name: file.name,
+          data: reader.result as string,
+          mimeType: mimeType,
+          size: file.size
+        };
+        
+        setAttachments(prev => [...prev, attachment]);
       };
       reader.readAsDataURL(file);
-    }
+    });
+
+    e.target.value = '';
+  };
+
+  const removeAttachment = (id: string) => {
+    setAttachments(prev => prev.filter(a => a.id !== id));
   };
 
   return (
@@ -1256,12 +1450,13 @@ export default function App() {
                   appMode={appMode}
                   setAppMode={setAppMode}
                   isDarkMode={isDarkMode}
-                  attachedImage={attachedImage}
-                  setAttachedImage={setAttachedImage}
+                  attachments={attachments}
+                  setAttachments={setAttachments}
                   handleSendMessage={handleSendMessage}
                   handleStopAI={handleStopAI}
                   fileInputRef={fileInputRef}
-                  handleImageUpload={handleImageUpload}
+                  handleFileUpload={handleFileUpload}
+                  removeAttachment={removeAttachment}
                   maxContextLength={maxContextLength}
                   isWebSearchEnabled={isWebSearchEnabled}
                   setIsWebSearchEnabled={setIsWebSearchEnabled}
