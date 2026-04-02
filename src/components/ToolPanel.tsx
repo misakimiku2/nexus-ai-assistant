@@ -139,10 +139,6 @@ interface ToolPanelProps {
   isOpen: boolean;
   onClose: () => void;
   isDarkMode: boolean;
-  temperature: number;
-  setTemperature: (temp: number) => void;
-  systemPrompt: string;
-  setSystemPrompt: (prompt: string) => void;
 }
 
 type TabType = 'status' | 'params' | 'monitor';
@@ -151,10 +147,6 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
   isOpen,
   onClose,
   isDarkMode,
-  temperature,
-  setTemperature,
-  systemPrompt,
-  setSystemPrompt
 }) => {
   const { 
     logs, 
@@ -171,7 +163,11 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
     searchGroups,
     setSearchGroups,
     deleteSearchGroup,
-    currentSessionId
+    currentSessionId,
+    temperature,
+    setTemperature,
+    systemPrompt,
+    setSystemPrompt
   } = useGlobalState();
 
   // Filter search groups by current session

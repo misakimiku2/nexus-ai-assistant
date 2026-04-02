@@ -1,8 +1,10 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
-import { Message, LogEntry, ChatSession, ChatFolder, Agent, TodoItem, SearchGroup, SearchResult, McpServer } from '../types';
+import { Message, LogEntry, ChatSession, ChatFolder, Agent, TodoItem, SearchGroup, SearchResult, McpServer, ModelConfig, TokenUsageRecord } from '../types';
 import { AGENTS as INITIAL_AGENTS } from '../data/agents';
 import { generateMockConversation, generateClusterMockConversation } from '../utils/mockData';
+import { calculateCost } from '../utils/pricing';
+import { checkModelHealth, HealthCheckResult } from '../services/modelHealthCheck';
 
 interface GlobalState {
   messages: Message[];
@@ -99,6 +101,35 @@ interface GlobalState {
   setTavilySearchDepth: (depth: 'basic' | 'advanced') => void;
   tavilyIncludeAnswer: boolean;
   setTavilyIncludeAnswer: (include: boolean) => void;
+  
+  // Model Configs
+  modelConfigs: ModelConfig[];
+  activeModelId: string | null;
+  activeModel: ModelConfig | null;
+  modelName: string;
+  maxContextLength: number;
+  addModelConfig: (config: ModelConfig) => void;
+  updateModelConfig: (id: string, config: Partial<ModelConfig>) => void;
+  deleteModelConfig: (id: string) => void;
+  setActiveModel: (id: string | null) => void;
+  reorderModelConfigs: (id: string, direction: 'up' | 'down') => void;
+  
+  // Model Settings
+  temperature: number;
+  setTemperature: (temp: number) => void;
+  systemPrompt: string;
+  setSystemPrompt: (prompt: string) => void;
+  
+  // Token Usage Records
+  tokenUsageRecords: TokenUsageRecord[];
+  addTokenUsageRecord: (record: Omit<TokenUsageRecord, 'id'>) => void;
+  getTokenUsageStats: (modelId?: string, timeRange?: 'day' | 'week' | 'month' | 'year') => { totalInputTokens: number; totalOutputTokens: number; totalCost: number };
+  clearTokenUsageRecords: () => void;
+  
+  // Model Health Check
+  checkModelConnection: (modelId: string) => Promise<void>;
+  startModelHealthCheck: () => void;
+  stopModelHealthCheck: () => void;
 }
 
 export const GlobalStateContext = createContext<GlobalState | undefined>(undefined);
@@ -190,6 +221,204 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     return stored === 'true';
   });
 
+  // Model Configs
+  const [modelConfigs, setModelConfigs] = useState<ModelConfig[]>(() => {
+    const stored = localStorage.getItem('nexus_model_configs');
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
+  const [activeModelId, setActiveModelId] = useState<string | null>(() => {
+    return localStorage.getItem('nexus_active_model_id') || null;
+  });
+
+  // Model Settings
+  const [temperature, setTemperature] = useState<number>(() => {
+    const stored = localStorage.getItem('nexus_temperature');
+    return stored ? parseFloat(stored) : 0.7;
+  });
+  
+  const [systemPrompt, setSystemPrompt] = useState<string>(() => {
+    return localStorage.getItem('nexus_system_prompt') || '你是一个专业、简洁的 AI 助手。';
+  });
+
+  // Derived model state
+  const activeModel = useMemo(() => {
+    return modelConfigs.find(m => m.id === activeModelId) || null;
+  }, [modelConfigs, activeModelId]);
+  
+  const modelName = activeModel?.name || '';
+  const maxContextLength = activeModel?.maxContextLength || 4096;
+
+  // Token Usage Records
+  const MAX_TOKEN_RECORDS = 10000;
+  const [tokenUsageRecords, setTokenUsageRecords] = useState<TokenUsageRecord[]>(() => {
+    const stored = localStorage.getItem('nexus_token_usage_records');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        return parsed.filter((r: TokenUsageRecord) => r.timestamp > thirtyDaysAgo);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
+
+  const addTokenUsageRecord = (record: Omit<TokenUsageRecord, 'id'>) => {
+    const model = modelConfigs.find(m => m.id === record.modelId);
+    const cost = record.cost ?? calculateCost(record.inputTokens, record.outputTokens, model?.pricing);
+    
+    const newRecord: TokenUsageRecord = {
+      ...record,
+      cost,
+      id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+    };
+    setTokenUsageRecords(prev => {
+      const updated = [...prev, newRecord];
+      if (updated.length > MAX_TOKEN_RECORDS) {
+        return updated.slice(-MAX_TOKEN_RECORDS);
+      }
+      return updated;
+    });
+  };
+
+  const getTokenUsageStats = (modelId?: string, timeRange?: 'day' | 'week' | 'month' | 'year') => {
+    const now = Date.now();
+    let startTime: number;
+    
+    switch (timeRange) {
+      case 'day':
+        startTime = now - 24 * 60 * 60 * 1000;
+        break;
+      case 'week':
+        startTime = now - 7 * 24 * 60 * 60 * 1000;
+        break;
+      case 'month':
+        startTime = now - 30 * 24 * 60 * 60 * 1000;
+        break;
+      case 'year':
+        startTime = now - 365 * 24 * 60 * 60 * 1000;
+        break;
+      default:
+        startTime = 0;
+    }
+    
+    const filteredRecords = tokenUsageRecords.filter(r => {
+      const matchesTime = r.timestamp >= startTime;
+      const matchesModel = modelId ? r.modelId === modelId : true;
+      return matchesTime && matchesModel;
+    });
+    
+    return {
+      totalInputTokens: filteredRecords.reduce((sum, r) => sum + r.inputTokens, 0),
+      totalOutputTokens: filteredRecords.reduce((sum, r) => sum + r.outputTokens, 0),
+      totalCost: filteredRecords.reduce((sum, r) => sum + r.cost, 0),
+    };
+  };
+
+  const clearTokenUsageRecords = () => {
+    setTokenUsageRecords([]);
+  };
+
+  const addModelConfig = (config: ModelConfig) => {
+    setModelConfigs(prev => {
+      const newConfigs = [...prev, { ...config, priority: prev.length + 1 }];
+      return newConfigs;
+    });
+  };
+
+  const updateModelConfig = (id: string, config: Partial<ModelConfig>) => {
+    setModelConfigs(prev => prev.map(c => c.id === id ? { ...c, ...config } : c));
+  };
+
+  const deleteModelConfig = (id: string) => {
+    setModelConfigs(prev => {
+      const filtered = prev.filter(c => c.id !== id);
+      return filtered.map((c, index) => ({ ...c, priority: index + 1 }));
+    });
+    if (activeModelId === id) {
+      setActiveModelId(null);
+    }
+  };
+
+  const setActiveModel = (id: string | null) => {
+    setActiveModelId(id);
+  };
+
+  const reorderModelConfigs = (id: string, direction: 'up' | 'down') => {
+    setModelConfigs(prev => {
+      const index = prev.findIndex(c => c.id === id);
+      if (index === -1) return prev;
+      if (direction === 'up' && index === 0) return prev;
+      if (direction === 'down' && index === prev.length - 1) return prev;
+      
+      const newConfigs = [...prev];
+      const swapIndex = direction === 'up' ? index - 1 : index + 1;
+      [newConfigs[index], newConfigs[swapIndex]] = [newConfigs[swapIndex], newConfigs[index]];
+      return newConfigs.map((c, i) => ({ ...c, priority: i + 1 }));
+    });
+  };
+
+  // Model Health Check
+  const healthCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [, setHealthCheckResults] = useState<Map<string, HealthCheckResult>>(new Map());
+
+  const checkModelConnection = useCallback(async (modelId: string) => {
+    const config = modelConfigs.find(m => m.id === modelId);
+    if (!config) return;
+    
+    const result = await checkModelHealth(config);
+    
+    updateModelConfig(modelId, {
+      status: result.status,
+      lastConnected: result.status === 'active' ? Date.now() : undefined,
+    });
+    
+    setHealthCheckResults(prev => {
+      const newResults = new Map(prev);
+      newResults.set(modelId, result);
+      return newResults;
+    });
+  }, [modelConfigs, updateModelConfig]);
+
+  const startModelHealthCheck = useCallback(() => {
+    if (healthCheckIntervalRef.current) {
+      clearInterval(healthCheckIntervalRef.current);
+    }
+    
+    const runHealthCheck = async () => {
+      for (const config of modelConfigs) {
+        if (config.status !== 'inactive') {
+          await checkModelConnection(config.id);
+        }
+      }
+    };
+    
+    runHealthCheck();
+    
+    healthCheckIntervalRef.current = setInterval(runHealthCheck, 30000);
+  }, [modelConfigs, checkModelConnection]);
+
+  const stopModelHealthCheck = useCallback(() => {
+    if (healthCheckIntervalRef.current) {
+      clearInterval(healthCheckIntervalRef.current);
+      healthCheckIntervalRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      stopModelHealthCheck();
+    };
+  }, [stopModelHealthCheck]);
+
   // Persist User Settings
   useEffect(() => { localStorage.setItem('nexus_user_name', userName); }, [userName]);
   useEffect(() => { localStorage.setItem('nexus_ai_name', aiName); }, [aiName]);
@@ -204,6 +433,23 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
   useEffect(() => { localStorage.setItem('nexus_tavily_enabled', String(tavilyEnabled)); }, [tavilyEnabled]);
   useEffect(() => { localStorage.setItem('nexus_tavily_search_depth', tavilySearchDepth); }, [tavilySearchDepth]);
   useEffect(() => { localStorage.setItem('nexus_tavily_include_answer', String(tavilyIncludeAnswer)); }, [tavilyIncludeAnswer]);
+
+  // Persist Model Configs
+  useEffect(() => { localStorage.setItem('nexus_model_configs', JSON.stringify(modelConfigs)); }, [modelConfigs]);
+  useEffect(() => { 
+    if (activeModelId) {
+      localStorage.setItem('nexus_active_model_id', activeModelId);
+    } else {
+      localStorage.removeItem('nexus_active_model_id');
+    }
+  }, [activeModelId]);
+
+  // Persist Model Settings
+  useEffect(() => { localStorage.setItem('nexus_temperature', temperature.toString()); }, [temperature]);
+  useEffect(() => { localStorage.setItem('nexus_system_prompt', systemPrompt); }, [systemPrompt]);
+
+  // Persist Token Usage Records
+  useEffect(() => { localStorage.setItem('nexus_token_usage_records', JSON.stringify(tokenUsageRecords)); }, [tokenUsageRecords]);
 
   // Sync i18next with global state language
   useEffect(() => {
@@ -679,7 +925,28 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
       tavilyApiKey, setTavilyApiKey,
       tavilyEnabled, setTavilyEnabled,
       tavilySearchDepth, setTavilySearchDepth,
-      tavilyIncludeAnswer, setTavilyIncludeAnswer
+      tavilyIncludeAnswer, setTavilyIncludeAnswer,
+      modelConfigs,
+      activeModelId,
+      activeModel,
+      modelName,
+      maxContextLength,
+      addModelConfig,
+      updateModelConfig,
+      deleteModelConfig,
+      setActiveModel,
+      reorderModelConfigs,
+      temperature,
+      setTemperature,
+      systemPrompt,
+      setSystemPrompt,
+      tokenUsageRecords,
+      addTokenUsageRecord,
+      getTokenUsageStats,
+      clearTokenUsageRecords,
+      checkModelConnection,
+      startModelHealthCheck,
+      stopModelHealthCheck
     }}>
       {children}
     </GlobalStateContext.Provider>

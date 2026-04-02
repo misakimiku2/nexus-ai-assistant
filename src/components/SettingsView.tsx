@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Settings, Save, RotateCcw, CheckCircle2, XCircle, RefreshCw, Activity, X, Database, Server, Globe, UploadCloud, FileText, User, Languages, Type, MessageSquare, Camera, Mic, Cpu, Minimize2, Power, ExternalLink } from 'lucide-react';
+import { Settings, XCircle, RefreshCw, Activity, X, Database, Server, Globe, UploadCloud, FileText, User, Languages, Type, MessageSquare, Camera, Mic, Cpu, Minimize2, Power, ExternalLink, Plus } from 'lucide-react';
 import { NexusLogo } from './NexusLogo';
 import { useGlobalState } from '../context/GlobalStateContext';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +8,10 @@ import { cn } from '../lib/utils';
 import { ImageCropper } from './ImageCropper';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 import { VoiceSettings } from './VoiceSettings';
+import { ModelConfigCard } from './ModelConfigCard';
+import { ModelConfigForm } from './ModelConfigForm';
+import { TokenUsageChart } from './TokenUsageChart';
+import { ModelConfig } from '../types';
 
 interface TavilyUsage {
   key: {
@@ -73,21 +77,6 @@ interface SettingsViewProps {
   isOpen: boolean;
   onClose: () => void;
   isDarkMode: boolean;
-  lmStudioUrl: string;
-  setLmStudioUrl: (url: string) => void;
-  ollamaUrl: string;
-  setOllamaUrl: (url: string) => void;
-  modelName: string;
-  setModelName: (name: string) => void;
-  maxContextLength: number;
-  setMaxContextLength: (length: number) => void;
-  temperature: number;
-  setTemperature: (temp: number) => void;
-  systemPrompt: string;
-  setSystemPrompt: (prompt: string) => void;
-  modelProvider: ModelProvider;
-  setModelProvider: (provider: ModelProvider) => void;
-  onReset: () => void;
 }
 
 type SettingsCategory = 'ai-models' | 'rag' | 'user-settings' | 'voice';
@@ -97,21 +86,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   isOpen,
   onClose,
   isDarkMode,
-  lmStudioUrl,
-  setLmStudioUrl,
-  ollamaUrl,
-  setOllamaUrl,
-  modelName,
-  setModelName,
-  maxContextLength,
-  setMaxContextLength,
-  temperature,
-  setTemperature,
-  systemPrompt,
-  setSystemPrompt,
-  modelProvider,
-  setModelProvider,
-  onReset
 }) => {
   const { 
     addLog,
@@ -127,7 +101,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     tavilyApiKey, setTavilyApiKey,
     tavilyEnabled, setTavilyEnabled,
     tavilySearchDepth, setTavilySearchDepth,
-    tavilyIncludeAnswer, setTavilyIncludeAnswer
+    tavilyIncludeAnswer, setTavilyIncludeAnswer,
+    modelConfigs,
+    activeModelId,
+    addModelConfig,
+    updateModelConfig,
+    deleteModelConfig,
+    setActiveModel,
+    reorderModelConfigs,
+    tokenUsageRecords,
+    checkModelConnection
   } = useGlobalState();
   const { t } = useTranslation();
   const [activeCategory, setActiveCategory] = useState<SettingsCategory>('user-settings');
@@ -160,15 +143,77 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [ragFiles, setRagFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [availableModels, setAvailableModels] = useState<string[]>([]);
-  const [isFetchingModels, setIsFetchingModels] = useState(false);
-  const [isTestingConnection, setIsTestingConnection] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   
   const [tavilyUsage, setTavilyUsage] = useState<TavilyUsage | null>(null);
   const [isFetchingTavilyUsage, setIsFetchingTavilyUsage] = useState(false);
+
+  // Model Config State
+  const [isAddingModel, setIsAddingModel] = useState(false);
+  const [editingModel, setEditingModel] = useState<ModelConfig | null>(null);
+  const [tokenTimeRange, setTokenTimeRange] = useState<'day' | 'week' | 'month' | 'year'>('day');
+  const [checkingModelIds, setCheckingModelIds] = useState<Set<string>>(new Set());
+
+  const handleCheckModelConnection = async (modelId: string) => {
+    setCheckingModelIds(prev => new Set(prev).add(modelId));
+    try {
+      await checkModelConnection(modelId);
+    } finally {
+      setCheckingModelIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(modelId);
+        return newSet;
+      });
+    }
+  };
+
+  // Reset model form state when settings panel closes
+  useEffect(() => {
+    if (!isOpen) {
+      setIsAddingModel(false);
+      setEditingModel(null);
+    }
+  }, [isOpen]);
+
+  const handleAddModel = (config: Omit<ModelConfig, 'id' | 'createdAt' | 'priority'>) => {
+    const newConfig: ModelConfig = {
+      ...config,
+      id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+      createdAt: Date.now(),
+      priority: modelConfigs.length + 1,
+    };
+    addModelConfig(newConfig);
+    setIsAddingModel(false);
+    addLog(`已添加模型: ${config.name}`, 'info');
+  };
+
+  const handleUpdateModel = (config: Omit<ModelConfig, 'id' | 'createdAt' | 'priority'>) => {
+    if (editingModel) {
+      updateModelConfig(editingModel.id, config);
+      setEditingModel(null);
+      addLog(`已更新模型: ${config.name}`, 'info');
+    }
+  };
+
+  const handleDeleteModel = (id: string) => {
+    const config = modelConfigs.find(c => c.id === id);
+    deleteModelConfig(id);
+    addLog(`已删除模型: ${config?.name}`, 'info');
+  };
+
+  const handleToggleModel = (id: string) => {
+    if (activeModelId === id) {
+      setActiveModel(null);
+      addLog('已取消选择当前模型', 'info');
+    } else {
+      setActiveModel(id);
+      const config = modelConfigs.find(c => c.id === id);
+      addLog(`已选择模型: ${config?.name}`, 'info');
+    }
+  };
+
+  const handleReorderModel = (id: string, direction: 'up' | 'down') => {
+    reorderModelConfigs(id, direction);
+  };
 
   const fetchTavilyUsage = async (apiKey: string) => {
     if (!apiKey) return;
@@ -203,79 +248,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [croppingTarget, setCroppingTarget] = useState<'user' | 'ai' | null>(null);
   const userAvatarInputRef = useRef<HTMLInputElement>(null);
   const aiAvatarInputRef = useRef<HTMLInputElement>(null);
-
-  // Helper to get base URL from chat completions URL
-  const getBaseUrl = (url: string) => {
-    try {
-      const urlObj = new URL(url);
-      return `${urlObj.protocol}//${urlObj.host}/v1`;
-    } catch (e) {
-      // Fallback if URL parsing fails
-      return url.replace('/chat/completions', '');
-    }
-  };
-
-  const fetchModels = async () => {
-    setIsFetchingModels(true);
-    try {
-      const baseUrl = getBaseUrl(lmStudioUrl);
-      const response = await fetch(`${baseUrl}/models`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data && data.data && Array.isArray(data.data)) {
-          const models = data.data.map((m: any) => m.id).filter((id: string) => id && id.trim() !== '');
-          setAvailableModels(models);
-          if (models.length > 0 && !models.includes(modelName)) {
-            setModelName(models[0]);
-          }
-          addLog(`成功获取到 ${models.length} 个模型`, 'info');
-        }
-      } else {
-        throw new Error('Failed to fetch models');
-      }
-    } catch (error) {
-      console.error("Error fetching models:", error);
-      addLog('获取模型列表失败，请检查 LM Studio 是否已启动并开启 Server', 'error');
-    } finally {
-      setIsFetchingModels(false);
-    }
-  };
-
-  const testConnection = async () => {
-    setIsTestingConnection(true);
-    setConnectionStatus('idle');
-    try {
-      const baseUrl = getBaseUrl(lmStudioUrl);
-      const response = await fetch(`${baseUrl}/models`);
-      if (response.ok) {
-        setConnectionStatus('success');
-        addLog('连接测试成功！', 'info');
-        // Auto fetch models on successful test
-        fetchModels();
-      } else {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-    } catch (error) {
-      console.error("Connection test failed:", error);
-      setConnectionStatus('error');
-      addLog(`连接测试失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error');
-    } finally {
-      setIsTestingConnection(false);
-    }
-  };
-
-  const handleSave = () => {
-    setSaveStatus('saving');
-    // Simulate save delay for visual feedback
-    setTimeout(() => {
-      setSaveStatus('saved');
-      addLog('设置已保存', 'info');
-      setTimeout(() => {
-        setSaveStatus('idle');
-        onClose();
-      }, 1000);
-    }, 500);
-  };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -995,266 +967,111 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     </motion.div>
                   )}
 
-                      {activeCategory === 'ai-models' && (
-                        <motion.div 
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="space-y-8"
-                        >
-                          {/* Provider Selection */}
-                          <section className="space-y-4">
-                            <h4 className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>{t('settings.ai.provider')}</h4>
-                            <div className="grid grid-cols-3 gap-3">
-                              {[
-                                { id: 'lm-studio', icon: Server, label: 'LM Studio' },
-                                { id: 'ollama', icon: Cpu, label: 'Ollama' },
-                                { id: 'online', icon: Globe, label: t('settings.ai.online') || '在线模型' },
-                              ].map((provider) => (
-                            <button
-                              key={provider.id}
-                              onClick={() => setModelProvider(provider.id as ModelProvider)}
-                              className={cn(
-                                "flex flex-col items-center justify-center gap-2 p-4 rounded-xl border transition-all",
-                                modelProvider === provider.id
-                                  ? "bg-indigo-500/10 border-indigo-500/50 text-indigo-500 dark:text-indigo-400"
-                                  : isDarkMode
-                                    ? "bg-zinc-800/50 border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
-                                    : "bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
-                              )}
-                            >
-                              <provider.icon size={24} />
-                              <span className="text-sm font-medium">{provider.label}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </section>
-
-                      <section className="space-y-4">
-                        <h4 className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>{t('settings.ai.connectionSettings')}</h4>
-                        <div className={cn(
-                          "grid gap-4 p-5 border rounded-2xl",
-                          isDarkMode ? "bg-zinc-700/30 border-zinc-600/50" : "bg-zinc-50 border-zinc-200"
-                        )}>
-                          {modelProvider === 'online' ? (
-                            <>
-                              <div className="space-y-2">
-                                <label htmlFor="onlineApiKey" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.ai.apiKey')}</label>
-                                <div className="flex gap-2">
-                                  <input 
-                                    id="onlineApiKey"
-                                    name="onlineApiKey"
-                                    type="password" 
-                                    value={onlineApiKey}
-                                    onChange={(e) => setOnlineApiKey(e.target.value)}
-                                    placeholder={t('settings.ai.apiKeyPlaceholder')}
-                                    className={cn(
-                                      "flex-1 border rounded-xl px-4 py-2.5 text-sm focus:ring-1 focus:ring-indigo-500/50 outline-none transition-all",
-                                      isDarkMode ? "bg-zinc-700 border-zinc-600 text-zinc-200" : "bg-white border-zinc-300 text-zinc-900"
-                                    )}
-                                  />
-                                  <a
-                                    href={onlineProviders[onlineProvider as keyof typeof onlineProviders].apiKeyUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={cn(
-                                      "px-4 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center whitespace-nowrap",
-                                      isDarkMode 
-                                        ? "bg-zinc-700 hover:bg-zinc-600 text-zinc-300" 
-                                        : "bg-zinc-200 hover:bg-zinc-300 text-zinc-700"
-                                    )}
-                                  >
-                                    {t('settings.ai.getApiKey')}
-                                  </a>
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2 relative">
-                                  <label htmlFor="onlineProvider" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.ai.vendor')}</label>
-                                  <div className="relative">
-                                    <button
-                                      id="onlineProvider"
-                                      name="onlineProvider"
-                                      type="button"
-                                      onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                                      className={cn(
-                                        "w-full flex items-center gap-2 border rounded-xl px-4 py-2.5 text-sm focus:ring-1 focus:ring-indigo-500/50 outline-none appearance-none",
-                                        isDarkMode ? "bg-zinc-700 border-zinc-600 text-zinc-200" : "bg-white border-zinc-300 text-zinc-900"
-                                      )}
-                                    >
-                                      <img src={onlineProviders[onlineProvider as keyof typeof onlineProviders].logo} alt="" className="w-5 h-5 rounded-sm" />
-                                      {onlineProviders[onlineProvider as keyof typeof onlineProviders].name}
-                                    </button>
-                                    {isDropdownOpen && (
-                                      <div className="absolute z-10 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl shadow-lg">
-                                        {Object.entries(onlineProviders).map(([id, p]) => (
-                                          <button
-                                            key={id}
-                                            type="button"
-                                            onClick={() => {
-                                              setOnlineProvider(id);
-                                              setOnlineModel(p.models[0]);
-                                              setIsDropdownOpen(false);
-                                            }}
-                                            className="w-full flex items-center gap-2 px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 text-sm"
-                                          >
-                                            <img src={p.logo} alt="" className="w-5 h-5 rounded-sm" />
-                                            {p.name}
-                                          </button>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="space-y-2 relative">
-                                  <label htmlFor="onlineModel" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.ai.model')}</label>
-                                  <div className="relative">
-                                    <button
-                                      id="onlineModel"
-                                      name="onlineModel"
-                                      type="button"
-                                      onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
-                                      className={cn(
-                                        "w-full flex items-center gap-2 border rounded-xl px-4 py-2.5 text-sm focus:ring-1 focus:ring-indigo-500/50 outline-none appearance-none",
-                                        isDarkMode ? "bg-zinc-700 border-zinc-600 text-zinc-200" : "bg-white border-zinc-300 text-zinc-900"
-                                      )}
-                                    >
-                                      <img src={onlineProviders[onlineProvider as keyof typeof onlineProviders].logo} alt="" className="w-5 h-5 rounded-sm" />
-                                      {onlineModel}
-                                    </button>
-                                    {isModelDropdownOpen && (
-                                      <div className="absolute z-10 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                                        {onlineProviders[onlineProvider as keyof typeof onlineProviders].models.filter(m => m && m.trim() !== '').map((model, idx) => (
-                                          <button
-                                            key={model || `model-${idx}`}
-                                            type="button"
-                                            onClick={() => {
-                                              setOnlineModel(model);
-                                              setIsModelDropdownOpen(false);
-                                            }}
-                                            className="w-full flex items-center gap-2 px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 text-sm"
-                                          >
-                                            <img src={onlineProviders[onlineProvider as keyof typeof onlineProviders].logo} alt="" className="w-5 h-5 rounded-sm" />
-                                            {model}
-                                          </button>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </>
-                          ) : (
-                            <>
-                              <div className="space-y-2">
-                                <label htmlFor="apiUrl" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.ai.apiUrl')}</label>
-                                <div className="flex gap-2">
-                                  <input 
-                                    id="apiUrl"
-                                    name="apiUrl"
-                                    type="text" 
-                                    value={modelProvider === 'ollama' ? ollamaUrl : lmStudioUrl}
-                                    onChange={(e) => {
-                                      if (modelProvider === 'ollama') setOllamaUrl(e.target.value);
-                                      else setLmStudioUrl(e.target.value);
-                                    }}
-                                    className={cn(
-                                      "flex-1 border rounded-xl px-4 py-2.5 text-sm focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500/50 outline-none transition-all",
-                                      isDarkMode ? "bg-zinc-700 border-zinc-600 text-zinc-200" : "bg-white border-zinc-300 text-zinc-900"
-                                    )}
-                                  />
-                                  <button 
-                                    onClick={testConnection}
-                                    disabled={isTestingConnection}
-                                    className={cn(
-                                      "px-4 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-50",
-                                      isDarkMode ? "bg-zinc-700 hover:bg-zinc-600 text-zinc-200" : "bg-zinc-200 hover:bg-zinc-300 text-zinc-800"
-                                    )}
-                                  >
-                                    {isTestingConnection ? <RefreshCw size={16} className="animate-spin" /> : <Activity size={16} />}
-                                    {t('settings.ai.testConnection')}
-                                  </button>
-                                </div>
-                                {connectionStatus === 'success' && <p className="text-xs text-emerald-500 flex items-center gap-1 mt-1"><CheckCircle2 size={12} /> {t('settings.ai.connectionSuccess')}</p>}
-                                {connectionStatus === 'error' && <p className="text-xs text-red-500 flex items-center gap-1 mt-1"><XCircle size={12} /> {t('settings.ai.connectionError')}</p>}
-                              </div>
-                              
-                              <div className="space-y-2">
-                                <div className="flex justify-between items-center">
-                                  <label htmlFor="modelNameInput" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.ai.modelName')}</label>
-                                  <button 
-                                    onClick={fetchModels} 
-                                    disabled={isFetchingModels}
-                                    className="text-xs text-indigo-500 dark:text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 flex items-center gap-1 disabled:opacity-50"
-                                  >
-                                    <RefreshCw size={10} className={isFetchingModels ? "animate-spin" : ""} />
-                                    {t('settings.ai.fetchModels')}
-                                  </button>
-                                </div>
-                                {availableModels.length > 0 ? (
-                                  <select
-                                    id="modelNameInput"
-                                    name="modelNameInput"
-                                    value={modelName}
-                                    onChange={(e) => setModelName(e.target.value)}
-                                    className={cn(
-                                      "w-full border rounded-xl px-4 py-2.5 text-sm focus:ring-1 focus:ring-indigo-500/50 outline-none appearance-none",
-                                      isDarkMode ? "bg-zinc-700 border-zinc-600 text-zinc-200" : "bg-white border-zinc-300 text-zinc-900"
-                                    )}
-                                  >
-                                    {availableModels.filter(m => m && m.trim() !== '').map((model, idx) => (
-                                      <option key={model || `model-${idx}`} value={model}>{model}</option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <input 
-                                    id="modelNameInput"
-                                    name="modelNameInput"
-                                    type="text" 
-                                    value={modelName}
-                                    onChange={(e) => setModelName(e.target.value)}
-                                    placeholder={t('settings.ai.modelNamePlaceholder')}
-                                    className={cn(
-                                      "w-full border rounded-xl px-4 py-2.5 text-sm focus:ring-1 focus:ring-indigo-500/50 outline-none transition-all",
-                                      isDarkMode ? "bg-zinc-700 border-zinc-600 text-zinc-200" : "bg-white border-zinc-300 text-zinc-900"
-                                    )}
-                                  />
-                                )}
-                              </div>
-                            </>
+                  {activeCategory === 'ai-models' && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="space-y-6"
+                    >
+                      <div className="flex items-center justify-between">
+                        <h4 className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>
+                          已连接模型
+                        </h4>
+                        <button
+                          onClick={() => setIsAddingModel(true)}
+                          disabled={isAddingModel || editingModel !== null}
+                          className={cn(
+                            "flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                            isAddingModel || editingModel !== null
+                              ? "opacity-50 cursor-not-allowed"
+                              : isDarkMode
+                                ? "bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30"
+                                : "bg-indigo-100 text-indigo-600 hover:bg-indigo-200"
                           )}
+                        >
+                          <Plus size={16} />
+                          添加
+                        </button>
+                      </div>
 
-                          <div className="space-y-4 pt-2">
-                            <div className="flex justify-between items-center">
-                              <label htmlFor="maxContextLength" className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>{t('settings.ai.maxContextLength')}</label>
-                              <input 
-                                id="maxContextLength"
-                                name="maxContextLength"
-                                type="number" 
-                                value={maxContextLength}
-                                onChange={(e) => setMaxContextLength(parseInt(e.target.value) || 4096)}
-                                className={cn(
-                                  "w-24 border rounded-lg px-3 py-1.5 text-sm text-right focus:ring-1 focus:ring-indigo-500/50 outline-none",
-                                  isDarkMode ? "bg-zinc-700 border-zinc-600 text-zinc-200" : "bg-white border-zinc-300 text-zinc-900"
-                                )}
+                      <AnimatePresence mode="popLayout">
+                        {modelConfigs.length === 0 && !isAddingModel ? (
+                          <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsAddingModel(true)}
+                            className={cn(
+                              "p-8 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-3 cursor-pointer transition-colors",
+                              isDarkMode
+                                ? "border-zinc-700 hover:border-zinc-600 text-zinc-500"
+                                : "border-zinc-300 hover:border-zinc-400 text-zinc-400"
+                            )}
+                          >
+                            <Server size={32} />
+                            <span className="text-sm">暂无已连接的模型</span>
+                            <span className="text-xs">点击右上角 + 添加模型</span>
+                          </motion.div>
+                        ) : (
+                          <div className="space-y-3">
+                            {modelConfigs.map((config, index) => (
+                              <ModelConfigCard
+                                key={config.id}
+                                config={config}
+                                isActive={activeModelId === config.id}
+                                isDarkMode={isDarkMode}
+                                onToggleActive={() => handleToggleModel(config.id)}
+                                onEdit={() => setEditingModel(config)}
+                                onDelete={() => handleDeleteModel(config.id)}
+                                onReorder={(direction) => handleReorderModel(config.id, direction)}
+                                onCheckConnection={() => handleCheckModelConnection(config.id)}
+                                isCheckingConnection={checkingModelIds.has(config.id)}
+                                canMoveUp={index > 0}
+                                canMoveDown={index < modelConfigs.length - 1}
                               />
-                            </div>
-                            <input 
-                              type="range" 
-                              min="1024" 
-                              max="128000" 
-                              step="1024"
-                              value={maxContextLength}
-                              onChange={(e) => setMaxContextLength(parseInt(e.target.value))}
-                              className="w-full accent-indigo-500"
-                            />
-                            <div className={cn("flex justify-between text-[10px]", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>
-                              <span>1K</span>
-                              <span>32K</span>
-                              <span>128K</span>
-                            </div>
+                            ))}
                           </div>
-                        </div>
-                      </section>
+                        )}
+                      </AnimatePresence>
+
+                      <AnimatePresence>
+                        {isAddingModel && !editingModel && (
+                          <ModelConfigForm
+                            isDarkMode={isDarkMode}
+                            onSave={handleAddModel}
+                            onCancel={() => setIsAddingModel(false)}
+                            addLog={addLog}
+                          />
+                        )}
+                      </AnimatePresence>
+
+                      <AnimatePresence>
+                        {editingModel && (
+                          <ModelConfigForm
+                            isDarkMode={isDarkMode}
+                            editingConfig={editingModel}
+                            onSave={handleUpdateModel}
+                            onCancel={() => setEditingModel(null)}
+                            addLog={addLog}
+                          />
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  )}
+
+                  {activeCategory === 'ai-models' && modelConfigs.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-6"
+                    >
+                      <TokenUsageChart
+                        isDarkMode={isDarkMode}
+                        modelConfigs={modelConfigs}
+                        tokenUsageRecords={tokenUsageRecords}
+                        timeRange={tokenTimeRange}
+                        onTimeRangeChange={setTokenTimeRange}
+                      />
                     </motion.div>
                   )}
 
@@ -1493,36 +1310,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   )}
 
                 </div>
-              </div>
-
-              {/* Footer */}
-              <div className={cn(
-                "p-4 border-t flex justify-end gap-3",
-                isDarkMode ? "border-zinc-700/50 bg-zinc-800/80" : "border-zinc-200 bg-zinc-50/80"
-              )}>
-                <button 
-                  onClick={onReset}
-                  className={cn(
-                    "px-4 py-2 rounded-xl text-sm font-medium transition-colors",
-                    isDarkMode ? "bg-zinc-700 hover:bg-zinc-600 text-zinc-300" : "bg-zinc-200 hover:bg-zinc-300 text-zinc-700"
-                  )}
-                >
-                  {t('settings.footer.reset')}
-                </button>
-                <button 
-                  onClick={handleSave}
-                  disabled={saveStatus === 'saving'}
-                  className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition-all flex items-center gap-2 disabled:opacity-80"
-                >
-                  {saveStatus === 'saving' ? (
-                    <RefreshCw size={16} className="animate-spin" />
-                  ) : saveStatus === 'saved' ? (
-                    <CheckCircle2 size={16} />
-                  ) : (
-                    <Save size={16} />
-                  )}
-                  {saveStatus === 'saving' ? t('settings.footer.saving') : saveStatus === 'saved' ? t('settings.footer.saved') : t('settings.footer.save')}
-                </button>
               </div>
             </div>
           </motion.div>

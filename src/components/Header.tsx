@@ -14,7 +14,6 @@ import { useGlobalState } from '../context/GlobalStateContext';
 import { useTranslation } from '../hooks/useTranslation';
 
 interface HeaderProps {
-  maxContextLength: number;
   isToolPanelOpen: boolean;
   setIsToolPanelOpen: (open: boolean) => void;
   isSidebarExpanded: boolean;
@@ -22,13 +21,12 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  maxContextLength,
   isToolPanelOpen,
   setIsToolPanelOpen,
   isSidebarExpanded,
   setIsSidebarExpanded
 }) => {
-  const { currentTokenCount, clearHistory, simulateTest, simulateClusterTest } = useGlobalState();
+  const { currentTokenCount, clearHistory, simulateTest, simulateClusterTest, maxContextLength } = useGlobalState();
   const { t } = useTranslation();
 
   return (

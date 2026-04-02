@@ -82,7 +82,6 @@ interface ChatInputProps {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   handleFileUpload: (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'document') => void;
   removeAttachment: (id: string) => void;
-  maxContextLength: number;
   isWebSearchEnabled: boolean;
   setIsWebSearchEnabled: (enabled: boolean) => void;
 }
@@ -102,11 +101,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   fileInputRef,
   handleFileUpload,
   removeAttachment,
-  maxContextLength,
   isWebSearchEnabled,
   setIsWebSearchEnabled
 }) => {
-  const { isStreaming, simulateSmbCheck, sessions, currentSessionId, currentTokenCount, compressMessages, fontFamily, agents, updateSessionAgents } = useGlobalState();
+  const { isStreaming, simulateSmbCheck, sessions, currentSessionId, currentTokenCount, compressMessages, fontFamily, agents, updateSessionAgents, maxContextLength } = useGlobalState();
   const [showTokenCount, setShowTokenCount] = React.useState(false);
   const [isHoveringStatus, setIsHoveringStatus] = React.useState(false);
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = React.useState(false);
@@ -187,10 +185,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     let mounted = true;
 
     const setupTauriDragListeners = async () => {
-      console.log('[Drag] Setting up Tauri drag listeners');
       try {
         const dragEnterUnlisten = await listen<{ paths: string[] }>('tauri://drag-enter', (event) => {
-          console.log('[Drag] drag-enter event:', event.payload.paths);
           if (!canAddMoreAttachmentsRef.current) return;
           const paths = event.payload.paths;
           const hasValidFiles = paths.some(path => {
@@ -204,12 +200,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         });
 
         const dragLeaveUnlisten = await listen('tauri://drag-leave', () => {
-          console.log('[Drag] drag-leave event');
           setIsDragOver(false);
         });
 
         const dragDropUnlisten = await listen<{ paths: string[] }>('tauri://drag-drop', (event) => {
-          console.log('[Drag] drag-drop event:', event.payload.paths);
           setIsDragOver(false);
           if (!canAddMoreAttachmentsRef.current) return;
           
@@ -219,8 +213,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             return ACCEPTED_FILE_EXTENSIONS.includes(ext) || 
                    ACCEPTED_IMAGE_TYPES.some(t => path.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/));
           });
-          
-          console.log('[Drag] validPaths:', validPaths);
           
           if (validPaths.length > 0) {
             handleDropFilesFromPaths(validPaths);
@@ -233,9 +225,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             dragLeave: dragLeaveUnlisten,
             dragDrop: dragDropUnlisten
           };
-          console.log('[Drag] Listeners setup complete');
         } else {
-          console.log('[Drag] Component unmounted during setup, cleaning up');
           dragEnterUnlisten();
           dragLeaveUnlisten();
           dragDropUnlisten();
@@ -248,7 +238,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     setupTauriDragListeners();
 
     return () => {
-      console.log('[Drag] Cleaning up Tauri drag listeners');
       mounted = false;
       unlistenFnsRef.current.dragEnter?.();
       unlistenFnsRef.current.dragLeave?.();
@@ -258,18 +247,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   }, []);
 
   const handleDropFilesFromPaths = async (paths: string[]) => {
-    console.log('[handleDropFilesFromPaths] called with paths:', paths);
     const maxFiles = 10;
     
     const pathsToProcess = paths.slice(0, maxFiles);
-    console.log('[handleDropFilesFromPaths] pathsToProcess:', pathsToProcess);
 
     for (const path of pathsToProcess) {
       try {
         const fileName = path.split(/[/\\]/).pop() || 'unknown';
         const isImage = /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(fileName);
-        
-        console.log('[handleDropFilesFromPaths] processing file:', fileName, 'isImage:', isImage);
         
         const fileData = await readFile(path);
         
@@ -286,12 +271,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           size: fileData.length
         };
         
-        console.log('[handleDropFilesFromPaths] adding attachment:', attachment.id, attachment.name);
-        
-        setAttachments(prev => {
-          if (prev.length >= maxFiles) return prev;
-          return [...prev, attachment];
-        });
+        if (attachments.length < maxFiles) {
+          setAttachments([...attachments, attachment]);
+        }
       } catch (error) {
         console.error('Failed to read file:', path, error);
       }

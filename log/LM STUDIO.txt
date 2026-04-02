@@ -1,0 +1,324 @@
+2026-04-02 00:55:26  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-04-02 00:55:26 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "local-model",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an intelligent agent that uses the ReAct (... <Truncated in logs> ... continue the conversation based on those results."
+    },
+    {
+      "role": "user",
+      "content": "你好"
+    },
+    {
+      "role": "assistant",
+      "content": "\n你好！很高兴见到你。有什么我可以帮您的吗？"
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "描述一下这两张图里的内容"
+        },
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAADIAA... <Truncated in logs> ...Ct1fOctMSpmf4TLGybhOz+P3Y7/2dBVkTOAAAAAElFTkSuQmCC"
+          }
+        },
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD... <Truncated in logs> ...BlcAf6S4KW3ktA+wfno/R46kep0OjOIfQ56H0GH0TXpJ//2Q=="
+          }
+        }
+      ]
+    }
+  ],
+  "temperature": 0.7,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "description": "Search the web for current information. Returns a ... <Truncated in logs> ...R_1__`），请使用 `fetch_url` 工具获取网页内容，而不是 `web_search`。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query (2-4 keywords, natural language)"
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 5)",
+              "default": 5,
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "fetch_url",
+        "description": "获取网页或 PDF 文档内容并提取正文。\n\n**重要：URL 处理规则**\n- URL 必须使用用户... <Truncated in logs> ... URL 30 分钟内不会重复请求\n- 使用 force_refresh: true 可强制刷新缓存",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "要获取的网页或 PDF URL。必须是用户提供的原始 URL 或 URL 占位符，禁止任何修改。"
+            },
+            "use_cache": {
+              "type": "boolean",
+              "description": "是否使用缓存（默认 true）",
+              "default": true
+            },
+            "force_refresh": {
+              "type": "boolean",
+              "description": "是否强制刷新缓存（默认 false）",
+              "default": false
+            },
+            "render_js": {
+              "type": "boolean",
+              "description": "是否启用 JS 渲染（用于 SPA 页面，默认 false）",
+              "default": false
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "calculate",
+        "description": "Perform mathematical calculations. Supports basic arithmetic and common math functions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string",
+              "description": "The mathematical expression to evaluate (e.g., \"2 + 2\", \"Math.sqrt(16)\", \"Math.PI * 2\")"
+            }
+          },
+          "required": [
+            "expression"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_time",
+        "description": "Get the current date and time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "timezone": {
+              "type": "string",
+              "description": "Timezone (e.g., \"Asia/Shanghai\", \"UTC\"). Default: local timezone"
+            },
+            "format": {
+              "type": "string",
+              "description": "Output format: \"iso\", \"locale\", or \"unix\"",
+              "enum": [
+                "iso",
+                "locale",
+                "unix"
+              ],
+              "default": "locale"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "stream": true
+}
+2026-04-02 00:55:26  [INFO]
+ [zai-org/glm-4.6v-flash] Running chat completion on conversation with 4 messages.
+2026-04-02 00:55:26  [INFO]
+ [zai-org/glm-4.6v-flash] Streaming response...
+2026-04-02 00:55:26 [ERROR]
+ [zai-org/glm-4.6v-flash] Tailscale connector WebSocket connection closed. Error Data: n/a, Additional Data: n/a
+2026-04-02 01:06:15  [INFO]
+ [LM STUDIO SERVER] Received OPTIONS request. {}
+2026-04-02 01:06:15 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "local-model",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an intelligent agent that uses the ReAct (... <Truncated in logs> ... continue the conversation based on those results."
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "描述一下图片里的内容"
+        },
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAADIAA... <Truncated in logs> ...Ct1fOctMSpmf4TLGybhOz+P3Y7/2dBVkTOAAAAAElFTkSuQmCC"
+          }
+        },
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD... <Truncated in logs> ...BlcAf6S4KW3ktA+wfno/R46kep0OjOIfQ56H0GH0TXpJ//2Q=="
+          }
+        }
+      ]
+    }
+  ],
+  "temperature": 0.7,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "description": "Search the web for current information. Returns a ... <Truncated in logs> ...R_1__`），请使用 `fetch_url` 工具获取网页内容，而不是 `web_search`。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query (2-4 keywords, natural language)"
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 5)",
+              "default": 5,
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "fetch_url",
+        "description": "获取网页或 PDF 文档内容并提取正文。\n\n**重要：URL 处理规则**\n- URL 必须使用用户... <Truncated in logs> ... URL 30 分钟内不会重复请求\n- 使用 force_refresh: true 可强制刷新缓存",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "要获取的网页或 PDF URL。必须是用户提供的原始 URL 或 URL 占位符，禁止任何修改。"
+            },
+            "use_cache": {
+              "type": "boolean",
+              "description": "是否使用缓存（默认 true）",
+              "default": true
+            },
+            "force_refresh": {
+              "type": "boolean",
+              "description": "是否强制刷新缓存（默认 false）",
+              "default": false
+            },
+            "render_js": {
+              "type": "boolean",
+              "description": "是否启用 JS 渲染（用于 SPA 页面，默认 false）",
+              "default": false
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "calculate",
+        "description": "Perform mathematical calculations. Supports basic arithmetic and common math functions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string",
+              "description": "The mathematical expression to evaluate (e.g., \"2 + 2\", \"Math.sqrt(16)\", \"Math.PI * 2\")"
+            }
+          },
+          "required": [
+            "expression"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_time",
+        "description": "Get the current date and time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "timezone": {
+              "type": "string",
+              "description": "Timezone (e.g., \"Asia/Shanghai\", \"UTC\"). Default: local timezone"
+            },
+            "format": {
+              "type": "string",
+              "description": "Output format: \"iso\", \"locale\", or \"unix\"",
+              "enum": [
+                "iso",
+                "locale",
+                "unix"
+              ],
+              "default": "locale"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "stream": true
+}
+2026-04-02 01:06:15  [INFO]
+ [zai-org/glm-4.6v-flash] Running chat completion on conversation with 2 messages.
+2026-04-02 01:06:15  [INFO]
+ [zai-org/glm-4.6v-flash] Streaming response...
+2026-04-02 01:06:15 [ERROR]
+ [zai-org/glm-4.6v-flash] Tailscale connector WebSocket connection closed. Error Data: n/a, Additional Data: n/a
+2026-04-02 01:06:15 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "local-model",
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个帮助用户总结对话标题的助手。请根据以下用户的提问和AI的回答，总结出一个能概括讨论内容的对话标题，长度控制在12个字以内。不要包含标点符号、引号或多余的解释。直接输出最终的标题内容。"
+    },
+    {
+      "role": "user",
+      "content": "用户提问：描述一下图片里的内容\n\nAI回答：Task completed."
+    }
+  ],
+  "temperature": 0.3,
+  "stream": false
+}
+2026-04-02 01:06:15 [ERROR]
+ No models loaded. Please load a model in the developer page or use the 'lms load' command.

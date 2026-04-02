@@ -149,3 +149,43 @@ export interface Agent {
   knowledgeFolders?: string[];
 }
 
+export interface ModelPricing {
+  inputPrice: number;  // 输入价格（每1M tokens）
+  outputPrice: number; // 输出价格（每1M tokens）
+  currency: 'USD' | 'CNY';  // 货币类型
+}
+
+export interface ModelConfig {
+  id: string;
+  name: string;
+  modelId: string;
+  provider: 'lm-studio' | 'ollama' | 'online';
+  onlineProvider?: string;
+  apiUrl?: string;
+  apiKey?: string;
+  maxContextLength: number;
+  timeout: number;        // 请求超时时间（秒）
+  rpm: number;            // RPM限流次数
+  pricing?: ModelPricing; // 定价配置（仅在线模型）
+  status: 'active' | 'inactive' | 'error';
+  priority: number;
+  lastConnected?: number;
+  createdAt: number;
+}
+
+export interface TokenUsageRecord {
+  id: string;
+  modelId: string;
+  timestamp: number;
+  inputTokens: number;
+  outputTokens: number;
+  cost: number;
+}
+
+export interface TokenUsageStats {
+  records: TokenUsageRecord[];
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCost: number;
+}
+

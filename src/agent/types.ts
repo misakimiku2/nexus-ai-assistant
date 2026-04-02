@@ -118,6 +118,7 @@ export interface LLMResponse {
   reasoningContent?: string;
   toolCalls?: ToolCallRequest[];
   finishReason: 'stop' | 'tool_calls' | 'length' | 'error';
+  error?: string;
 }
 
 export interface AgentConfig {

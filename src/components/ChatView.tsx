@@ -31,9 +31,10 @@ interface MessageImageProps {
   src: string;
   alt: string;
   isDarkMode: boolean;
+  maxWidth?: number;
 }
 
-const MessageImage: React.FC<MessageImageProps> = ({ src, alt, isDarkMode }) => {
+const MessageImage: React.FC<MessageImageProps> = ({ src, alt, isDarkMode, maxWidth = MAX_IMAGE_WIDTH }) => {
   const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(null);
 
   useEffect(() => {
@@ -45,17 +46,17 @@ const MessageImage: React.FC<MessageImageProps> = ({ src, alt, isDarkMode }) => 
   }, [src]);
 
   const displayWidth = dimensions 
-    ? Math.min(dimensions.width, MAX_IMAGE_WIDTH) 
-    : MAX_IMAGE_WIDTH;
+    ? Math.min(dimensions.width, maxWidth) 
+    : maxWidth;
   
-  const displayHeight = dimensions && dimensions.width > MAX_IMAGE_WIDTH
-    ? Math.round((MAX_IMAGE_WIDTH / dimensions.width) * dimensions.height)
+  const displayHeight = dimensions && dimensions.width > maxWidth
+    ? Math.round((maxWidth / dimensions.width) * dimensions.height)
     : dimensions?.height || 0;
 
   return (
     <div 
       className={cn(
-        "rounded-lg overflow-hidden border inline-block",
+        "rounded-lg overflow-hidden border inline-block max-w-full",
         isDarkMode ? "border-zinc-600" : "border-zinc-200"
       )}
       style={{ 
@@ -89,10 +90,10 @@ interface ChatViewProps {
   isWaitingForResponse?: boolean;
   isSearching?: boolean;
   appMode?: AppMode;
-  modelName?: string;
   isSidebarExpanded?: boolean;
   setIsSidebarExpanded?: (expanded: boolean) => void;
   scrollResetKey?: number;
+  commandChatWidth?: number;
 }
 
 const iconMap: Record<string, React.ElementType> = {
@@ -161,12 +162,12 @@ export const ChatView: React.FC<ChatViewProps> = ({
   isWaitingForResponse,
   isSearching,
   appMode = 'chat',
-  modelName = 'local-model',
   isSidebarExpanded = false,
   setIsSidebarExpanded = () => {},
-  scrollResetKey = 0
+  scrollResetKey = 0,
+  commandChatWidth
 }) => {
-  const { messages, isStreaming, sessions, currentSessionId, userName, aiName, userAvatar, aiAvatar, fontFamily, agents } = useGlobalState();
+  const { messages, isStreaming, sessions, currentSessionId, userName, aiName, userAvatar, aiAvatar, fontFamily, agents, modelName } = useGlobalState();
   
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
@@ -174,6 +175,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [canScrollUp, setCanScrollUp] = useState(false);
   const [canScrollDown, setCanScrollDown] = useState(false);
+
+  const userImageMaxWidth = commandChatWidth 
+    ? Math.min(MAX_IMAGE_WIDTH, Math.floor(commandChatWidth * 0.85 - 32))
+    : MAX_IMAGE_WIDTH;
 
   // Use ref to store latest messages to avoid re-creating scroll handler
   const messagesRef = useRef(messages);
@@ -502,7 +507,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   "flex flex-col gap-1",
                   appMode === 'command' 
                     ? (isUser ? "max-w-[85%] self-end text-left" : "w-full text-left") 
-                    : (isUser ? "max-w-[85%] items-end" : "max-w-[85%] items-start")
+                    : (isUser ? "max-w-[85%] items-start" : "max-w-[85%] items-start")
                 )}>
                   {appMode !== 'command' && (
                     <span className="text-[13px] font-medium text-zinc-600 dark:text-zinc-300 leading-none pt-1 pb-1">
@@ -513,7 +518,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                     "space-y-2 w-full",
                     appMode === 'command' 
                       ? (isUser ? "flex flex-col items-end" : "flex flex-col items-start") 
-                      : (isUser ? "text-right" : "text-left")
+                      : "text-left"
                   )}>
                   {msg.content === 'SMB_REPAIR_CARD' ? (
                 <div className={cn(
@@ -708,38 +713,13 @@ export const ChatView: React.FC<ChatViewProps> = ({
                     <TodoContainer todos={msg.todos} />
                   )}
 
-                  {msg.error && (
-                    <div className={cn(
-                      "inline-flex items-start gap-2 px-4 py-3 rounded-xl border text-sm",
-                      isDarkMode 
-                        ? "bg-red-500/10 border-red-500/30 text-red-400" 
-                        : "bg-red-50 border-red-200 text-red-600"
-                    )}>
-                      <AlertTriangle size={18} className="shrink-0 mt-0.5" />
-                      <span>{msg.error}</span>
-                    </div>
-                  )}
-
                   {((msg.content && (msg.agentExecution?.status === 'responding' || msg.agentExecution?.status === 'completed')) || (msg.content && !msg.agentExecution) || (msg.role === 'assistant' && !msg.content && (isWaitingForResponse || isSearching) && msg.id === messages[messages.length - 1]?.id)) && (
                     <div className={cn(
-                      "inline-block relative group break-words",
+                      "inline-block break-words",
                       msg.role === 'user' 
                         ? "bg-indigo-600 text-white rounded-tr-none px-4 py-3 rounded-2xl text-sm leading-relaxed" 
                         : (msg.content || (isWaitingForResponse || isSearching) ? (appMode === 'command' ? "w-full text-sm leading-relaxed" : "glass rounded-tl-none px-4 py-3 rounded-2xl text-sm leading-relaxed") : "")
                     )}>
-                      {msg.role === 'user' && !editingMessageId && (
-                        <button
-                          onClick={() => {
-                            setEditContent(msg.content);
-                            setEditingMessageId(msg.id);
-                          }}
-                          className="absolute -left-10 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                          title="编辑消息"
-                        >
-                          <Edit2 size={14} />
-                        </button>
-                      )}
-                      
                       {msg.role === 'assistant' && !msg.content && !msg.agentExecution?.reasoningSteps?.length && (isWaitingForResponse || isSearching) && msg.id === messages[messages.length - 1]?.id && (
                         <div className="flex flex-col gap-2 min-w-[120px] py-2">
                           {isSearching && (
@@ -860,19 +840,45 @@ export const ChatView: React.FC<ChatViewProps> = ({
                           {/* Assistant Message Actions - Moved to footer */}
                         </div>
                       ) : editingMessageId === msg.id ? (
-                        <div className="flex flex-col gap-2 min-w-[300px]">
+                        <div className="flex flex-col gap-2 min-w-[200px]">
                           <textarea
                             value={editContent}
                             onChange={(e) => setEditContent(e.target.value)}
                             className={cn(
-                              "w-full p-3 rounded-xl text-sm bg-transparent border resize-none focus:outline-none",
+                              "w-full p-3 rounded-xl text-sm resize-none focus:outline-none",
                               isUser 
-                                ? "border-white/30 text-white placeholder:text-white/50 focus:border-white/60" 
-                                : "border-zinc-500/30 text-zinc-800 dark:text-zinc-200 focus:border-indigo-500"
+                                ? "bg-white/15 text-white placeholder:text-white/50" 
+                                : "bg-zinc-500/10 text-zinc-800 dark:text-zinc-200"
                             )}
                             rows={5}
                             autoFocus
                           />
+                          {msg.attachments && msg.attachments.length > 0 && (
+                            <div className="flex flex-col gap-2">
+                              {msg.attachments.map(attachment => (
+                                <div key={attachment.id}>
+                                  {attachment.type === 'image' ? (
+                                    <MessageImage 
+                                      src={attachment.data} 
+                                      alt={attachment.name}
+                                      isDarkMode={isDarkMode}
+                                      maxWidth={appMode === 'command' && isUser ? userImageMaxWidth : MAX_IMAGE_WIDTH}
+                                    />
+                                  ) : (
+                                    <div className={cn(
+                                      "flex items-center gap-1.5 px-2 py-1 rounded-lg border text-xs",
+                                      isDarkMode 
+                                        ? "bg-zinc-700 border-zinc-600 text-zinc-300" 
+                                        : "bg-zinc-100 border-zinc-200 text-zinc-600"
+                                    )}>
+                                      <FileText size={12} />
+                                      <span className="max-w-[100px] truncate">{attachment.name}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           <div className="flex justify-end gap-2">
                             <button
                               onClick={() => setEditingMessageId(null)}
@@ -901,7 +907,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                         <div className="flex flex-col gap-2">
                           <div className="whitespace-pre-wrap break-words break-all">{msg.content}</div>
                           {msg.attachments && msg.attachments.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-1">
+                            <div className="flex flex-col gap-2 mt-1">
                               {msg.attachments.map(attachment => (
                                 <div key={attachment.id}>
                                   {attachment.type === 'image' ? (
@@ -909,6 +915,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                                       src={attachment.data} 
                                       alt={attachment.name}
                                       isDarkMode={isDarkMode}
+                                      maxWidth={appMode === 'command' && isUser ? userImageMaxWidth : MAX_IMAGE_WIDTH}
                                     />
                                   ) : (
                                     <div className={cn(
@@ -949,6 +956,41 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   "text-[10px] opacity-40 font-mono flex flex-wrap items-center gap-x-3 gap-y-1 group/footer",
                   isUser ? "justify-end" : "justify-start"
                 )}>
+                  {/* User Message Actions - 在对话模式下放在时间左边 */}
+                  {msg.role === 'user' && !isStreaming && !editingMessageId && appMode !== 'command' && (
+                    <div className="flex items-center gap-1.5 opacity-100">
+                      <button
+                        onClick={() => handleCopy(msg.content, `user-copy-${msg.id}`)}
+                        className={cn(
+                          "px-2 py-1 rounded-md transition-colors flex items-center gap-1.5 border",
+                          isDarkMode 
+                            ? "bg-zinc-700 hover:bg-zinc-600 text-zinc-300 border-zinc-600" 
+                            : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border-zinc-200"
+                        )}
+                        title="复制消息"
+                      >
+                        {copiedId === `user-copy-${msg.id}` ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                        <span className="text-[11px] font-medium">复制</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditContent(msg.content);
+                          setEditingMessageId(msg.id);
+                        }}
+                        className={cn(
+                          "px-2 py-1 rounded-md transition-colors flex items-center gap-1.5 border",
+                          isDarkMode 
+                            ? "bg-zinc-700 hover:bg-zinc-600 text-zinc-300 border-zinc-600" 
+                            : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border-zinc-200"
+                        )}
+                        title="编辑消息"
+                      >
+                        <Edit2 size={12} />
+                        <span className="text-[11px] font-medium">编辑</span>
+                      </button>
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-1.5">
                     <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     {msg.mode === 'command' && <span>• 命令模式</span>}
@@ -963,6 +1005,29 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       </>
                     )}
                   </div>
+
+                  {/* User Message Actions - 命令模式下纯图标按钮 */}
+                  {msg.role === 'user' && !isStreaming && !editingMessageId && appMode === 'command' && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleCopy(msg.content, `user-copy-${msg.id}`)}
+                        className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-600 rounded-lg transition-colors"
+                        title="复制消息"
+                      >
+                        {copiedId === `user-copy-${msg.id}` ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditContent(msg.content);
+                          setEditingMessageId(msg.id);
+                        }}
+                        className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-600 rounded-lg transition-colors"
+                        title="编辑消息"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                    </div>
+                  )}
 
                   {/* Assistant Message Actions - Relocated here */}
                   {msg.role === 'assistant' && !isStreaming && (

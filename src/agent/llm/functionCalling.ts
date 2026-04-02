@@ -20,6 +20,7 @@ export interface StreamCallbacks {
   onToolCall?: (toolCall: ToolCallRequest) => void;
   onComplete?: (response: LLMResponse) => void;
   onError?: (error: Error) => void;
+  onTokenUsage?: (usage: { inputTokens: number; outputTokens: number }) => void;
 }
 
 export function buildToolsForLLM(): { type: 'function'; function: { name: string; description: string; parameters: unknown } }[] {
@@ -141,12 +142,33 @@ export async function callLLMWithTools(
     });
 
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      let errorMessage = `API request failed: ${response.status} ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        if (errorData.error?.message) {
+          errorMessage = errorData.error.message;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (typeof errorData.error === 'string') {
+          errorMessage = errorData.error;
+        }
+      } catch {
+        // Ignore JSON parse errors, use default message
+      }
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
     const message = data.choices?.[0]?.message;
     const finishReason = data.choices?.[0]?.finish_reason || 'stop';
+
+    const usage = data.usage;
+    if (usage && callbacks?.onTokenUsage) {
+      callbacks.onTokenUsage({
+        inputTokens: usage.prompt_tokens || 0,
+        outputTokens: usage.completion_tokens || 0,
+      });
+    }
 
     const toolCalls = parseToolCalls(data);
 
@@ -167,16 +189,18 @@ export async function callLLMWithTools(
     const err = error instanceof Error ? error : new Error('Unknown error');
     callbacks?.onError?.(err);
     return {
-      content: '',
+      content: `模型请求失败: ${err.message}`,
       finishReason: 'error',
+      error: err.message,
     };
   }
 }
 
 export async function* streamLLMWithTools(
   config: FunctionCallingConfig,
-  messages: ConversationMessage[]
-): AsyncGenerator<{ type: 'content' | 'reasoning_content' | 'tool_call' | 'done'; data: string | ToolCallRequest | LLMResponse }> {
+  messages: ConversationMessage[],
+  callbacks?: StreamCallbacks
+): AsyncGenerator<{ type: 'content' | 'reasoning_content' | 'tool_call' | 'done' | 'usage'; data: string | ToolCallRequest | LLMResponse | { inputTokens: number; outputTokens: number } }> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
@@ -204,7 +228,20 @@ export async function* streamLLMWithTools(
   });
 
   if (!response.ok) {
-    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+    let errorMessage = `API request failed: ${response.status} ${response.statusText}`;
+    try {
+      const errorData = await response.json();
+      if (errorData.error?.message) {
+        errorMessage = errorData.error.message;
+      } else if (errorData.message) {
+        errorMessage = errorData.message;
+      } else if (typeof errorData.error === 'string') {
+        errorMessage = errorData.error;
+      }
+    } catch {
+      // Ignore JSON parse errors, use default message
+    }
+    throw new Error(errorMessage);
   }
 
   const reader = response.body?.getReader();
@@ -216,6 +253,8 @@ export async function* streamLLMWithTools(
   let accumulatedContent = '';
   let accumulatedReasoningContent = '';
   const toolCallsMap = new Map<string, ToolCallRequest>();
+  let receivedDoneSignal = false;
+  let usageData: { prompt_tokens: number; completion_tokens: number } | null = null;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -228,6 +267,22 @@ export async function* streamLLMWithTools(
       if (line.startsWith('data: ')) {
         const data = line.slice(6);
         if (data === '[DONE]') {
+          receivedDoneSignal = true;
+          
+          if (usageData && callbacks?.onTokenUsage) {
+            callbacks.onTokenUsage({
+              inputTokens: usageData.prompt_tokens || 0,
+              outputTokens: usageData.completion_tokens || 0,
+            });
+          } else if (callbacks?.onTokenUsage) {
+            const estimatedInputTokens = Math.ceil(JSON.stringify(messages).length / 4);
+            const estimatedOutputTokens = Math.ceil(accumulatedContent.length / 4);
+            callbacks.onTokenUsage({
+              inputTokens: estimatedInputTokens,
+              outputTokens: estimatedOutputTokens,
+            });
+          }
+          
           const finalResponse: LLMResponse = {
             content: accumulatedContent,
             reasoningContent: accumulatedReasoningContent,
@@ -241,6 +296,10 @@ export async function* streamLLMWithTools(
         try {
           const json = JSON.parse(data);
           const delta = json.choices?.[0]?.delta;
+
+          if (json.usage) {
+            usageData = json.usage;
+          }
 
           if (delta?.reasoning_content) {
             accumulatedReasoningContent += delta.reasoning_content;
@@ -287,6 +346,18 @@ export async function* streamLLMWithTools(
         }
       }
     }
+  }
+
+  // If stream ended without receiving [DONE] signal, it's an error
+  if (!receivedDoneSignal) {
+    const errorResponse: LLMResponse = {
+      content: accumulatedContent || '模型连接中断，未收到完整响应。可能是网络问题或模型服务异常。',
+      reasoningContent: accumulatedReasoningContent,
+      toolCalls: toolCallsMap.size > 0 ? Array.from(toolCallsMap.values()) : undefined,
+      finishReason: 'error',
+      error: 'Stream ended unexpectedly without [DONE] signal',
+    };
+    yield { type: 'done', data: errorResponse };
   }
 }
 

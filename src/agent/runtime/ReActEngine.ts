@@ -106,6 +106,11 @@ export class ReActEngine {
 
         const response = await this.callLLMStream(messages);
 
+        if (response.finishReason === 'error') {
+          this.updateStatus('failed');
+          throw new Error(response.error || response.content || '模型请求失败');
+        }
+
         if (!response.toolCalls || response.toolCalls.length === 0) {
           this.updateStatus('completed');
           return response.content || 'Task completed.';
@@ -246,6 +251,7 @@ export class ReActEngine {
             reasoningContent: accumulatedReasoningContent || finalResponse.reasoningContent,
             toolCalls: toolCallsMap.size > 0 ? Array.from(toolCallsMap.values()) : finalResponse.toolCalls,
             finishReason: finalResponse.finishReason,
+            error: finalResponse.error,
           };
         }
       }
@@ -265,11 +271,8 @@ export class ReActEngine {
       if (currentThoughtStepId) {
         this.finalizeReasoningStep(currentThoughtStepId);
       }
-      return {
-        content: accumulatedContent,
-        reasoningContent: accumulatedReasoningContent,
-        finishReason: 'error',
-      };
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      throw new Error(errorMessage);
     }
   }
 

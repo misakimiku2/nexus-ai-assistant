@@ -353,683 +353,12 @@ export default function App() {
     setNewMcpArgs('');
   };
 
-  const requestAI = async (currentMsgs: Message[], systemPromptToUse: string, originalInput: string, existingAssistantId?: string, attachments?: Attachment[]) => {
-    setIsStreaming(true);
-    
-    // Determine the API URL, Model Name, and API Key to use
-    let currentApiUrl = lmStudioUrl;
-    let currentModelName = modelName;
-    let currentApiKey = '';
-    
-    const currentSession = sessions.find(s => s.id === currentSessionId);
-    if (currentSession && currentSession.activeAgents && currentSession.activeAgents.length > 0) {
-      const activeAgent = agents.find(a => a.id === currentSession.activeAgents![0]);
-      if (activeAgent) {
-        if (activeAgent.apiUrl) currentApiUrl = activeAgent.apiUrl;
-        if (activeAgent.modelId) currentModelName = activeAgent.modelId;
-        if (activeAgent.apiKey) currentApiKey = activeAgent.apiKey;
-        if (activeAgent.systemPrompt) systemPromptToUse = activeAgent.systemPrompt;
-      }
-    } else {
-      if (modelProvider === 'ollama') currentApiUrl = ollamaUrl;
-      else if (modelProvider === 'lm-studio') currentApiUrl = lmStudioUrl;
-    }
-
-    const now = new Date();
-    const currentLang = i18n.language || 'zh';
-    const dateLocale = currentLang.startsWith('en') ? 'en-US' : 'zh-CN';
-    const currentDate = now.toLocaleDateString(dateLocale, { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric',
-      weekday: 'long'
-    });
-    const datePrefix = currentLang.startsWith('en') ? 'Current Date:' : '当前日期：';
-    systemPromptToUse = `${datePrefix}${currentDate}\n\n${systemPromptToUse}`;
-
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (currentApiKey) {
-      headers['Authorization'] = `Bearer ${currentApiKey}`;
-    }
-
-    if (!existingAssistantId) {
-      setMessages(currentMsgs);
-    }
-
-    if (appMode === 'command') {
-      addLog(t.logs.commandExecuted.replace('{command}', originalInput), 'command');
-    }
-
-    let searchContext = '';
-    if (isWebSearchEnabled && (originalInput.toLowerCase().includes('搜索') || originalInput.toLowerCase().includes('查询') || originalInput.length > 5)) {
-      addLog(t.logs.mcpToolCalled.replace('{server}', 'mcp-server-google-search').replace('{tool}', 'web_search'), 'info');
-      setIsSearching(true);
-      
-      try {
-        const queryMatch = originalInput.match(/(?:搜索|查询)\s*(.+)/i);
-        const displayQuery = queryMatch ? queryMatch[1].trim() : originalInput;
-        let searchQuery = displayQuery;
-        
-        const extractTopicFromMessage = (text: string): string | null => {
-          const quoted = text.match(/["「」『』《》【】]([^"「」『』《》【】]+)["「」『』《》【】]/);
-          if (quoted) {
-            return quoted[1];
-          }
-          
-          const firstPhrase = text.match(/^([\u4e00-\u9fa5]{2,8})/);
-          if (firstPhrase) {
-            return firstPhrase[1];
-          }
-          
-          return null;
-        };
-        
-        const currentTopic = extractTopicFromMessage(originalInput);
-        
-        if (!currentTopic && currentMsgs.length > 0) {
-          const contextKeywords: string[] = [];
-          
-          const recentSearchGroups = searchGroups.filter(g => g.sessionId === currentSessionId).slice(0, 1);
-          if (recentSearchGroups.length > 0 && recentSearchGroups[0].query) {
-            contextKeywords.push(recentSearchGroups[0].query);
-          } else {
-            const recentUserMessages = currentMsgs
-              .filter(m => m.role === 'user')
-              .slice(-2)
-              .map(m => m.content);
-            
-            for (const msg of recentUserMessages) {
-              const topic = extractTopicFromMessage(msg);
-              if (topic) {
-                contextKeywords.push(topic);
-              }
-            }
-          }
-          
-          const currentWords = new Set(searchQuery.split(/\s+/));
-          const newKeywords = [...new Set(contextKeywords)]
-            .filter(kw => !currentWords.has(kw))
-            .slice(0, 2);
-          
-          if (newKeywords.length > 0) {
-            searchQuery = `${newKeywords.join(' ')} ${searchQuery}`;
-          }
-        }
-        
-        const data = await invoke<{ results: SearchResult[] }>('search', { query: searchQuery });
-        setSearchResults(data.results);
-        
-        const newGroup: SearchGroup = {
-          id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
-          query: displayQuery,
-          results: data.results,
-          timestamp: Date.now(),
-          sessionId: currentSessionId
-        };
-        setSearchGroups(prev => [newGroup, ...prev]);
-        
-        searchContext = `\n\n[Web Search Results]\n${JSON.stringify(data.results)}`;
-        addLog(t.logs.mcpSearchComplete.replace('{count}', String(data.results.length)), 'info');
-      } catch (error) {
-        addLog(t.logs.mcpSearchError.replace('{error}', error instanceof Error ? error.message : t.logs.unknownError), 'error');
-      } finally {
-        setIsSearching(false);
-      }
-    }
-
-    if (searchContext) {
-      systemPromptToUse += searchContext;
-    }
-
-    if (originalInput.toLowerCase().includes('修改') && (originalInput.toLowerCase().includes('smb') || originalInput.toLowerCase().includes('配置'))) {
-      setPendingAction({
-        id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
-        tool: 'modify_smb_config',
-        serverName: 'mcp-server-system-ops',
-        description: t.mcpActions.modifySmbConfig,
-        originalInput: originalInput
-      });
-      setIsStreaming(false);
-      return; // Halt execution until authorized
-    }
-
-    try {
-      const assistantMessageId = existingAssistantId || (Date.now().toString() + Math.random().toString(36).substring(2, 9));
-      
-      if (existingAssistantId) {
-        // Regenerating: prepare the message for a new version
-        setMessages(prev => prev.map(m => {
-          if (m.id === existingAssistantId) {
-            return {
-              ...m,
-              content: '',
-              thinking: '',
-              timestamp: Date.now(),
-              tokenCount: 0,
-              tokenSpeed: 0,
-              executionTime: 0,
-              agentId: currentSession?.activeAgents?.[0]
-            };
-          }
-          return m;
-        }));
-      } else {
-        setMessages([...currentMsgs, {
-          id: assistantMessageId,
-          role: 'assistant',
-          content: '',
-          timestamp: Date.now(),
-          agentId: currentSession?.activeAgents?.[0]
-        }]);
-      }
-
-      const startTime = performance.now();
-      abortControllerRef.current = new AbortController();
-
-      const processThinking = (text: string) => {
-        // Clean GLM specific tags and other potential model noise
-        const cleanedText = text
-          .replace(/<\|begin_of_box\|>/g, '')
-          .replace(/<\|end_of_box\|>/g, '')
-          .replace(/<\|assistant\|>/g, '')
-          .replace(/<\|user\|>/g, '')
-          .replace(/<\|system\|>/g, '');
-
-        const thinkStartTag = '<think>';
-        const thinkEndTag = '</think>';
-        
-        const startIndex = cleanedText.indexOf(thinkStartTag);
-        const endIndex = cleanedText.indexOf(thinkEndTag);
-        
-        if (startIndex !== -1) {
-          if (endIndex !== -1) {
-            const thinking = cleanedText.substring(startIndex + thinkStartTag.length, endIndex).trim();
-            const content = (cleanedText.substring(0, startIndex) + cleanedText.substring(endIndex + thinkEndTag.length)).trim();
-            return { thinking, content };
-          } else {
-            const thinking = cleanedText.substring(startIndex + thinkStartTag.length).trim();
-            const content = cleanedText.substring(0, startIndex).trim();
-            return { thinking, content };
-          }
-        }
-        return { thinking: '', content: cleanedText };
-      };
-
-      // --- 超长文本无感滑动窗口处理 ---
-      const inputTokens = estimateTokens(originalInput);
-      if (inputTokens > maxContextLength * 0.6) {
-        addLog(t.logs.longTextDetected.replace('{tokens}', String(inputTokens)), 'info');
-        
-        const chunkSizeChars = Math.floor(maxContextLength * 1.5); // 大约占用一半的上下文
-        const overlapChars = 200;
-        
-        const chunkTextWithOverlap = (text: string, chunkSize: number, overlap: number): string[] => {
-          const result: string[] = [];
-          let i = 0;
-          while (i < text.length) {
-            let end = Math.min(i + chunkSize, text.length);
-            if (end < text.length) {
-              const nextPeriod = text.lastIndexOf('。', end);
-              const nextNewline = text.lastIndexOf('\n', end);
-              const bestBreak = Math.max(nextPeriod, nextNewline);
-              if (bestBreak > i + overlap) {
-                end = bestBreak + 1;
-              }
-            }
-            result.push(text.slice(i, end));
-            i = end - overlap;
-            if (i < 0) i = 0;
-            if (end >= text.length) break;
-          }
-          return result;
-        };
-
-        const chunks = chunkTextWithOverlap(originalInput, chunkSizeChars, overlapChars);
-        let accumulatedContent = '';
-
-        addLog(t.logs.textChunked.replace('{count}', String(chunks.length)), 'command');
-
-        for (let i = 0; i < chunks.length; i++) {
-          if (abortControllerRef.current?.signal.aborted) {
-            addLog(t.logs.processingInterrupted, 'error');
-            break;
-          }
-          
-          addLog(t.logs.processingChunk.replace('{current}', String(i + 1)).replace('{total}', String(chunks.length)).replace('{length}', String(chunks[i].length)), 'info');
-          
-          let chunkSystemPrompt = systemPromptToUse;
-          if (i > 0) {
-            const previousOutput = accumulatedContent.slice(-200);
-            chunkSystemPrompt += `\n\n${t.chunkProcessing.continuationPrompt.replace('{current}', String(i + 1)).replace('{total}', String(chunks.length)).replace('{previous}', previousOutput)}`;
-          } else {
-            chunkSystemPrompt += `\n\n${t.chunkProcessing.firstChunkPrompt.replace('{total}', String(chunks.length))}`;
-          }
-
-          const apiMessages = [{ role: 'user', content: chunks[i] }];
-
-          const response = await fetch(currentApiUrl, {
-            method: 'POST',
-            headers,
-            signal: abortControllerRef.current.signal,
-            body: JSON.stringify({
-              model: currentModelName,
-              messages: [
-                { role: 'system', content: chunkSystemPrompt },
-                ...apiMessages
-              ],
-              temperature: temperature,
-              stream: true
-            })
-          });
-
-          if (!response.ok) throw new Error(t.logs.apiConnectError);
-          
-          const reader = response.body?.getReader();
-          const decoder = new TextDecoder();
-          
-          let previousAccumulatedContent = accumulatedContent;
-          let chunkOutput = '';
-          let hasMarkdownWrapper = false;
-          let wrapperLength = 0;
-          
-          if (reader) {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              
-              const chunkData = decoder.decode(value, { stream: true });
-              const lines = chunkData.split('\n');
-              
-              for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                  const data = line.slice(6);
-                  if (data === '[DONE]') break;
-                  try {
-                    const json = JSON.parse(data);
-                    const contentChunk = json.choices[0]?.delta?.content || '';
-                    chunkOutput += contentChunk;
-                    
-                    if (!hasMarkdownWrapper) {
-                      const match = chunkOutput.match(/^```(?:markdown|md|text)?\n/i);
-                      if (match) {
-                        hasMarkdownWrapper = true;
-                        wrapperLength = match[0].length;
-                      }
-                    }
-
-                    let displayChunkOutput = chunkOutput;
-                    if (hasMarkdownWrapper) {
-                      displayChunkOutput = chunkOutput.substring(wrapperLength);
-                      if (displayChunkOutput.endsWith('\n```')) {
-                        displayChunkOutput = displayChunkOutput.substring(0, displayChunkOutput.length - 4);
-                      } else if (displayChunkOutput.endsWith('```')) {
-                        displayChunkOutput = displayChunkOutput.substring(0, displayChunkOutput.length - 3);
-                      }
-                    }
-
-                    accumulatedContent = previousAccumulatedContent + displayChunkOutput;
-                    
-                    const { thinking, content } = processThinking(accumulatedContent);
-                    
-                    setMessages(prev => prev.map(m => 
-                      m.id === assistantMessageId ? { ...m, content: content || (thinking ? '' : ''), thinking } : m
-                    ));
-                  } catch (e) {}
-                }
-              }
-            }
-          }
-          
-          // 确保最终状态正确更新
-          let finalDisplayChunkOutput = chunkOutput;
-          if (hasMarkdownWrapper) {
-            finalDisplayChunkOutput = chunkOutput.substring(wrapperLength);
-            if (finalDisplayChunkOutput.endsWith('\n```')) {
-              finalDisplayChunkOutput = finalDisplayChunkOutput.substring(0, finalDisplayChunkOutput.length - 4);
-            } else if (finalDisplayChunkOutput.endsWith('```')) {
-              finalDisplayChunkOutput = finalDisplayChunkOutput.substring(0, finalDisplayChunkOutput.length - 3);
-            }
-          }
-          accumulatedContent = previousAccumulatedContent + finalDisplayChunkOutput;
-          
-          addLog(t.logs.chunkComplete.replace('{current}', String(i + 1)).replace('{total}', String(chunks.length)), 'info');
-        }
-
-        addLog(t.logs.allChunksComplete, 'command');
-
-        const endTime = performance.now();
-        const executionTime = Math.round(endTime - startTime);
-        const { thinking, content } = processThinking(accumulatedContent);
-        const tokenCount = estimateTokens(accumulatedContent);
-        const tokenSpeed = Math.round((tokenCount / (executionTime / 1000)) * 10) / 10;
-
-        setMessages(prev => prev.map(m => {
-          if (m.id === assistantMessageId) {
-            const newVersion = {
-              content: content,
-              thinking,
-              timestamp: Date.now(),
-              executionTime,
-              tokenCount,
-              tokenSpeed
-            };
-            const existingVersions = m.versions || [];
-            let updatedVersions = [...existingVersions];
-            if (existingAssistantId) {
-              updatedVersions.push(newVersion);
-            } else {
-              updatedVersions = [newVersion];
-            }
-
-            return { 
-              ...m, 
-              content: content,
-              thinking,
-              executionTime,
-              tokenCount,
-              tokenSpeed,
-              versions: updatedVersions,
-              currentVersionIndex: updatedVersions.length - 1
-            };
-          }
-          return m;
-        }));
-
-        setIsStreaming(false);
-        abortControllerRef.current = null;
-        return;
-      }
-
-      // --- 8GB VRAM 深度上下文压缩策略 ---
-      let apiMessages: Array<{ role: MessageRole; content: string | any[] }> = currentMsgs.map(m => {
-        if (m.attachments && m.attachments.length > 0) {
-          const imageAttachments = m.attachments.filter(a => a.type === 'image');
-          const documentAttachments = m.attachments.filter(a => a.type === 'document');
-          
-          let textContent = cleanContentForApi(m.content);
-          
-          if (documentAttachments.length > 0) {
-            textContent += '\n\n[附件文件]\n';
-            for (const doc of documentAttachments) {
-              textContent += `\n--- ${doc.name} ---\n`;
-              try {
-                const base64Data = doc.data.split(',')[1];
-                const decodedContent = atob(base64Data);
-                const utf8Content = new TextDecoder('utf-8').decode(new Uint8Array([...decodedContent].map(c => c.charCodeAt(0))));
-                textContent += utf8Content.substring(0, 10000);
-                if (utf8Content.length > 10000) {
-                  textContent += '\n... [文件内容过长，已截断]';
-                }
-              } catch {
-                textContent += '[无法解析文件内容]';
-              }
-              textContent += '\n--- 文件结束 ---\n';
-            }
-          }
-          
-          if (imageAttachments.length > 0) {
-            const content: any[] = [{ type: 'text', text: textContent }];
-            for (const img of imageAttachments) {
-              content.push({
-                type: 'image_url',
-                image_url: { url: img.data }
-              });
-            }
-            return { role: m.role, content };
-          }
-          
-          return { role: m.role, content: textContent };
-        }
-        return { role: m.role, content: cleanContentForApi(m.content) };
-      });
-      
-      if (attachments && attachments.length > 0) {
-        let lastUserMsgIndex = -1;
-        for (let i = apiMessages.length - 1; i >= 0; i--) {
-          if (apiMessages[i].role === 'user') {
-            lastUserMsgIndex = i;
-            break;
-          }
-        }
-        if (lastUserMsgIndex !== -1) {
-          const imageAttachments = attachments.filter(a => a.type === 'image');
-          const documentAttachments = attachments.filter(a => a.type === 'document');
-          
-          const currentContent = apiMessages[lastUserMsgIndex].content;
-          let textContent: string;
-          if (typeof currentContent === 'string') {
-            textContent = currentContent;
-          } else {
-            const textPart = currentContent.find((c: any) => c.type === 'text');
-            textContent = textPart?.text || '';
-          }
-          
-          if (documentAttachments.length > 0) {
-            textContent += '\n\n[附件文件]\n';
-            for (const doc of documentAttachments) {
-              textContent += `\n--- ${doc.name} ---\n`;
-              try {
-                const base64Data = doc.data.split(',')[1];
-                const decodedContent = atob(base64Data);
-                const utf8Content = new TextDecoder('utf-8').decode(new Uint8Array([...decodedContent].map(c => c.charCodeAt(0))));
-                textContent += utf8Content.substring(0, 10000);
-                if (utf8Content.length > 10000) {
-                  textContent += '\n... [文件内容过长，已截断]';
-                }
-              } catch {
-                textContent += '[无法解析文件内容]';
-              }
-              textContent += '\n--- 文件结束 ---\n';
-            }
-          }
-          
-          if (imageAttachments.length > 0) {
-            const content: any[] = [{ type: 'text', text: textContent }];
-            for (const img of imageAttachments) {
-              content.push({
-                type: 'image_url',
-                image_url: { url: img.data }
-              });
-            }
-            apiMessages[lastUserMsgIndex] = { role: 'user', content };
-          } else {
-            apiMessages[lastUserMsgIndex] = { role: 'user', content: textContent };
-          }
-        }
-      }
-
-      let totalTokens = estimateTokens(systemPromptToUse) + apiMessages.reduce((acc, m) => {
-        const contentStr = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
-        return acc + estimateTokens(contentStr);
-      }, 0);
-      addLog(t.logs.aiRequestStart.replace('{tokens}', String(totalTokens)).replace('{max}', String(maxContextLength)), 'info');
-
-      if (totalTokens > maxContextLength * 0.85) {
-        addLog(t.logs.contextCompressionTriggered.replace('{current}', String(totalTokens)).replace('{threshold}', String(Math.floor(maxContextLength * 0.85))), 'info');
-
-        // 策略 1: 历史代码块骨架化 (保留当前最新消息)
-        apiMessages = apiMessages.map((msg, index) => {
-          if (index === apiMessages.length - 1) return msg; // 不压缩当前输入
-          const contentStr = typeof msg.content === 'string' ? msg.content : '';
-          if (!contentStr.includes('```')) return msg;
-
-          return {
-            ...msg,
-            content: contentStr.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
-              const lines = code.split('\n').length;
-              if (lines > 15) {
-                return `\`\`\`${lang}\n/* [${t.context.codeBlockCollapsed.replace('{lines}', String(lines))}] */\n\`\`\``;
-              }
-              return match;
-            })
-          };
-        });
-
-        const compressedTokens1 = estimateTokens(systemPromptToUse) + apiMessages.reduce((acc, m) => {
-          const contentStr = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
-          return acc + estimateTokens(contentStr);
-        }, 0);
-        if (compressedTokens1 < totalTokens) {
-          addLog(t.logs.codeBlockSkeletonized.replace('{released}', String(totalTokens - compressedTokens1)), 'info');
-        }
-        totalTokens = compressedTokens1;
-
-        if (totalTokens > maxContextLength * 0.85 && apiMessages.length > 3) {
-          const head = apiMessages[0];
-          const tail = apiMessages.slice(-2);
-          apiMessages = [
-            head,
-            { role: 'system', content: t.context.historyReleased },
-            ...tail
-          ];
-          const compressedTokens2 = estimateTokens(systemPromptToUse) + apiMessages.reduce((acc, m) => {
-            const contentStr = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
-            return acc + estimateTokens(contentStr);
-          }, 0);
-          addLog(t.logs.headTailApplied.replace('{tokens}', String(compressedTokens2)), 'info');
-          totalTokens = compressedTokens2;
-        }
-      }
-      // -----------------------------------
-
-      addLog(t.logs.aiRequesting.replace('{model}', currentModelName).replace('{temp}', String(temperature)), 'info');
-      setIsWaitingForResponse(true);
-      setScrollResetKey(k => k + 1);
-      const response = await fetch(currentApiUrl, {
-        method: 'POST',
-        headers,
-        signal: abortControllerRef.current.signal,
-        body: JSON.stringify({
-          model: currentModelName,
-          messages: [
-            { role: 'system', content: systemPromptToUse },
-            ...apiMessages
-          ],
-          temperature: temperature,
-          stream: true
-        })
-      });
-
-      if (!response.ok) {
-        setIsWaitingForResponse(false);
-        throw new Error(t.logs.apiConnectError);
-      }
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let accumulatedContent = '';
-      let isFirstChunk = true;
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          if (isFirstChunk) {
-            setIsWaitingForResponse(false);
-            isFirstChunk = false;
-          }
-
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\n');
-          
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = line.slice(6);
-              if (data === '[DONE]') break;
-              try {
-                const json = JSON.parse(data);
-                const contentChunk = json.choices[0]?.delta?.content || '';
-                accumulatedContent += contentChunk;
-                
-                const { thinking, content } = processThinking(accumulatedContent);
-                
-                setMessages(prev => prev.map(m => 
-                  m.id === assistantMessageId ? { ...m, content: content || (thinking ? '' : ''), thinking } : m
-                ));
-              } catch (e) {}
-            }
-          }
-        }
-      }
-
-      const endTime = performance.now();
-      const executionTime = Math.round(endTime - startTime);
-      const { thinking, content } = processThinking(accumulatedContent);
-      const tokenCount = estimateTokens(accumulatedContent);
-      const tokenSpeed = Math.round((tokenCount / (executionTime / 1000)) * 10) / 10;
-
-      addLog(t.logs.aiResponseComplete.replace('{time}', String(executionTime)).replace('{tokens}', String(tokenCount)).replace('{speed}', String(tokenSpeed)), 'info');
-
-      setMessages(prev => prev.map(m => {
-        if (m.id === assistantMessageId) {
-          const newVersion = {
-            content: content,
-            thinking,
-            timestamp: Date.now(),
-            executionTime,
-            tokenCount,
-            tokenSpeed
-          };
-          
-          const existingVersions = m.versions || [
-            // If it's the first time we're adding versions, the current state is version 0
-            // But wait, if we are regenerating, we should have captured the OLD state before clearing it
-            // Let's simplify: always maintain versions
-          ];
-
-          // If it's a new message, versions will be empty.
-          // If it's a regeneration, we already have versions.
-          
-          let updatedVersions = [...existingVersions];
-          if (existingAssistantId) {
-            // It was a regeneration, so we add a new version
-            updatedVersions.push(newVersion);
-          } else {
-            // It was a new message, so this is the first version
-            updatedVersions = [newVersion];
-          }
-
-          return { 
-            ...m, 
-            content: content,
-            thinking,
-            executionTime,
-            tokenCount,
-            tokenSpeed,
-            versions: updatedVersions,
-            currentVersionIndex: updatedVersions.length - 1
-          };
-        }
-        return m;
-      }));
-
-      // 如果是第一轮对话，根据用户的提问和AI的回答生成标题
-      const userMessages = currentMsgs.filter(m => m.role === 'user');
-      if (userMessages.length === 1) {
-        generateSessionTitle(originalInput, content, currentSessionId);
-      }
-
-    } catch (error) {
-      console.error(error);
-      setIsWaitingForResponse(false);
-      setMessages(prev => prev.map(m => 
-        m.role === 'assistant' && m.content === '' 
-          ? { ...m, error: t.logs.apiConnectErrorDetail.replace('{url}', currentApiUrl) } 
-          : m
-      ));
-      addLog(t.logs.apiUnavailable, 'error');
-    } finally {
-      setIsStreaming(false);
-      setIsWaitingForResponse(false);
-      abortControllerRef.current = null;
-    }
-  };
 
   const generateSessionTitle = async (firstUserMessage: string, firstAssistantMessage: string, sessionId: string) => {
     try {
-      let currentApiUrl = lmStudioUrl;
-      let currentModelName = modelName;
+      // Use default values or get from active agent
+      let currentApiUrl = 'http://localhost:1234/v1/chat/completions';
+      let currentModelName = 'local-model';
       let currentApiKey = '';
       
       const currentSession = sessions.find(s => s.id === sessionId);
@@ -1040,9 +369,6 @@ export default function App() {
           if (activeAgent.modelId) currentModelName = activeAgent.modelId;
           if (activeAgent.apiKey) currentApiKey = activeAgent.apiKey;
         }
-      } else {
-        if (modelProvider === 'ollama') currentApiUrl = ollamaUrl;
-        else if (modelProvider === 'lm-studio') currentApiUrl = lmStudioUrl;
       }
 
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -1117,11 +443,8 @@ export default function App() {
     setInput('');
     setAttachments([]);
 
-    if (agentExecution.isAgentMode && agentExecution.currentAgent) {
-      await handleAgentExecution(currentMsgs, originalInput, currentAttachments);
-    } else {
-      await requestAI(currentMsgs, systemPrompt, originalInput, undefined, currentAttachments);
-    }
+    // Always use Agent mode
+    await handleAgentExecution(currentMsgs, originalInput, currentAttachments);
   };
 
   const handleAgentExecution = async (currentMsgs: Message[], originalInput: string, attachments?: Attachment[]) => {
@@ -1269,7 +592,53 @@ export default function App() {
       const updatedUserMessage = { ...msg, content: newContent };
       let currentMsgs = [...messages.slice(0, msgIndex), updatedUserMessage];
       
-      await requestAI(currentMsgs, systemPrompt, newContent);
+      // Always use Agent mode for user message edits
+      if (agentExecution.currentAgent) {
+        const assistantMessageId = Date.now().toString() + Math.random().toString(36).substring(2, 9);
+        setCurrentExecutionMessageId(assistantMessageId);
+        setMessages([...currentMsgs, {
+          id: assistantMessageId,
+          role: 'assistant',
+          content: '',
+          timestamp: Date.now(),
+          agentId: agentExecution.currentAgent.id,
+          agentExecution: {
+            reasoningSteps: [],
+            toolCalls: [],
+            iterationCount: 0,
+            status: 'thinking',
+          }
+        }]);
+        
+        setIsStreaming(true);
+        setIsWaitingForResponse(true);
+        
+        try {
+          const result = await agentExecution.execute(newContent, currentMsgs.map(m => ({
+            role: m.role as 'user' | 'assistant',
+            content: m.content
+          })));
+          
+          setMessages(prev => prev.map(m => {
+            if (m.id === assistantMessageId) {
+              return { ...m, content: result, agentExecution: { ...m.agentExecution!, status: 'completed' } };
+            }
+            return m;
+          }));
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          setMessages(prev => prev.map(m => {
+            if (m.id === assistantMessageId) {
+              return { ...m, error: errorMessage, agentExecution: { ...m.agentExecution!, status: 'failed' } };
+            }
+            return m;
+          }));
+        } finally {
+          setCurrentExecutionMessageId(null);
+          setIsStreaming(false);
+          setIsWaitingForResponse(false);
+        }
+      }
     } else {
       setMessages(prev => prev.map(m => m.id === messageId ? { ...m, content: newContent } : m));
       addLog(t.logs.aiReplyEdited, 'info');
@@ -1286,7 +655,53 @@ export default function App() {
     if (!lastUserMsg) return;
 
     addLog(t.logs.regenerating, 'info');
-    await requestAI(historyBefore, systemPrompt, lastUserMsg.content, messageId);
+    
+    if (agentExecution.currentAgent) {
+      const assistantMessageId = Date.now().toString() + Math.random().toString(36).substring(2, 9);
+      setCurrentExecutionMessageId(assistantMessageId);
+      setMessages([...historyBefore, {
+        id: assistantMessageId,
+        role: 'assistant',
+        content: '',
+        timestamp: Date.now(),
+        agentId: agentExecution.currentAgent.id,
+        agentExecution: {
+          reasoningSteps: [],
+          toolCalls: [],
+          iterationCount: 0,
+          status: 'thinking',
+        }
+      }]);
+      
+      setIsStreaming(true);
+      setIsWaitingForResponse(true);
+      
+      try {
+        const result = await agentExecution.execute(lastUserMsg.content, historyBefore.map(m => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content
+        })));
+        
+        setMessages(prev => prev.map(m => {
+          if (m.id === assistantMessageId) {
+            return { ...m, content: result, agentExecution: { ...m.agentExecution!, status: 'completed' } };
+          }
+          return m;
+        }));
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        setMessages(prev => prev.map(m => {
+          if (m.id === assistantMessageId) {
+            return { ...m, error: errorMessage, agentExecution: { ...m.agentExecution!, status: 'failed' } };
+          }
+          return m;
+        }));
+      } finally {
+        setCurrentExecutionMessageId(null);
+        setIsStreaming(false);
+        setIsWaitingForResponse(false);
+      }
+    }
   };
 
   const handleSwitchVersion = (messageId: string, index: number) => {
@@ -1389,8 +804,7 @@ export default function App() {
               transition={{ duration: 0.3, ease: "easeInOut" }}
               className="overflow-hidden shrink-0"
             >
-              <Header 
-                maxContextLength={maxContextLength}
+              <Header
                 isToolPanelOpen={isToolPanelOpen}
                 setIsToolPanelOpen={setIsToolPanelOpen}
                 isSidebarExpanded={isSidebarExpanded}
@@ -1439,7 +853,6 @@ export default function App() {
                   isWaitingForResponse={isWaitingForResponse}
                   isSearching={isSearching}
                   appMode={appMode}
-                  modelName={modelName}
                   isSidebarExpanded={isSidebarExpanded}
                   setIsSidebarExpanded={setIsSidebarExpanded}
                   scrollResetKey={scrollResetKey}
@@ -1457,7 +870,6 @@ export default function App() {
                   fileInputRef={fileInputRef}
                   handleFileUpload={handleFileUpload}
                   removeAttachment={removeAttachment}
-                  maxContextLength={maxContextLength}
                   isWebSearchEnabled={isWebSearchEnabled}
                   setIsWebSearchEnabled={setIsWebSearchEnabled}
                 />
@@ -1547,39 +959,12 @@ export default function App() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         isDarkMode={isDarkMode}
-        lmStudioUrl={lmStudioUrl}
-        setLmStudioUrl={setLmStudioUrl}
-        ollamaUrl={ollamaUrl}
-        setOllamaUrl={setOllamaUrl}
-        modelName={modelName}
-        setModelName={setModelName}
-        maxContextLength={maxContextLength}
-        setMaxContextLength={setMaxContextLength}
-        temperature={temperature}
-        setTemperature={setTemperature}
-        systemPrompt={systemPrompt}
-        setSystemPrompt={setSystemPrompt}
-        modelProvider={modelProvider}
-        setModelProvider={setModelProvider}
-        onReset={() => {
-          setLmStudioUrl('http://localhost:1234/v1/chat/completions');
-          setOllamaUrl('http://localhost:11434/api/chat');
-          setModelName('local-model');
-          setSystemPrompt(t.systemPrompts.defaultAssistant);
-          setTemperature(0.7);
-          setMaxContextLength(4096);
-          setModelProvider('lm-studio');
-        }}
       />
 
       <ToolPanel 
         isOpen={isToolPanelOpen}
         onClose={() => setIsToolPanelOpen(false)}
         isDarkMode={isDarkMode}
-        temperature={temperature}
-        setTemperature={setTemperature}
-        systemPrompt={systemPrompt}
-        setSystemPrompt={setSystemPrompt}
       />
 
       <AddMcpModal 
