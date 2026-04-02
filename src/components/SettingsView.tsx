@@ -110,6 +110,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setActiveModel,
     reorderModelConfigs,
     tokenUsageRecords,
+    isTokenStorageLoading,
     checkModelConnection
   } = useGlobalState();
   const { t } = useTranslation();
@@ -152,6 +153,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [editingModel, setEditingModel] = useState<ModelConfig | null>(null);
   const [tokenTimeRange, setTokenTimeRange] = useState<'day' | 'week' | 'month' | 'year'>('day');
   const [checkingModelIds, setCheckingModelIds] = useState<Set<string>>(new Set());
+  const modelFormRef = useRef<HTMLDivElement>(null);
 
   const handleCheckModelConnection = async (modelId: string) => {
     setCheckingModelIds(prev => new Set(prev).add(modelId));
@@ -173,6 +175,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setEditingModel(null);
     }
   }, [isOpen]);
+
+  // Scroll to form when adding or editing model
+  useEffect(() => {
+    if (isAddingModel || editingModel) {
+      setTimeout(() => {
+        modelFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [isAddingModel, editingModel]);
 
   const handleAddModel = (config: Omit<ModelConfig, 'id' | 'createdAt' | 'priority'>) => {
     const newConfig: ModelConfig = {
@@ -1013,7 +1024,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                             <span className="text-xs">点击右上角 + 添加模型</span>
                           </motion.div>
                         ) : (
-                          <div className="space-y-3">
+                          <div className={cn(
+                            "space-y-3 transition-all duration-200",
+                            (isAddingModel || editingModel) && "opacity-50 pointer-events-none select-none"
+                          )}>
                             {modelConfigs.map((config, index) => (
                               <ModelConfigCard
                                 key={config.id}
@@ -1034,28 +1048,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         )}
                       </AnimatePresence>
 
-                      <AnimatePresence>
-                        {isAddingModel && !editingModel && (
-                          <ModelConfigForm
-                            isDarkMode={isDarkMode}
-                            onSave={handleAddModel}
-                            onCancel={() => setIsAddingModel(false)}
-                            addLog={addLog}
-                          />
-                        )}
-                      </AnimatePresence>
+                      <div ref={modelFormRef}>
+                        <AnimatePresence>
+                          {isAddingModel && !editingModel && (
+                            <ModelConfigForm
+                              isDarkMode={isDarkMode}
+                              onSave={handleAddModel}
+                              onCancel={() => setIsAddingModel(false)}
+                              addLog={addLog}
+                            />
+                          )}
+                        </AnimatePresence>
 
-                      <AnimatePresence>
-                        {editingModel && (
-                          <ModelConfigForm
-                            isDarkMode={isDarkMode}
-                            editingConfig={editingModel}
-                            onSave={handleUpdateModel}
-                            onCancel={() => setEditingModel(null)}
-                            addLog={addLog}
-                          />
-                        )}
-                      </AnimatePresence>
+                        <AnimatePresence>
+                          {editingModel && (
+                            <ModelConfigForm
+                              isDarkMode={isDarkMode}
+                              editingConfig={editingModel}
+                              onSave={handleUpdateModel}
+                              onCancel={() => setEditingModel(null)}
+                              addLog={addLog}
+                            />
+                          )}
+                        </AnimatePresence>
+                      </div>
                     </motion.div>
                   )}
 
@@ -1069,6 +1085,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         isDarkMode={isDarkMode}
                         modelConfigs={modelConfigs}
                         tokenUsageRecords={tokenUsageRecords}
+                        isLoading={isTokenStorageLoading}
                         timeRange={tokenTimeRange}
                         onTimeRangeChange={setTokenTimeRange}
                       />

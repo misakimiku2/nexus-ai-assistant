@@ -49,7 +49,10 @@ export default function App() {
     closeWindowAskEveryTime,
     setCloseWindowAskEveryTime,
     closeWindowAction,
-    setCloseWindowAction
+    setCloseWindowAction,
+    activeModel,
+    activeModelId,
+    modelConfigs,
   } = useGlobalState();
 
   const [isDarkMode, setIsDarkMode] = useState(() => 
@@ -202,11 +205,19 @@ export default function App() {
   }, [setMessages]);
 
   const agentExecution = useAgentExecution(
-    useMemo(() => ({
-      apiUrl: lmStudioUrl,
-      modelId: modelName,
-      temperature: temperature,
-    }), [lmStudioUrl, modelName, temperature]),
+    useMemo(() => {
+      // 优先使用用户选择的活跃模型配置 ID
+      // 其次使用第一个模型配置的 ID
+      // 最后才使用默认值
+      const firstModelConfigId = modelConfigs.length > 0 ? modelConfigs[0].id : undefined;
+      const effectiveModelId = activeModelId || firstModelConfigId;
+      
+      return {
+        apiUrl: activeModel?.apiUrl || lmStudioUrl,
+        modelId: effectiveModelId,
+        temperature: temperature,
+      };
+    }, [activeModel, activeModelId, modelConfigs, lmStudioUrl, temperature]),
     useMemo(() => ({
       onWebSearchResult: handleWebSearchResult,
       onExecutionUpdate: handleExecutionUpdate,

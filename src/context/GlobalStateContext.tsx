@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
+import { useTokenStorage } from '../hooks/useTokenStorage';
 import { Message, LogEntry, ChatSession, ChatFolder, Agent, TodoItem, SearchGroup, SearchResult, McpServer, ModelConfig, TokenUsageRecord } from '../types';
 import { AGENTS as INITIAL_AGENTS } from '../data/agents';
 import { generateMockConversation, generateClusterMockConversation } from '../utils/mockData';
-import { calculateCost } from '../utils/pricing';
 import { checkModelHealth, HealthCheckResult } from '../services/modelHealthCheck';
 
 interface GlobalState {
@@ -122,6 +122,7 @@ interface GlobalState {
   
   // Token Usage Records
   tokenUsageRecords: TokenUsageRecord[];
+  isTokenStorageLoading: boolean;
   addTokenUsageRecord: (record: Omit<TokenUsageRecord, 'id'>) => void;
   getTokenUsageStats: (modelId?: string, timeRange?: 'day' | 'week' | 'month' | 'year') => { totalInputTokens: number; totalOutputTokens: number; totalCost: number };
   clearTokenUsageRecords: () => void;
@@ -255,77 +256,13 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
   const modelName = activeModel?.name || '';
   const maxContextLength = activeModel?.maxContextLength || 4096;
 
-  // Token Usage Records
-  const MAX_TOKEN_RECORDS = 10000;
-  const [tokenUsageRecords, setTokenUsageRecords] = useState<TokenUsageRecord[]>(() => {
-    const stored = localStorage.getItem('nexus_token_usage_records');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-        return parsed.filter((r: TokenUsageRecord) => r.timestamp > thirtyDaysAgo);
-      } catch {
-        return [];
-      }
-    }
-    return [];
-  });
-
-  const addTokenUsageRecord = (record: Omit<TokenUsageRecord, 'id'>) => {
-    const model = modelConfigs.find(m => m.id === record.modelId);
-    const cost = record.cost ?? calculateCost(record.inputTokens, record.outputTokens, model?.pricing);
-    
-    const newRecord: TokenUsageRecord = {
-      ...record,
-      cost,
-      id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
-    };
-    setTokenUsageRecords(prev => {
-      const updated = [...prev, newRecord];
-      if (updated.length > MAX_TOKEN_RECORDS) {
-        return updated.slice(-MAX_TOKEN_RECORDS);
-      }
-      return updated;
-    });
-  };
-
-  const getTokenUsageStats = (modelId?: string, timeRange?: 'day' | 'week' | 'month' | 'year') => {
-    const now = Date.now();
-    let startTime: number;
-    
-    switch (timeRange) {
-      case 'day':
-        startTime = now - 24 * 60 * 60 * 1000;
-        break;
-      case 'week':
-        startTime = now - 7 * 24 * 60 * 60 * 1000;
-        break;
-      case 'month':
-        startTime = now - 30 * 24 * 60 * 60 * 1000;
-        break;
-      case 'year':
-        startTime = now - 365 * 24 * 60 * 60 * 1000;
-        break;
-      default:
-        startTime = 0;
-    }
-    
-    const filteredRecords = tokenUsageRecords.filter(r => {
-      const matchesTime = r.timestamp >= startTime;
-      const matchesModel = modelId ? r.modelId === modelId : true;
-      return matchesTime && matchesModel;
-    });
-    
-    return {
-      totalInputTokens: filteredRecords.reduce((sum, r) => sum + r.inputTokens, 0),
-      totalOutputTokens: filteredRecords.reduce((sum, r) => sum + r.outputTokens, 0),
-      totalCost: filteredRecords.reduce((sum, r) => sum + r.cost, 0),
-    };
-  };
-
-  const clearTokenUsageRecords = () => {
-    setTokenUsageRecords([]);
-  };
+  const {
+    records: tokenUsageRecords,
+    isLoading: isTokenStorageLoading,
+    addRecord: addTokenUsageRecord,
+    getStats: getTokenUsageStats,
+    clearRecords: clearTokenUsageRecords,
+  } = useTokenStorage(modelConfigs);
 
   const addModelConfig = (config: ModelConfig) => {
     setModelConfigs(prev => {
@@ -447,9 +384,6 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
   // Persist Model Settings
   useEffect(() => { localStorage.setItem('nexus_temperature', temperature.toString()); }, [temperature]);
   useEffect(() => { localStorage.setItem('nexus_system_prompt', systemPrompt); }, [systemPrompt]);
-
-  // Persist Token Usage Records
-  useEffect(() => { localStorage.setItem('nexus_token_usage_records', JSON.stringify(tokenUsageRecords)); }, [tokenUsageRecords]);
 
   // Sync i18next with global state language
   useEffect(() => {
@@ -941,6 +875,7 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
       systemPrompt,
       setSystemPrompt,
       tokenUsageRecords,
+      isTokenStorageLoading,
       addTokenUsageRecord,
       getTokenUsageStats,
       clearTokenUsageRecords,

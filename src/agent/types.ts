@@ -86,6 +86,7 @@ export interface AgentExecutionContext {
   onRequestAuth?: (toolCall: ToolCallRecord) => Promise<boolean>;
   onContentChunk?: (chunk: string) => void;
   onIterationCountChange?: (count: number) => void;
+  onTokenUsage?: (usage: { inputTokens: number; outputTokens: number }) => void;
 }
 
 export interface ContentPart {

@@ -7,6 +7,7 @@ interface TokenUsageChartProps {
   isDarkMode: boolean;
   modelConfigs: ModelConfig[];
   tokenUsageRecords: TokenUsageRecord[];
+  isLoading?: boolean;
   timeRange: 'day' | 'week' | 'month' | 'year';
   onTimeRangeChange: (range: 'day' | 'week' | 'month' | 'year') => void;
 }
@@ -35,6 +36,7 @@ export const TokenUsageChart: React.FC<TokenUsageChartProps> = ({
   isDarkMode,
   modelConfigs,
   tokenUsageRecords,
+  isLoading = false,
   timeRange,
   onTimeRangeChange,
 }) => {
@@ -78,16 +80,53 @@ export const TokenUsageChart: React.FC<TokenUsageChartProps> = ({
     }
   };
 
-  const modelIdToIndex = useMemo(() => {
-    const activeModels = modelConfigs.filter(m => m.status === 'active');
+  const { modelIdToIndex, displayModels } = useMemo(() => {
+    const allModelIdsInRecords = new Set(tokenUsageRecords.map(r => r.modelId));
     const map = new Map<string, number>();
-    activeModels.forEach((m, i) => map.set(m.id, i));
-    return map;
-  }, [modelConfigs]);
-
-  const activeModels = useMemo(() => {
-    return modelConfigs.filter(m => m.status === 'active');
-  }, [modelConfigs]);
+    const models: typeof modelConfigs = [];
+    
+    const activeModels = modelConfigs.filter(m => m.status === 'active');
+    
+    if (activeModels.length > 0) {
+      activeModels.forEach((m, i) => {
+        map.set(m.id, i);
+        if (m.modelId) {
+          map.set(m.modelId, i);
+        }
+        models.push(m);
+      });
+    } else {
+      modelConfigs.forEach((m, i) => {
+        map.set(m.id, i);
+        if (m.modelId) {
+          map.set(m.modelId, i);
+        }
+        models.push(m);
+      });
+    }
+    
+    allModelIdsInRecords.forEach(modelId => {
+      if (!map.has(modelId)) {
+        const index = models.length;
+        map.set(modelId, index);
+        models.push({
+          id: modelId,
+          modelId: modelId,
+          name: modelId,
+          status: 'active',
+          provider: 'lm-studio',
+          apiUrl: '',
+          maxContextLength: 4096,
+          timeout: 60,
+          rpm: 60,
+          createdAt: Date.now(),
+          priority: index,
+        });
+      }
+    });
+    
+    return { modelIdToIndex: map, displayModels: models };
+  }, [modelConfigs, tokenUsageRecords]);
 
   const chartData = useMemo((): ChartDataPoint[] => {
     const config = getTimeRangeConfig();
@@ -107,15 +146,26 @@ export const TokenUsageChart: React.FC<TokenUsageChartProps> = ({
         startTime = now - (i + 1) * config.intervalMs;
         endTime = now - i * config.intervalMs;
         date = new Date(endTime);
-      } else {
-        const currentMonth = new Date().getMonth();
-        const currentYear = new Date().getFullYear();
-        const targetMonth = currentMonth - i;
-        const adjustedYear = currentYear + Math.floor(targetMonth / 12);
-        const adjustedMonth = ((targetMonth % 12) + 12) % 12;
-        date = new Date(adjustedYear, adjustedMonth, 1);
+      } else if (timeRange === 'year') {
+        const currentDate = new Date();
+        const currentMonth = currentDate.getMonth();
+        const currentYear = currentDate.getFullYear();
+        
+        let targetMonth = currentMonth - i;
+        let targetYear = currentYear;
+        
+        while (targetMonth < 0) {
+          targetMonth += 12;
+          targetYear -= 1;
+        }
+        
+        date = new Date(targetYear, targetMonth, 1);
         startTime = date.getTime();
-        endTime = new Date(adjustedYear, adjustedMonth + 1, 0, 23, 59, 59, 999).getTime();
+        endTime = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59, 999).getTime();
+      } else {
+        startTime = now - (i + 1) * config.intervalMs;
+        endTime = now - i * config.intervalMs;
+        date = new Date(endTime);
       }
       
       timeLabels.push({
@@ -129,8 +179,8 @@ export const TokenUsageChart: React.FC<TokenUsageChartProps> = ({
     const data: ChartDataPoint[] = timeLabels.map(({ startTime, endTime, label, fullLabel }) => {
       const point: ChartDataPoint = { time: label, fullTime: fullLabel };
       
-      activeModels.forEach((_, index) => {
-        point[`model_${index}`] = 0;
+      displayModels.forEach((_, index) => {
+        point[`model_${index}`] = null;
       });
       
       const recordsInRange = tokenUsageRecords.filter(
@@ -141,7 +191,8 @@ export const TokenUsageChart: React.FC<TokenUsageChartProps> = ({
         const modelIndex = modelIdToIndex.get(record.modelId);
         if (modelIndex !== undefined) {
           const key = `model_${modelIndex}`;
-          point[key] = (point[key] as number || 0) + record.inputTokens + record.outputTokens;
+          const currentValue = point[key];
+          point[key] = (currentValue === null ? 0 : currentValue as number) + record.inputTokens + record.outputTokens;
         }
       });
       
@@ -149,16 +200,16 @@ export const TokenUsageChart: React.FC<TokenUsageChartProps> = ({
     });
 
     return data;
-  }, [tokenUsageRecords, timeRange, activeModels, modelIdToIndex]);
+  }, [tokenUsageRecords, timeRange, displayModels, modelIdToIndex]);
 
   const modelNames = useMemo(() => {
-    return activeModels.map((m, i) => ({ 
+    return displayModels.map((m, i) => ({ 
       id: m.id,
       name: m.name, 
       color: COLORS[i % COLORS.length], 
       dataKey: `model_${i}` 
     }));
-  }, [activeModels]);
+  }, [displayModels]);
 
   const stats = useMemo(() => {
     const now = Date.now();
@@ -308,47 +359,72 @@ export const TokenUsageChart: React.FC<TokenUsageChartProps> = ({
         "h-72 rounded-xl p-4 relative [&_svg]:focus:outline-none",
         isDarkMode ? "bg-zinc-800/50" : "bg-zinc-50"
       )}>
-        <ResponsiveContainer width="100%" height={280} className="[&_svg]:focus:outline-none">
-          <LineChart data={chartData} margin={{ left: -25, right: 10, top: 5, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#e5e7eb'} />
-            <XAxis 
-              dataKey="time" 
-              tick={{ fill: isDarkMode ? '#71717a' : '#a1a1aa', fontSize: 10, angle: -45, textAnchor: 'end' }}
-              tickLine={{ stroke: isDarkMode ? '#374151' : '#e5e7eb' }}
-              axisLine={{ stroke: isDarkMode ? '#374151' : '#e5e7eb' }}
-              height={60}
-            />
-            <YAxis 
-              tick={{ fill: isDarkMode ? '#71717a' : '#a1a1aa', fontSize: 10 }}
-              tickLine={{ stroke: isDarkMode ? '#374151' : '#e5e7eb' }}
-              axisLine={{ stroke: isDarkMode ? '#374151' : '#e5e7eb' }}
-              tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}K` : value}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            {modelNames.map((model) => (
-              <Line
-                key={model.dataKey}
-                type="monotone"
-                dataKey={model.dataKey}
-                name={model.name}
-                stroke={model.color}
-                strokeWidth={2}
-                dot={{ r: 3, strokeWidth: 2, fill: model.color }}
-                activeDot={{ r: 5, strokeWidth: 2, fill: model.color }}
-              />
-            ))}
-          </LineChart>
-        </ResponsiveContainer>
-        
-        {!hasData && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <p className={cn(
-              "text-xs",
-              isDarkMode ? "text-zinc-600" : "text-zinc-400"
-            )}>
-              暂无使用数据
-            </p>
+        {isLoading ? (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+              <p className={cn(
+                "text-xs",
+                isDarkMode ? "text-zinc-400" : "text-zinc-500"
+              )}>
+                正在加载数据...
+              </p>
+            </div>
           </div>
+        ) : (
+          <>
+            <ResponsiveContainer width="100%" height={280} className="[&_svg]:focus:outline-none">
+              <LineChart 
+                data={chartData} 
+                margin={{ left: -25, right: 10, top: 5, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#e5e7eb'} />
+                <XAxis 
+                  dataKey="time" 
+                  tick={{ fill: isDarkMode ? '#71717a' : '#a1a1aa', fontSize: 10, angle: -45, textAnchor: 'end' }}
+                  tickLine={{ stroke: isDarkMode ? '#374151' : '#e5e7eb' }}
+                  axisLine={{ stroke: isDarkMode ? '#374151' : '#e5e7eb' }}
+                  height={60}
+                  interval={0}
+                  allowDuplicatedCategory={false}
+                />
+                <YAxis 
+                  tick={{ fill: isDarkMode ? '#71717a' : '#a1a1aa', fontSize: 10 }}
+                  tickLine={{ stroke: isDarkMode ? '#374151' : '#e5e7eb' }}
+                  axisLine={{ stroke: isDarkMode ? '#374151' : '#e5e7eb' }}
+                  tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}K` : value}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                {modelNames.map((model) => (
+                  <Line
+                    key={model.dataKey}
+                    type="monotone"
+                    dataKey={model.dataKey}
+                    name={model.name}
+                    stroke={model.color}
+                    strokeWidth={2}
+                    dot={{ r: 3, strokeWidth: 2, fill: model.color }}
+                    activeDot={{ r: 5, strokeWidth: 2, fill: model.color }}
+                    isAnimationActive={true}
+                    animationDuration={500}
+                    animationEasing="ease-out"
+                    connectNulls={true}
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+            
+            {!hasData && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <p className={cn(
+                  "text-xs",
+                  isDarkMode ? "text-zinc-600" : "text-zinc-400"
+                )}>
+                  暂无使用数据
+                </p>
+              </div>
+            )}
+          </>
         )}
       </div>
 

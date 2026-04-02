@@ -270,13 +270,16 @@ export async function* streamLLMWithTools(
           receivedDoneSignal = true;
           
           if (usageData && callbacks?.onTokenUsage) {
+            console.log('[functionCalling] Calling onTokenUsage with usageData:', usageData);
             callbacks.onTokenUsage({
               inputTokens: usageData.prompt_tokens || 0,
               outputTokens: usageData.completion_tokens || 0,
             });
           } else if (callbacks?.onTokenUsage) {
+            console.log('[functionCalling] No usageData, estimating tokens. accumulatedContent length:', accumulatedContent.length);
             const estimatedInputTokens = Math.ceil(JSON.stringify(messages).length / 4);
             const estimatedOutputTokens = Math.ceil(accumulatedContent.length / 4);
+            console.log('[functionCalling] Estimated tokens:', { estimatedInputTokens, estimatedOutputTokens });
             callbacks.onTokenUsage({
               inputTokens: estimatedInputTokens,
               outputTokens: estimatedOutputTokens,
@@ -299,6 +302,7 @@ export async function* streamLLMWithTools(
 
           if (json.usage) {
             usageData = json.usage;
+            console.log('[functionCalling] Received usage data from API:', usageData);
           }
 
           if (delta?.reasoning_content) {

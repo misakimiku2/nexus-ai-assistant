@@ -2,9 +2,11 @@
 
 **重构日期：** 2026-04-02
 
+**更新日期：** 2026-04-03
+
 ## 概述
 
-本次重构将 AI 模型设置从单一模型配置改为支持多模型管理，用户可以添加、编辑、删除和排序多个 AI 模型配置。同时新增了 Token 使用统计图表功能。
+本次重构将 AI 模型设置从单一模型配置改为支持多模型管理，用户可以添加、编辑、删除和排序多个 AI 模型配置。同时新增了 Token 使用统计图表功能，Token统计数据现已升级为本地文件持久化存储。
 
 ***
 
@@ -75,14 +77,84 @@ export interface TokenUsageStats {
 | `deleteModelConfig`   | `(id: string) => void`                               | 删除模型配置    |
 | `setActiveModel`      | `(id: string \| null) => void`                       | 设置激活模型    |
 | `reorderModelConfigs` | `(id: string, direction: 'up' \| 'down') => void`    | 重排序模型     |
+| `tokenUsageRecords`   | `TokenUsageRecord[]`                                 | Token使用记录   |
+| `isTokenStorageLoading`| `boolean`                                             | 存储加载状态    |
+| `addTokenUsageRecord` | `(record: Omit<TokenUsageRecord, 'id'>) => void`      | 添加Token记录    |
+| `getTokenUsageStats`  | `(modelId?, timeRange?) => Stats`                    | 获取统计数据    |
+| `clearTokenUsageRecords`| `() => void`                                          | 清除所有记录    |
 
 所有配置自动持久化到 `localStorage`。
 
 ***
 
-### 3. 新增组件
+### 3. Token统计存储服务
 
-#### 3.1 ModelConfigCard
+#### 3.1 IndexedDB存储服务
+
+**文件**: `src/services/tokenStorage.ts`
+
+IndexedDB存储服务，用于浏览器环境：
+
+- 数据库名: `nexus-token-usage`
+- 存储表: `tokenRecords`
+- 索引: `by-model`, `by-timestamp`, `by-model-timestamp`
+
+主要功能：
+- `addTokenRecord` - 添加单条记录
+- `addTokenRecords` - 批量添加记录
+- `getAllTokenRecords` - 获取所有记录
+- `getTokenRecordsByTimeRange` - 按时间范围查询
+- `getTokenRecordsByModelAndTime` - 按模型和时间查询
+- `clearAllTokenRecords` - 清除所有记录
+- `migrateFromLocalStorage` - 从localStorage迁移数据
+
+#### 3.2 Tauri文件系统存储服务
+
+**文件**: `src/services/tauriTokenStorage.ts`
+
+Tauri文件系统存储服务，用于桌面应用环境：
+
+- 存储目录: `{AppData}/nexus-ai-assistant/`
+- 存储文件: `token-usage.json`
+- 完整路径: `C:\Users\{用户名}\AppData\Roaming\com.nexus-ai.assistant\nexus-ai-assistant\token-usage.json`
+
+主要功能：
+- 自动检测Tauri环境
+- 创建存储目录
+- JSON格式持久化存储
+- 从IndexedDB和localStorage迁移数据
+
+#### 3.3 Token存储Hook
+
+**文件**: `src/hooks/useTokenStorage.ts`
+
+统一的Token存储Hook，自动选择存储方案：
+
+- Tauri环境: 使用本地文件存储
+- 浏览器环境: 使用IndexedDB存储
+- 自动数据迁移
+- 加载状态管理
+
+```typescript
+export function useTokenStorage(modelConfigs: ModelConfig[]) {
+  return {
+    records: TokenUsageRecord[];
+    isLoading: boolean;
+    isMigrating: boolean;
+    storagePath: string;
+    addRecord: (record) => Promise<void>;
+    getStats: (modelId?, timeRange?) => Stats;
+    clearRecords: () => Promise<void>;
+    refreshRecords: () => Promise<void>;
+  };
+}
+```
+
+***
+
+### 4. 新增组件
+
+#### 4.1 ModelConfigCard
 
 **文件**: `src/components/ModelConfigCard.tsx`
 
@@ -94,7 +166,7 @@ export interface TokenUsageStats {
 - 操作按钮（仅图标）：启用/停用、编辑、删除
 - 上下移动按钮调整优先级
 
-#### 3.2 ModelConfigForm
+#### 4.2 ModelConfigForm
 
 **文件**: `src/components/ModelConfigForm.tsx`
 
@@ -110,7 +182,7 @@ export interface TokenUsageStats {
 - 定价配置（输入/输出价格，支持货币切换）
 - 连接测试功能
 
-#### 3.3 TokenUsageChart
+#### 4.3 TokenUsageChart
 
 **文件**: `src/components/TokenUsageChart.tsx`
 
@@ -121,10 +193,11 @@ Token 使用统计图表组件：
 - 鼠标悬停显示详细数据
 - 底部显示模型颜色图例
 - 右下角显示总消耗和预估费用
+- 加载状态显示
 
 ***
 
-### 4. SettingsView 重构
+### 5. SettingsView 重构
 
 **文件**: `src/components/SettingsView.tsx`
 
@@ -136,6 +209,33 @@ Token 使用统计图表组件：
 - 集成 TokenUsageChart 组件
 - 移除了底部"保存/重置"按钮（设置即时生效）
 - 关闭设置面板时自动重置表单状态
+- 传递Token存储加载状态
+
+***
+
+### 6. Tauri权限配置
+
+**文件**: `src-tauri/capabilities/default.json`
+
+新增文件系统权限：
+
+```json
+{
+  "permissions": [
+    "fs:allow-write-file",
+    "fs:allow-mkdir",
+    "fs:allow-exists",
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        { "path": "$APPDATA/**" },
+        { "path": "$APPCONFIG/**" },
+        { "path": "$APPLOCALDATA/**" }
+      ]
+    }
+  ]
+}
+```
 
 ***
 
@@ -172,7 +272,29 @@ Token 使用统计图表组件：
 - 时间范围：天/周/月/年
 - 多模型对比显示
 - 预估费用计算
-- 当前显示空数据（需要后续实现数据记录）
+- **本地文件持久化存储**（Tauri环境）
+- **IndexedDB存储**（浏览器环境）
+- 自动数据迁移
+
+***
+
+## 存储架构
+
+### 存储方案选择
+
+| 环境 | 存储方案 | 存储位置 |
+| ---- | -------- | -------- |
+| Tauri桌面应用 | 本地JSON文件 | `{AppData}/nexus-ai-assistant/token-usage.json` |
+| 浏览器 | IndexedDB | 浏览器IndexedDB |
+
+### 数据迁移
+
+首次运行时自动迁移：
+1. localStorage → IndexedDB（浏览器环境）
+2. localStorage → 本地文件（Tauri环境）
+3. IndexedDB → 本地文件（Tauri环境）
+
+迁移完成后清除旧数据源。
 
 ***
 
@@ -240,12 +362,14 @@ Token 使用统计图表组件：
 │  Token 使用统计        [天][周][月][年] │
 ├─────────────────────────────────────────┤
 │  │                                      │
-│  │         暂无使用数据                  │
-│  │                                      │
+│  │    ╱╲    ╱╲                          │
+│  │   ╱  ╲  ╱  ╲    ╱╲                   │
+│  │  ╱    ╲╱    ╲  ╱  ╲                  │
+│  │ ╱              ╲╱    ╲               │
 ├─────────────────────────────────────────┤
-│ ● Model A  ● Model B                    │
+│ ● Qwen 3.5  ● GPT-4o                    │
 │                                          │
-│ 总消耗: 0 tokens                         │
+│ 总消耗: 5,163 tokens                     │
 │ 预估费用: $0.0000 美元                   │
 └─────────────────────────────────────────┘
 ```
@@ -257,28 +381,33 @@ Token 使用统计图表组件：
 | 文件                                   | 操作 | 说明                                               |
 | ------------------------------------ | -- | ------------------------------------------------ |
 | `src/types.ts`                       | 修改 | 添加 ModelConfig、ModelPricing、TokenUsageRecord 等类型 |
-| `src/context/GlobalStateContext.tsx` | 修改 | 添加模型配置列表状态和方法                                    |
-| `src/components/SettingsView.tsx`    | 重构 | 重写 AI 模型设置部分，集成图表组件                              |
+| `src/context/GlobalStateContext.tsx` | 修改 | 添加模型配置列表状态和Token存储方法                    |
+| `src/services/tokenStorage.ts`       | 新建 | IndexedDB存储服务                                  |
+| `src/services/tauriTokenStorage.ts`  | 新建 | Tauri文件系统存储服务                               |
+| `src/hooks/useTokenStorage.ts`       | 新建 | Token存储Hook                                      |
+| `src/components/SettingsView.tsx`    | 重构 | 重写 AI 模型设置部分，集成图表组件                      |
 | `src/components/ModelConfigCard.tsx` | 新建 | 模型配置卡片组件                                         |
 | `src/components/ModelConfigForm.tsx` | 新建 | 模型配置表单组件                                         |
 | `src/components/TokenUsageChart.tsx` | 新建 | Token 使用统计图表组件                                   |
+| `src-tauri/capabilities/default.json`| 修改 | 添加文件系统写入权限                                      |
 
 ***
 
 ## 后续工作
 
-**实现 Token 使用记录**
+**已完成：**
+- ✅ 实现 Token 使用记录
+- ✅ 在每次 API 调用时记录 token 使用量
+- ✅ 图表组件从存储中读取实际数据
+- ✅ 本地文件持久化存储（Tauri环境）
+- ✅ IndexedDB存储（浏览器环境）
+- ✅ 自动数据迁移
 
-- 在全局状态中添加 `tokenUsageRecords` 存储
-- 在每次 API 调用时记录 token 使用量
-- 图表组件从存储中读取实际数据
-
-* **优化模型连接检测**
-  - 定期自动检测模型连接状态
-  - 显示更详细的错误信息
-* **完善定价计算**
-  - 根据实际 token 使用量和定价配置计算费用
-  - 支持不同模型的定价策略
+**待优化：**
+- 定期自动检测模型连接状态
+- 显示更详细的错误信息
+- 根据实际 token 使用量和定价配置计算费用
+- 支持不同模型的定价策略
 
 ***
 
@@ -286,4 +415,3 @@ Token 使用统计图表组件：
 
 - 计划文档：`.trae/documents/ai-model-settings-redesign.md`
 - 原有重构文档：`docs/REMOVE_LLM_CHAT_MODE.md`
-

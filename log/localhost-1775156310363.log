@@ -1,0 +1,24 @@
+functionCalling.ts:279 [functionCalling] No usageData, estimating tokens. accumulatedContent length: 35
+functionCalling.ts:282 [functionCalling] Estimated tokens: {estimatedInputTokens: 1048, estimatedOutputTokens: 9}
+useAgentExecution.ts:164 [useAgentExecution] onTokenUsage called: {activeModelId: null, defaultConfigModelId: '1775128775173w3fzmn2', firstModelConfigId: '1775128775173w3fzmn2', modelIdToUse: '1775128775173w3fzmn2', usage: {…}}
+useAgentExecution.ts:172 [useAgentExecution] Calling addTokenUsageRecord with modelId: 1775128775173w3fzmn2
+useTokenStorage.ts:96 [TokenStorage] addRecord called with: {modelId: '1775128775173w3fzmn2', timestamp: 1775155972228, inputTokens: 1048, outputTokens: 9, cost: 0}
+useTokenStorage.ts:99 [TokenStorage] Calculated cost: 0 model found: true
+useTokenStorage.ts:106 [TokenStorage] New record created: {modelId: '1775128775173w3fzmn2', timestamp: 1775155972228, inputTokens: 1048, outputTokens: 9, cost: 0, …}
+useAgentExecution.ts:180 [useAgentExecution] addTokenUsageRecord called successfully
+ReActEngine.ts:297 [ReActEngine] Tool call: web_search params: {query: 'Sora OpenAI 关停', max_results: 5}
+ReActEngine.ts:298 [ReActEngine] preprocessedUrls: {}
+builtin.ts:125 [web_search] Query: "Sora OpenAI 关停", Engine: "baidu", Tavily Enabled: true
+builtin.ts:129 [web_search] Using Tavily SDK
+useTokenStorage.ts:117 [TokenStorage] Updated records count: 1
+useTokenStorage.ts:117 [TokenStorage] Updated records count: 1
+functionCalling.ts:279 [functionCalling] No usageData, estimating tokens. accumulatedContent length: 567
+functionCalling.ts:282 [functionCalling] Estimated tokens: {estimatedInputTokens: 3964, estimatedOutputTokens: 142}
+useAgentExecution.ts:164 [useAgentExecution] onTokenUsage called: {activeModelId: null, defaultConfigModelId: '1775128775173w3fzmn2', firstModelConfigId: '1775128775173w3fzmn2', modelIdToUse: '1775128775173w3fzmn2', usage: {…}}
+useAgentExecution.ts:172 [useAgentExecution] Calling addTokenUsageRecord with modelId: 1775128775173w3fzmn2
+useTokenStorage.ts:96 [TokenStorage] addRecord called with: {modelId: '1775128775173w3fzmn2', timestamp: 1775156016492, inputTokens: 3964, outputTokens: 142, cost: 0}
+useTokenStorage.ts:99 [TokenStorage] Calculated cost: 0 model found: true
+useTokenStorage.ts:106 [TokenStorage] New record created: {modelId: '1775128775173w3fzmn2', timestamp: 1775156016492, inputTokens: 3964, outputTokens: 142, cost: 0, …}
+useAgentExecution.ts:180 [useAgentExecution] addTokenUsageRecord called successfully
+useTokenStorage.ts:117 [TokenStorage] Updated records count: 2
+useTokenStorage.ts:117 [TokenStorage] Updated records count: 2

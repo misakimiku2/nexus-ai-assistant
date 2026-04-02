@@ -16,6 +16,9 @@
     "shell:allow-open",
     "fs:default",
     "fs:allow-read-file",
+    "fs:allow-write-file",
+    "fs:allow-mkdir",
+    "fs:allow-exists",
     {
       "identifier": "fs:scope",
       "allow": [
@@ -26,6 +29,9 @@
         { "path": "$PICTURES/**" },
         { "path": "$MUSIC/**" },
         { "path": "$VIDEOS/**" },
+        { "path": "$APPDATA/**" },
+        { "path": "$APPCONFIG/**" },
+        { "path": "$APPLOCALDATA/**" },
         { "path": "/" }
       ]
     }

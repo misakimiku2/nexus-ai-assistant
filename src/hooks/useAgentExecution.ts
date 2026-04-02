@@ -13,6 +13,7 @@ import {
   ContentPart,
 } from '../agent/types';
 import { DEFAULT_AGENT } from '../data/agents';
+import { useGlobalState } from '../context/GlobalStateContext';
 
 interface UseAgentExecutionResult {
   status: AgentStatus;
@@ -84,6 +85,7 @@ export function useAgentExecution(
   defaultConfig?: DefaultAgentConfig,
   callbacks?: AgentExecutionCallbacks
 ): UseAgentExecutionResult {
+  const { addTokenUsageRecord, activeModelId, modelConfigs } = useGlobalState();
   const [status, setStatus] = useState<AgentStatus>('idle');
   const [reasoningSteps, setReasoningSteps] = useState<ReasoningStep[]>([]);
   const [toolCalls, setToolCalls] = useState<ToolCallRecord[]>([]);
@@ -97,6 +99,7 @@ export function useAgentExecution(
   const isInitializedRef = useRef(false);
   const lastQueryRef = useRef<string>('');
   const callbacksRef = useRef(callbacks);
+  const currentAgentRef = useRef<Agent | null>(null);
   callbacksRef.current = callbacks;
 
   const notifyExecutionUpdate = useCallback(() => {
@@ -151,11 +154,64 @@ export function useAgentExecution(
       onIterationCountChange: (count: number) => {
         setIterationCount(count);
       },
+      onTokenUsage: (usage) => {
+        // 优先使用 activeModelId（用户选择的活跃模型配置 ID）
+        // 其次使用 defaultConfig.modelId（从 App.tsx 传递的模型 ID）
+        // 最后使用第一个模型配置的 ID
+        const firstModelConfigId = modelConfigs.length > 0 ? modelConfigs[0].id : undefined;
+        const modelIdToUse = activeModelId || defaultConfig?.modelId || firstModelConfigId;
+        
+        console.log('[useAgentExecution] onTokenUsage called:', { 
+          activeModelId, 
+          defaultConfigModelId: defaultConfig?.modelId,
+          firstModelConfigId,
+          modelIdToUse,
+          usage,
+        });
+        if (modelIdToUse) {
+          console.log('[useAgentExecution] Calling addTokenUsageRecord with modelId:', modelIdToUse);
+          addTokenUsageRecord({
+            modelId: modelIdToUse,
+            timestamp: Date.now(),
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
+            cost: 0,
+          });
+          console.log('[useAgentExecution] addTokenUsageRecord called successfully');
+        } else {
+          console.warn('[useAgentExecution] No modelId available, skipping token usage record');
+        }
+      },
     });
 
     runtime.initialize();
     runtimeRef.current = runtime;
   }, []);
+
+  useEffect(() => {
+    if (!defaultConfig?.modelId) return;
+    
+    const newAgent: Agent = {
+      ...DEFAULT_AGENT,
+      id: currentAgentRef.current?.id || DEFAULT_AGENT.id,
+      modelProvider: 'lmstudio',
+      modelId: defaultConfig.modelId,
+      apiUrl: defaultConfig.apiUrl || 'http://localhost:1234/v1/chat/completions',
+      temperature: defaultConfig.temperature ?? 0.7,
+    };
+    
+    console.log('[useAgentExecution] Updating agent with new config:', {
+      modelId: defaultConfig.modelId,
+      apiUrl: defaultConfig.apiUrl,
+    });
+    
+    setCurrentAgent(newAgent);
+    currentAgentRef.current = newAgent;
+    
+    if (isInitializedRef.current) {
+      initializeRuntime(newAgent);
+    }
+  }, [defaultConfig?.modelId, defaultConfig?.apiUrl, defaultConfig?.temperature, initializeRuntime]);
 
   useEffect(() => {
     if (isInitializedRef.current) return;
@@ -169,9 +225,15 @@ export function useAgentExecution(
       temperature: defaultConfig?.temperature ?? 0.7,
     };
 
+    console.log('[useAgentExecution] Initializing with config:', {
+      modelId: defaultConfig?.modelId,
+      apiUrl: defaultConfig?.apiUrl,
+    });
+
     setCurrentAgent(defaultAgentWithSettings);
+    currentAgentRef.current = defaultAgentWithSettings;
     initializeRuntime(defaultAgentWithSettings);
-  }, [initializeRuntime, defaultConfig]);
+  }, [initializeRuntime, defaultConfig?.modelId, defaultConfig?.apiUrl, defaultConfig?.temperature]);
 
   useEffect(() => {
     if (!currentAgent) return;
@@ -188,6 +250,7 @@ export function useAgentExecution(
 
   const setAgent = useCallback((agent: Agent) => {
     setCurrentAgent(agent);
+    currentAgentRef.current = agent;
     initializeRuntime(agent);
   }, [initializeRuntime]);
 

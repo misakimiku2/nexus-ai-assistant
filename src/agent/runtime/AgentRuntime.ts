@@ -25,6 +25,7 @@ export interface AgentRuntimeOptions {
   onRequestAuth?: (toolCall: { id: string; toolName: string; parameters: Record<string, unknown>; status: string }) => Promise<boolean>;
   onContentChunk?: (chunk: string) => void;
   onIterationCountChange?: (count: number) => void;
+  onTokenUsage?: (usage: { inputTokens: number; outputTokens: number }) => void;
 }
 
 let toolsInitialized = false;
@@ -129,6 +130,9 @@ export class AgentRuntime {
       },
       onIterationCountChange: (count: number) => {
         this.callbacks.onIterationCountChange?.(count);
+      },
+      onTokenUsage: (usage) => {
+        this.callbacks.onTokenUsage?.(usage);
       },
     };
 

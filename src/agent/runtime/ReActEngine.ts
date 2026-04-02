@@ -216,7 +216,9 @@ export class ReActEngine {
     let isResponding = false;
 
     try {
-      const stream = streamLLMWithTools(config, messages);
+      const stream = streamLLMWithTools(config, messages, {
+        onTokenUsage: this.context.onTokenUsage,
+      });
 
       for await (const chunk of stream) {
         if (this.abortController?.signal.aborted) {
