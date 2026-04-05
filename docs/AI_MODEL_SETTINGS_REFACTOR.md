@@ -2,7 +2,7 @@
 
 **重构日期：** 2026-04-02
 
-**更新日期：** 2026-04-03
+**更新日期：** 2026-04-05
 
 ## 概述
 
@@ -82,6 +82,9 @@ export interface TokenUsageStats {
 | `addTokenUsageRecord` | `(record: Omit<TokenUsageRecord, 'id'>) => void`      | 添加Token记录    |
 | `getTokenUsageStats`  | `(modelId?, timeRange?) => Stats`                    | 获取统计数据    |
 | `clearTokenUsageRecords`| `() => void`                                          | 清除所有记录    |
+| `sessionTokenUsage`    | `{ input: number; output: number }`                      | 当前会话Token使用量 |
+| `costCurrency`        | `'USD' \| 'CNY'`                                         | 预估费用显示货币   |
+| `setCostCurrency`     | `(currency: 'USD' \| 'CNY') => void`                     | 设置预估费用货币   |
 
 所有配置自动持久化到 `localStorage`。
 
@@ -194,6 +197,10 @@ Token 使用统计图表组件：
 - 底部显示模型颜色图例
 - 右下角显示总消耗和预估费用
 - 加载状态显示
+- **货币切换功能**：支持美元/人民币切换
+- **实时汇率获取**：使用 open.er-api.com API 获取实时汇率
+- **汇率信息显示**：始终显示当前汇率和更新时间
+- **货币设置持久化**：用户选择的货币保存到 localStorage
 
 ***
 
@@ -275,6 +282,22 @@ Token 使用统计图表组件：
 - **本地文件持久化存储**（Tauri环境）
 - **IndexedDB存储**（浏览器环境）
 - 自动数据迁移
+- **货币切换**：支持美元/人民币显示
+- **实时汇率**：应用启动时自动获取最新汇率
+- **汇率显示**：始终显示当前汇率和更新时间
+
+### Agent 模式 Token 显示
+
+- 消息气泡下方显示 token 数量和生成速度
+- Token 使用量在多次 LLM 调用中累积（包括工具调用）
+- 使用 `stream_options: { include_usage: true }` 获取准确的流式 API token 数据
+- 使用 `useRef` 实现同步访问 token 使用量（解决 React 状态异步问题）
+
+### 监视器面板 Token 显示
+
+- 显示当前会话的实际 token 消耗
+- 区分输入/输出 token 数量
+- 基于消息记录计算，而非估算
 
 ***
 
@@ -370,9 +393,15 @@ Token 使用统计图表组件：
 │ ● Qwen 3.5  ● GPT-4o                    │
 │                                          │
 │ 总消耗: 5,163 tokens                     │
-│ 预估费用: $0.0000 美元                   │
+│ 预估费用: ¥0.0352 人民币 [$]             │
+│ 汇率: 1 USD = 7.2456 CNY (更新于 04-05 14:30) │
 └─────────────────────────────────────────┘
 ```
+
+**货币切换说明：**
+- 点击货币符号按钮（$ 或 ¥）切换显示货币
+- 货币设置自动保存，下次打开保持不变
+- 汇率信息始终显示，方便用户了解换算基准
 
 ***
 
@@ -381,14 +410,21 @@ Token 使用统计图表组件：
 | 文件                                   | 操作 | 说明                                               |
 | ------------------------------------ | -- | ------------------------------------------------ |
 | `src/types.ts`                       | 修改 | 添加 ModelConfig、ModelPricing、TokenUsageRecord 等类型 |
-| `src/context/GlobalStateContext.tsx` | 修改 | 添加模型配置列表状态和Token存储方法                    |
+| `src/context/GlobalStateContext.tsx` | 修改 | 添加模型配置列表状态、Token存储方法、货币设置、会话Token统计 |
 | `src/services/tokenStorage.ts`       | 新建 | IndexedDB存储服务                                  |
 | `src/services/tauriTokenStorage.ts`  | 新建 | Tauri文件系统存储服务                               |
+| `src/services/modelHealthCheck.ts`   | 新建 | 模型健康检查服务                                      |
 | `src/hooks/useTokenStorage.ts`       | 新建 | Token存储Hook                                      |
+| `src/hooks/useAgentExecution.ts`     | 修改 | 添加Token使用量追踪、费用计算、累积统计                |
 | `src/components/SettingsView.tsx`    | 重构 | 重写 AI 模型设置部分，集成图表组件                      |
 | `src/components/ModelConfigCard.tsx` | 新建 | 模型配置卡片组件                                         |
 | `src/components/ModelConfigForm.tsx` | 新建 | 模型配置表单组件                                         |
-| `src/components/TokenUsageChart.tsx` | 新建 | Token 使用统计图表组件                                   |
+| `src/components/TokenUsageChart.tsx` | 新建 | Token 使用统计图表组件（含货币切换、实时汇率）          |
+| `src/components/ToolPanel.tsx`       | 修改 | 监视器面板显示实际会话Token消耗                        |
+| `src/agent/llm/functionCalling.ts`   | 修改 | 添加 stream_options 获取准确的流式API token数据       |
+| `src/data/modelPricing.ts`           | 新建 | 预定义模型定价配置                                      |
+| `src/utils/pricing.ts`               | 新建 | 定价计算工具函数                                        |
+| `src/App.tsx`                        | 修改 | Agent消息Token显示、健康检查启动                       |
 | `src-tauri/capabilities/default.json`| 修改 | 添加文件系统写入权限                                      |
 
 ***
@@ -402,16 +438,100 @@ Token 使用统计图表组件：
 - ✅ 本地文件持久化存储（Tauri环境）
 - ✅ IndexedDB存储（浏览器环境）
 - ✅ 自动数据迁移
+- ✅ 启动时自动检测模型连接状态（一次性检查）
+- ✅ 显示更详细的错误信息（通过健康检查）
+- ✅ 根据实际 token 使用量和定价配置计算费用
+- ✅ 支持不同模型的定价策略（预定义常见模型定价）
+- ✅ 恢复 Agent 模式下的 Token 显示功能
+- ✅ 修复监视器面板的 Token 消耗显示（显示实际值）
+- ✅ 流式 API 准确 token 统计（stream_options）
+- ✅ Token 累积统计（支持多次 LLM 调用和工具调用）
+- ✅ 预估费用货币切换功能（美元/人民币）
+- ✅ 实时汇率获取和显示
+- ✅ 货币设置持久化
 
 **待优化：**
-- 定期自动检测模型连接状态
-- 显示更详细的错误信息
-- 根据实际 token 使用量和定价配置计算费用
-- 支持不同模型的定价策略
+- 模型定价数据的在线更新
+- 更多模型的定价配置支持
+- 汇率缓存优化（避免频繁请求）
+
+***
+
+## 技术要点
+
+### Token 累积统计实现
+
+Agent 模式下一次对话可能涉及多次 LLM 调用（如工具调用），需要累积统计：
+
+```typescript
+// useAgentExecution.ts
+const tokenUsageRef = useRef<TokenUsage | null>(null);
+
+// 累积而非覆盖
+onTokenUsage: (usage) => {
+  if (tokenUsageRef.current) {
+    tokenUsageRef.current = {
+      inputTokens: tokenUsageRef.current.inputTokens + usage.inputTokens,
+      outputTokens: tokenUsageRef.current.outputTokens + usage.outputTokens,
+    };
+  } else {
+    tokenUsageRef.current = { ...usage };
+  }
+  setLastTokenUsage({ ...tokenUsageRef.current });
+}
+```
+
+### 流式 API Token 统计
+
+OpenAI 兼容 API 默认不返回 usage 数据，需要添加参数：
+
+```typescript
+const body = {
+  model: config.modelName,
+  messages,
+  stream: true,
+  stream_options: { include_usage: true },  // 关键参数
+};
+```
+
+### React 状态异步问题
+
+`execute()` 完成后立即获取 token 使用量时，React 状态可能未更新：
+
+```typescript
+// 问题：lastTokenUsage 可能还是 null
+const handleComplete = () => {
+  console.log(lastTokenUsage);  // null
+};
+
+// 解决：使用 ref 同步访问
+const tokenUsage = agentExecution.getTokenUsage();  // 从 ref 获取
+```
+
+### 健康检查无限循环问题
+
+`checkModelConnection` 依赖 `modelConfigs`，更新 `modelConfigs` 会触发重新创建函数：
+
+```typescript
+// 问题代码
+const checkModelConnection = useCallback(async (modelId: string) => {
+  const config = modelConfigs.find(m => m.id === modelId);  // 依赖 modelConfigs
+  // ...
+}, [modelConfigs]);  // modelConfigs 变化 → 函数重建 → useEffect 重跑
+
+// 解决：使用 ref
+const modelConfigsRef = useRef(modelConfigs);
+modelConfigsRef.current = modelConfigs;
+
+const checkModelConnection = useCallback(async (modelId: string) => {
+  const config = modelConfigsRef.current.find(m => m.id === modelId);
+  // ...
+}, []);  // 无依赖，函数稳定
 
 ***
 
 ## 相关文档
 
 - 计划文档：`.trae/documents/ai-model-settings-redesign.md`
+- 后续开发计划：`.trae/documents/ai-model-settings-follow-up-plan.md`
 - 原有重构文档：`docs/REMOVE_LLM_CHAT_MODE.md`

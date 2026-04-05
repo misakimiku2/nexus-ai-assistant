@@ -219,6 +219,7 @@ export async function* streamLLMWithTools(
     tools: tools.length > 0 ? tools : undefined,
     tool_choice: tools.length > 0 ? 'auto' : undefined,
     stream: true,
+    stream_options: { include_usage: true },
   };
 
   const response = await fetch(config.apiUrl, {

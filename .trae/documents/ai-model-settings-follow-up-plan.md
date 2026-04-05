@@ -1,221 +1,426 @@
-# AI 模型设置后续工作计划
+# AI 模型设置后续开发计划
 
-**创建日期：** 2026-04-02
+**创建日期：** 2026-04-05
+
+**基于文档：** `docs/AI_MODEL_SETTINGS_REFACTOR.md`
 
 ## 概述
 
-本计划基于 `docs/AI_MODEL_SETTINGS_REFACTOR.md` 文档中的后续工作部分，包含三个主要任务：
-1. 实现 Token 使用记录
-2. 优化模型连接检测
-3. 完善定价计算
+本计划基于已完成的 AI 模型设置重构功能，规划后续开发项目，主要包括：
 
----
+1. 定期自动检测模型连接状态
+2. 显示更详细的错误信息
+3. 根据实际 token 使用量和定价配置计算费用
+4. 支持不同模型的定价策略
+5. 恢复 Agent 模式下的 Token 显示功能
+6. 修复监视器面板的 Token 消耗显示
 
-## 任务一：实现 Token 使用记录
+***
 
-### 1.1 全局状态扩展
+## 问题分析
 
-**文件**: `src/context/GlobalStateContext.tsx`
+### 1. Agent 模式下 Token 显示缺失
 
-**修改内容**:
-- 添加 `tokenUsageRecords: TokenUsageRecord[]` 状态
-- 添加 `addTokenUsageRecord(record: TokenUsageRecord)` 方法
-- 添加 `getTokenUsageStats(modelId?: string, timeRange?: string)` 方法
-- 添加 `clearTokenUsageRecords()` 方法
-- 实现 localStorage 持久化（key: `nexus_token_usage_records`）
+**问题描述：**
 
-**数据结构** (已在 `src/types.ts` 中定义):
+* 原先简单的 LLM 调用聊天已经集成了 token 数量显示功能
+
+* 升级到 Agent 后，消息气泡下的 token 数量、速度等信息消失
+
+**原因分析：**
+
+* `App.tsx` 中的 `handleAgentExecution` 函数在完成时只设置了 `content` 和 `status`
+
+* 没有设置消息对象的 `tokenCount`、`tokenSpeed`、`executionTime` 属性
+
+* `useAgentExecution.ts` 中的 `onTokenUsage` 回调只记录到全局存储，未更新消息对象
+
+**相关文件：**
+
+* `src/App.tsx` - 消息处理逻辑
+
+* `src/hooks/useAgentExecution.ts` - Agent 执行 Hook
+
+* `src/components/ChatView.tsx` - 消息显示组件
+
+### 2. 监视器面板 Token 消耗显示不正确
+
+**问题描述：**
+
+* 右侧面板-监视器-系统资源面板的"当前 Token 消耗"显示的是估算值
+
+* 不是实际的 token 使用量
+
+**原因分析：**
+
+* `GlobalStateContext.tsx` 中 `currentTokenCount` 是根据消息内容长度估算的
+
+* 实际 token 使用量存储在 `tokenUsageRecords` 中
+
+**相关文件：**
+
+* `src/context/GlobalStateContext.tsx` - 全局状态管理
+
+* `src/components/ToolPanel.tsx` - 监视器面板组件
+
+### 3. 模型连接状态未自动检测
+
+**问题描述：**
+
+* 已实现 `checkModelConnection`、`startModelHealthCheck`、`stopModelHealthCheck` 方法
+
+* 但未在应用启动时自动启动健康检查
+
+**相关文件：**
+
+* `src/context/GlobalStateContext.tsx` - 健康检查方法
+
+* `src/services/modelHealthCheck.ts` - 健康检查服务
+
+### 4. Token 费用计算未实现
+
+**问题描述：**
+
+* `pricing.ts` 中有 `calculateCost` 函数
+
+* 但添加 token 使用记录时 `cost` 总是设为 0
+
+**相关文件：**
+
+* `src/utils/pricing.ts` - 定价计算工具
+
+* `src/hooks/useAgentExecution.ts` - Token 记录逻辑
+
+* `src/context/GlobalStateContext.tsx` - 全局状态管理
+
+***
+
+## 开发任务
+
+### 任务 1：恢复 Agent 模式下的 Token 显示
+
+**优先级：** 高
+
+**目标：** 在 AI 回复消息气泡下显示实际的 token 数量、速度和执行时间
+
+**实现步骤：**
+
+1. **修改** **`useAgentExecution.ts`**
+
+   * 添加状态变量记录当前执行的 token 使用量
+
+   * 在 `onTokenUsage` 回调中更新状态
+
+   * 返回 `lastTokenUsage` 供外部使用
+
+2. **修改** **`App.tsx`**
+
+   * 在 `handleAgentExecution` 完成时获取 token 使用量
+
+   * 计算执行时间和 token 速度
+
+   * 更新消息对象的 `tokenCount`、`tokenSpeed`、`executionTime` 属性
+
+3. **修改** **`ChatView.tsx`**
+
+   * 确认 token 信息显示逻辑正确（已存在，无需修改）
+
+**代码修改点：**
+
 ```typescript
-interface TokenUsageRecord {
-  id: string;
-  modelId: string;
-  timestamp: number;
-  inputTokens: number;
-  outputTokens: number;
-  cost: number;
+// useAgentExecution.ts - 添加状态和返回值
+const [lastTokenUsage, setLastTokenUsage] = useState<{ inputTokens: number; outputTokens: number } | null>(null);
+
+// 在 onTokenUsage 回调中
+onTokenUsage: (usage) => {
+  setLastTokenUsage(usage);
+  // ... 现有逻辑
+}
+
+// 返回值添加
+return {
+  // ... 现有返回值
+  lastTokenUsage,
 }
 ```
 
-### 1.2 API 调用埋点
+```typescript
+// App.tsx - 在 handleAgentExecution 完成时
+const startTime = Date.now();
+// ... 执行
+const executionTime = Date.now() - startTime;
+const tokenUsage = agentExecution.lastTokenUsage;
+const tokenCount = tokenUsage ? tokenUsage.inputTokens + tokenUsage.outputTokens : 0;
+const tokenSpeed = executionTime > 0 ? Math.round(tokenCount / (executionTime / 1000)) : 0;
 
-**文件**: `src/agent/llm/functionCalling.ts`
-
-**修改内容**:
-- 在 `callLLMWithTools` 函数中，解析响应中的 `usage` 字段
-- 在 `streamLLMWithTools` 函数中，流式响应结束后记录 token 使用量
-- 添加回调函数 `onTokenUsage?: (usage: { inputTokens: number; outputTokens: number }) => void`
-
-**API 响应中的 usage 字段**:
-```json
-{
-  "usage": {
-    "prompt_tokens": 100,
-    "completion_tokens": 50,
-    "total_tokens": 150
+setMessages(prev => prev.map(m => {
+  if (m.id === assistantMessageId) {
+    return {
+      ...m,
+      content: result,
+      timestamp: Date.now(),
+      tokenCount,
+      tokenSpeed,
+      executionTime,
+      agentExecution: {
+        ...m.agentExecution!,
+        status: 'completed',
+      }
+    };
   }
+  return m;
+}));
+```
+
+***
+
+### 任务 2：修复监视器面板 Token 消耗显示
+
+**优先级：** 高
+
+**目标：** 显示实际的 token 消耗数值，而非估算值
+
+**实现步骤：**
+
+1. **修改** **`GlobalStateContext.tsx`**
+
+   * 添加 `sessionTokenUsage` 状态，存储当前会话的 token 使用量
+
+   * 在添加 token 记录时更新当前会话的 token 使用量
+
+   * 切换会话时重新计算 token 使用量
+
+2. **修改** **`ToolPanel.tsx`**
+
+   * 使用 `sessionTokenUsage` 替代 `currentTokenCount`
+
+   * 显示输入/输出 token 分项
+
+**代码修改点：**
+
+```typescript
+// GlobalStateContext.tsx - 添加状态
+const [sessionTokenUsage, setSessionTokenUsage] = useState<{ input: number; output: number }>({ input: 0, output: 0 });
+
+// 切换会话时重新计算
+useEffect(() => {
+  const sessionRecords = tokenUsageRecords.filter(r => {
+    // 根据 modelId 或其他标识过滤当前会话的记录
+    // 这里需要根据实际业务逻辑调整
+  });
+  const input = sessionRecords.reduce((acc, r) => acc + r.inputTokens, 0);
+  const output = sessionRecords.reduce((acc, r) => acc + r.outputTokens, 0);
+  setSessionTokenUsage({ input, output });
+}, [currentSessionId, tokenUsageRecords]);
+```
+
+```typescript
+// ToolPanel.tsx - 显示实际 token 使用量
+const { sessionTokenUsage } = useGlobalState();
+
+// 在显示区域
+<span className="text-base font-mono font-bold text-indigo-500">
+  {sessionTokenUsage.input + sessionTokenUsage.output}
+</span>
+<span className="text-[10px] opacity-50">({sessionTokenUsage.input} in / {sessionTokenUsage.output} out)</span>
+```
+
+***
+
+### 任务 3：实现定期自动检测模型连接状态
+
+**优先级：** 中
+
+**目标：** 应用启动时自动启动模型健康检查，定期检测连接状态
+
+**实现步骤：**
+
+1. **修改** **`App.tsx`**
+
+   * 在应用启动时调用 `startModelHealthCheck`
+
+   * 在应用卸载时调用 `stopModelHealthCheck`
+
+2. **修改** **`GlobalStateContext.tsx`**
+
+   * 优化健康检查逻辑，显示更详细的错误信息
+
+   * 添加错误信息状态
+
+3. **修改** **`ModelConfigCard.tsx`**
+
+   * 显示详细的连接错误信息
+
+**代码修改点：**
+
+```typescript
+// App.tsx - 在组件挂载时启动健康检查
+const { startModelHealthCheck, stopModelHealthCheck, modelConfigs } = useGlobalState();
+
+useEffect(() => {
+  if (modelConfigs.length > 0) {
+    startModelHealthCheck();
+  }
+  return () => {
+    stopModelHealthCheck();
+  };
+}, [modelConfigs.length, startModelHealthCheck, stopModelHealthCheck]);
+```
+
+***
+
+### 任务 4：实现 Token 费用计算
+
+**优先级：** 中
+
+**目标：** 根据实际 token 使用量和定价配置计算费用
+
+**实现步骤：**
+
+1. **修改** **`useAgentExecution.ts`**
+
+   * 在 `onTokenUsage` 回调中获取模型定价配置
+
+   * 调用 `calculateCost` 计算费用
+
+   * 将费用传递给 `addTokenUsageRecord`
+
+2. **修改** **`GlobalStateContext.tsx`**
+
+   * 添加 `getModelPricing` 方法获取模型定价配置
+
+**代码修改点：**
+
+```typescript
+// useAgentExecution.ts - 计算费用
+import { calculateCost } from '../utils/pricing';
+
+onTokenUsage: (usage) => {
+  const modelConfig = modelConfigs.find(m => m.id === modelIdToUse);
+  const cost = calculateCost(usage.inputTokens, usage.outputTokens, modelConfig?.pricing);
+  
+  addTokenUsageRecord({
+    modelId: modelIdToUse,
+    timestamp: Date.now(),
+    inputTokens: usage.inputTokens,
+    outputTokens: usage.outputTokens,
+    cost,
+  });
 }
 ```
 
-### 1.3 ReActEngine 集成
+***
 
-**文件**: `src/agent/runtime/ReActEngine.ts`
+### 任务 5：支持不同模型的定价策略
 
-**修改内容**:
-- 在 `callLLMStream` 方法中接收 token 使用回调
-- 将 token 使用信息传递给全局状态
+**优先级：** 低
 
-### 1.4 useAgentExecution Hook 集成
+**目标：** 为不同模型配置不同的定价策略
 
-**文件**: `src/hooks/useAgentExecution.ts`
+**实现步骤：**
 
-**修改内容**:
-- 添加 `onTokenUsage` 回调
-- 调用全局状态的 `addTokenUsageRecord` 方法
+1. **预定义模型定价**
 
-### 1.5 TokenUsageChart 组件更新
+   * 在 `src/data/modelPricing.ts` 中预定义常见模型的定价
 
-**文件**: `src/components/TokenUsageChart.tsx`
+2. **修改** **`ModelConfigForm.tsx`**
 
-**修改内容**:
-- 从全局状态读取 `tokenUsageRecords`
-- 根据时间范围过滤数据
-- 计算并显示实际的 token 使用量和费用
-- 移除"暂无使用数据"的空状态覆盖层
+   * 根据选择的模型自动填充建议定价
 
----
+   * 支持自定义定价覆盖
 
-## 任务二：优化模型连接检测
+**代码修改点：**
 
-### 2.1 添加定期检测机制
-
-**文件**: `src/context/GlobalStateContext.tsx`
-
-**修改内容**:
-- 添加 `startModelHealthCheck()` 方法，启动定时检测（每 30 秒）
-- 添加 `stopModelHealthCheck()` 方法，停止定时检测
-- 添加 `checkModelConnection(modelId: string)` 方法，检测单个模型
-
-### 2.2 模型状态更新
-
-**文件**: `src/components/ModelConfigCard.tsx`
-
-**修改内容**:
-- 显示更详细的连接状态信息
-- 添加"检测中..."状态显示
-- 显示最后连接时间和错误信息
-
-### 2.3 连接检测服务
-
-**新建文件**: `src/services/modelHealthCheck.ts`
-
-**功能**:
-- `checkModelHealth(config: ModelConfig): Promise<{ status: 'active' | 'error', error?: string, latency?: number }>`
-- 支持不同提供商的检测方式
-- 超时处理（使用模型配置中的 timeout 设置）
-
-### 2.4 SettingsView 集成
-
-**文件**: `src/components/SettingsView.tsx`
-
-**修改内容**:
-- 在设置面板打开时启动健康检测
-- 在设置面板关闭时停止健康检测
-- 显示所有模型的实时状态
-
----
-
-## 任务三：完善定价计算
-
-### 3.1 定价计算工具函数
-
-**新建文件**: `src/utils/pricing.ts`
-
-**功能**:
 ```typescript
-function calculateCost(
-  inputTokens: number,
-  outputTokens: number,
-  pricing: ModelPricing
-): number;
-
-function formatCost(cost: number, currency: 'USD' | 'CNY'): string;
-
-function getExchangeRate(): number; // USD to CNY
+// src/data/modelPricing.ts
+export const PREDEFINED_PRICING: Record<string, ModelPricing> = {
+  'gpt-4o': { inputPrice: 2.5, outputPrice: 10, currency: 'USD' },
+  'gpt-4o-mini': { inputPrice: 0.15, outputPrice: 0.6, currency: 'USD' },
+  'claude-3-opus': { inputPrice: 15, outputPrice: 75, currency: 'USD' },
+  'qwen-plus': { inputPrice: 0.0008, outputPrice: 0.002, currency: 'CNY' },
+  // ... 更多模型
+};
 ```
 
-### 3.2 TokenUsageRecord 生成时计算费用
-
-**文件**: `src/context/GlobalStateContext.tsx`
-
-**修改内容**:
-- 在 `addTokenUsageRecord` 中，根据模型定价配置自动计算费用
-- 如果模型没有定价配置，费用为 0
-
-### 3.3 TokenUsageChart 费用显示
-
-**文件**: `src/components/TokenUsageChart.tsx`
-
-**修改内容**:
-- 显示各模型的费用明细
-- 支持货币切换显示（USD/CNY）
-- 显示费用趋势图
-
----
-
-## 实现顺序
-
-1. **Phase 1: Token 使用记录基础**
-   - 1.1 全局状态扩展
-   - 1.2 API 调用埋点
-   - 1.5 TokenUsageChart 组件更新
-
-2. **Phase 2: 定价计算**
-   - 3.1 定价计算工具函数
-   - 3.2 TokenUsageRecord 生成时计算费用
-   - 3.3 TokenUsageChart 费用显示
-
-3. **Phase 3: 模型连接检测**
-   - 2.3 连接检测服务
-   - 2.1 添加定期检测机制
-   - 2.2 模型状态更新
-   - 2.4 SettingsView 集成
-
----
+***
 
 ## 文件修改清单
 
-| 文件 | 操作 | 任务 |
-|------|------|------|
-| `src/context/GlobalStateContext.tsx` | 修改 | 1.1, 2.1, 3.2 |
-| `src/agent/llm/functionCalling.ts` | 修改 | 1.2 |
-| `src/agent/runtime/ReActEngine.ts` | 修改 | 1.3 |
-| `src/hooks/useAgentExecution.ts` | 修改 | 1.4 |
-| `src/components/TokenUsageChart.tsx` | 修改 | 1.5, 3.3 |
-| `src/components/ModelConfigCard.tsx` | 修改 | 2.2 |
-| `src/components/SettingsView.tsx` | 修改 | 2.4 |
-| `src/services/modelHealthCheck.ts` | 新建 | 2.3 |
-| `src/utils/pricing.ts` | 新建 | 3.1 |
+| 文件                                   | 操作 | 说明                   |
+| ------------------------------------ | -- | -------------------- |
+| `src/hooks/useAgentExecution.ts`     | 修改 | 添加 token 使用量状态，计算费用  |
+| `src/App.tsx`                        | 修改 | 更新消息 token 信息，启动健康检查 |
+| `src/context/GlobalStateContext.tsx` | 修改 | 添加会话 token 使用量状态     |
+| `src/components/ToolPanel.tsx`       | 修改 | 显示实际 token 使用量       |
+| `src/components/ModelConfigCard.tsx` | 修改 | 显示详细错误信息             |
+| `src/data/modelPricing.ts`           | 新建 | 预定义模型定价配置            |
+| `src/components/ModelConfigForm.tsx` | 修改 | 支持自动填充建议定价           |
 
----
+***
 
-## 注意事项
+## 测试计划
 
-1. **Token 使用记录存储限制**
-   - 建议只保留最近 30 天的数据
-   - 或限制最大记录数为 10000 条
-   - 避免 localStorage 超出限制
+1. **Token 显示测试**
 
-2. **流式响应的 Token 统计**
-   - 部分模型 API 在流式响应中不返回 usage 信息
-   - 需要考虑使用估算方法（基于字符数）
-   - 或在非流式模式下获取准确数据
+   * 发送消息后检查消息气泡下是否显示 token 数量
 
-3. **模型连接检测的并发控制**
-   - 避免同时检测所有模型
-   - 使用队列或限制并发数
-   - 考虑用户网络状况
+   * 检查 token 速度计算是否正确
 
-4. **定价数据的准确性**
-   - 不同模型厂商的定价可能随时变化
-   - 建议在模型配置时手动输入定价
-   - 或提供在线查询定价的功能（后续）
+   * 检查执行时间是否正确
+
+2. **监视器面板测试**
+
+   * 检查 Token 消耗显示是否为实际值
+
+   * 切换会话后检查数值是否正确更新
+
+3. **健康检查测试**
+
+   * 启动应用后检查是否自动检测模型连接
+
+   * 断开模型后检查状态是否更新
+
+   * 检查错误信息是否正确显示
+
+4. **费用计算测试**
+
+   * 配置模型定价后检查费用是否正确计算
+
+   * 检查 TokenUsageChart 中的费用显示是否正确
+
+***
+
+## 风险评估
+
+1. **Token 统计准确性**
+
+   * 风险：部分模型可能不返回 token 使用量
+
+   * 缓解：保留估算逻辑作为后备方案
+
+2. **性能影响**
+
+   * 风险：频繁的健康检查可能影响性能
+
+   * 缓解：设置合理的检查间隔（30秒）
+
+3. **定价数据维护**
+
+   * 风险：模型定价可能随时变化
+
+   * 缓解：支持用户自定义定价覆盖
+
+***
+
+## 时间估算
+
+| 任务               | 预计时间     |
+| ---------------- | -------- |
+| 任务 1：恢复 Token 显示 | 2 小时     |
+| 任务 2：修复监视器面板     | 1.5 小时   |
+| 任务 3：自动健康检查      | 1 小时     |
+| 任务 4：费用计算        | 1 小时     |
+| 任务 5：定价策略        | 1.5 小时   |
+| 测试和调试            | 2 小时     |
+| **总计**           | **9 小时** |
+

@@ -53,6 +53,7 @@ export default function App() {
     activeModel,
     activeModelId,
     modelConfigs,
+    startModelHealthCheck,
   } = useGlobalState();
 
   const [isDarkMode, setIsDarkMode] = useState(() => 
@@ -248,6 +249,12 @@ export default function App() {
     };
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  useEffect(() => {
+    if (modelConfigs.length > 0) {
+      startModelHealthCheck();
+    }
   }, []);
 
   useEffect(() => {
@@ -480,6 +487,9 @@ export default function App() {
     setIsStreaming(true);
     setIsWaitingForResponse(true);
     setScrollResetKey(k => k + 1);
+    
+    agentExecution.resetTokenUsage();
+    const startTime = Date.now();
 
     try {
       let enhancedInput = originalInput;
@@ -547,6 +557,11 @@ export default function App() {
       });
 
       const result = await agentExecution.execute(enhancedInput, conversationHistory);
+      
+      const executionTime = Date.now() - startTime;
+      const tokenUsage = agentExecution.getTokenUsage();
+      const tokenCount = tokenUsage ? tokenUsage.inputTokens + tokenUsage.outputTokens : 0;
+      const tokenSpeed = executionTime > 0 ? Math.round(tokenCount / (executionTime / 1000)) : 0;
 
       setMessages(prev => prev.map(m => {
         if (m.id === assistantMessageId) {
@@ -554,6 +569,9 @@ export default function App() {
             ...m,
             content: result,
             timestamp: Date.now(),
+            tokenCount,
+            tokenSpeed,
+            executionTime,
             agentExecution: {
               ...m.agentExecution!,
               status: 'completed',
@@ -568,7 +586,7 @@ export default function App() {
         generateSessionTitle(originalInput, result, currentSessionId);
       }
 
-      addLog(t.logs.aiResponseComplete.replace('{time}', '0').replace('{tokens}', '0').replace('{speed}', '0'), 'info');
+      addLog(t.logs.aiResponseComplete.replace('{time}', String(executionTime)).replace('{tokens}', String(tokenCount)).replace('{speed}', String(tokenSpeed)), 'info');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       setMessages(prev => prev.map(m => {

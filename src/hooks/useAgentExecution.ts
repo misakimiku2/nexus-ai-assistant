@@ -14,6 +14,12 @@ import {
 } from '../agent/types';
 import { DEFAULT_AGENT } from '../data/agents';
 import { useGlobalState } from '../context/GlobalStateContext';
+import { calculateCost } from '../utils/pricing';
+
+interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+}
 
 interface UseAgentExecutionResult {
   status: AgentStatus;
@@ -30,6 +36,9 @@ interface UseAgentExecutionResult {
   toggleAgentMode: () => void;
   setAgent: (agent: Agent) => void;
   currentAgent: Agent | null;
+  lastTokenUsage: TokenUsage | null;
+  resetTokenUsage: () => void;
+  getTokenUsage: () => TokenUsage | null;
 }
 
 interface DefaultAgentConfig {
@@ -93,6 +102,7 @@ export function useAgentExecution(
   const [pendingAuthToolCall, setPendingAuthToolCall] = useState<ToolCallRecord | null>(null);
   const [isAgentMode, setIsAgentMode] = useState(true);
   const [currentAgent, setCurrentAgent] = useState<Agent | null>(null);
+  const [lastTokenUsage, setLastTokenUsage] = useState<TokenUsage | null>(null);
 
   const runtimeRef = useRef<AgentRuntime | null>(null);
   const authResolveRef = useRef<((approved: boolean) => void) | null>(null);
@@ -100,6 +110,7 @@ export function useAgentExecution(
   const lastQueryRef = useRef<string>('');
   const callbacksRef = useRef(callbacks);
   const currentAgentRef = useRef<Agent | null>(null);
+  const tokenUsageRef = useRef<TokenUsage | null>(null);
   callbacksRef.current = callbacks;
 
   const notifyExecutionUpdate = useCallback(() => {
@@ -155,9 +166,22 @@ export function useAgentExecution(
         setIterationCount(count);
       },
       onTokenUsage: (usage) => {
-        // 优先使用 activeModelId（用户选择的活跃模型配置 ID）
-        // 其次使用 defaultConfig.modelId（从 App.tsx 传递的模型 ID）
-        // 最后使用第一个模型配置的 ID
+        if (tokenUsageRef.current) {
+          tokenUsageRef.current = {
+            inputTokens: tokenUsageRef.current.inputTokens + usage.inputTokens,
+            outputTokens: tokenUsageRef.current.outputTokens + usage.outputTokens,
+          };
+        } else {
+          tokenUsageRef.current = {
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
+          };
+        }
+        setLastTokenUsage({
+          inputTokens: tokenUsageRef.current.inputTokens,
+          outputTokens: tokenUsageRef.current.outputTokens,
+        });
+        
         const firstModelConfigId = modelConfigs.length > 0 ? modelConfigs[0].id : undefined;
         const modelIdToUse = activeModelId || defaultConfig?.modelId || firstModelConfigId;
         
@@ -167,15 +191,19 @@ export function useAgentExecution(
           firstModelConfigId,
           modelIdToUse,
           usage,
+          cumulative: tokenUsageRef.current,
         });
         if (modelIdToUse) {
-          console.log('[useAgentExecution] Calling addTokenUsageRecord with modelId:', modelIdToUse);
+          const modelConfig = modelConfigs.find(m => m.id === modelIdToUse);
+          const cost = calculateCost(usage.inputTokens, usage.outputTokens, modelConfig?.pricing);
+          
+          console.log('[useAgentExecution] Calling addTokenUsageRecord with modelId:', modelIdToUse, 'cost:', cost);
           addTokenUsageRecord({
             modelId: modelIdToUse,
             timestamp: Date.now(),
             inputTokens: usage.inputTokens,
             outputTokens: usage.outputTokens,
-            cost: 0,
+            cost,
           });
           console.log('[useAgentExecution] addTokenUsageRecord called successfully');
         } else {
@@ -315,6 +343,11 @@ export function useAgentExecution(
     setIsAgentMode((prev) => !prev);
   }, []);
 
+  const resetTokenUsage = useCallback(() => {
+    tokenUsageRef.current = null;
+    setLastTokenUsage(null);
+  }, []);
+
   return {
     status,
     reasoningSteps,
@@ -330,5 +363,8 @@ export function useAgentExecution(
     toggleAgentMode,
     setAgent,
     currentAgent,
+    lastTokenUsage,
+    resetTokenUsage,
+    getTokenUsage: () => tokenUsageRef.current,
   };
 }

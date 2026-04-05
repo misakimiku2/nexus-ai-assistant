@@ -1,7 +1,15 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { cn } from '../lib/utils';
 import { ModelConfig, TokenUsageRecord } from '../types';
+import { useGlobalState } from '../context/GlobalStateContext';
+
+interface ExchangeRateInfo {
+  rate: number;
+  lastUpdate: number | null;
+  isLoading: boolean;
+  error: string | null;
+}
 
 interface TokenUsageChartProps {
   isDarkMode: boolean;
@@ -40,6 +48,58 @@ export const TokenUsageChart: React.FC<TokenUsageChartProps> = ({
   timeRange,
   onTimeRangeChange,
 }) => {
+  const { costCurrency, setCostCurrency } = useGlobalState();
+  const [exchangeRate, setExchangeRate] = useState<ExchangeRateInfo>({
+    rate: 7.24,
+    lastUpdate: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const fetchExchangeRate = useCallback(async () => {
+    setExchangeRate(prev => ({ ...prev, isLoading: true, error: null }));
+    
+    try {
+      const response = await fetch('https://open.er-api.com/v6/latest/USD');
+      if (!response.ok) {
+        throw new Error('Failed to fetch exchange rate');
+      }
+      const data = await response.json();
+      
+      if (data.rates && data.rates.CNY) {
+        setExchangeRate({
+          rate: data.rates.CNY,
+          lastUpdate: Date.now(),
+          isLoading: false,
+          error: null,
+        });
+      } else {
+        throw new Error('Invalid exchange rate data');
+      }
+    } catch (error) {
+      setExchangeRate(prev => ({
+        ...prev,
+        isLoading: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch exchange rate',
+      }));
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchExchangeRate();
+  }, [fetchExchangeRate]);
+
+  const formatUpdateTime = (timestamp: number | null) => {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    return date.toLocaleString('zh-CN', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
   const getTimeRangeConfig = () => {
     switch (timeRange) {
       case 'day':
@@ -453,11 +513,37 @@ export const TokenUsageChart: React.FC<TokenUsageChartProps> = ({
           )}>
             总消耗: <span className="font-mono font-bold">{(stats.totalInputTokens + stats.totalOutputTokens).toLocaleString()}</span> tokens
           </p>
+          <div className="flex items-center justify-end gap-1.5 mt-1">
+            <p className={cn(
+              "text-xs",
+              isDarkMode ? "text-zinc-300" : "text-zinc-600"
+            )}>
+              预估费用: {costCurrency === 'USD' ? '$' : '¥'}{(costCurrency === 'USD' ? stats.totalCost : stats.totalCost * exchangeRate.rate).toFixed(4)} {costCurrency === 'USD' ? '美元' : '人民币'}
+            </p>
+            <button
+              type="button"
+              onClick={() => setCostCurrency(costCurrency === 'USD' ? 'CNY' : 'USD')}
+              className={cn(
+                "text-sm font-medium transition-colors cursor-pointer hover:opacity-70",
+                isDarkMode
+                  ? "text-indigo-400"
+                  : "text-indigo-600"
+              )}
+              title="切换货币"
+            >
+              {costCurrency === 'USD' ? '$' : '¥'}
+            </button>
+          </div>
           <p className={cn(
-            "text-xs mt-1",
-            isDarkMode ? "text-zinc-300" : "text-zinc-600"
+            "text-[10px] mt-0.5",
+            isDarkMode ? "text-zinc-500" : "text-zinc-400"
           )}>
-            预估费用: ${stats.totalCost.toFixed(4)} 美元
+            汇率: 1 USD = {exchangeRate.rate.toFixed(4)} CNY
+            {exchangeRate.lastUpdate && (
+              <span className="ml-1">
+                (更新于 {formatUpdateTime(exchangeRate.lastUpdate)})
+              </span>
+            )}
           </p>
         </div>
       </div>

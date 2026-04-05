@@ -159,7 +159,7 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
     deletePreset,
     sessions,
     agents,
-    currentTokenCount,
+    sessionTokenUsage,
     searchGroups,
     setSearchGroups,
     deleteSearchGroup,
@@ -625,7 +625,8 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
                             isDarkMode ? "bg-black/20 border-zinc-500/20" : "bg-white/50 border-zinc-200"
                           )}>
                             <span className="text-xs opacity-50 font-medium">当前 Token 消耗</span>
-                            <span className="text-base font-mono font-bold text-indigo-500">{currentTokenCount}</span>
+                            <span className="text-base font-mono font-bold text-indigo-500">{sessionTokenUsage.input + sessionTokenUsage.output}</span>
+                            <span className="text-[10px] opacity-40">({sessionTokenUsage.input} in / {sessionTokenUsage.output} out)</span>
                           </div>
                           <div className={cn(
                             "p-3 rounded-xl border flex flex-col gap-1",

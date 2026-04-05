@@ -126,11 +126,15 @@ interface GlobalState {
   addTokenUsageRecord: (record: Omit<TokenUsageRecord, 'id'>) => void;
   getTokenUsageStats: (modelId?: string, timeRange?: 'day' | 'week' | 'month' | 'year') => { totalInputTokens: number; totalOutputTokens: number; totalCost: number };
   clearTokenUsageRecords: () => void;
+  sessionTokenUsage: { input: number; output: number };
+  
+  // Cost Currency Setting
+  costCurrency: 'USD' | 'CNY';
+  setCostCurrency: (currency: 'USD' | 'CNY') => void;
   
   // Model Health Check
   checkModelConnection: (modelId: string) => Promise<void>;
   startModelHealthCheck: () => void;
-  stopModelHealthCheck: () => void;
 }
 
 export const GlobalStateContext = createContext<GlobalState | undefined>(undefined);
@@ -264,6 +268,29 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     clearRecords: clearTokenUsageRecords,
   } = useTokenStorage(modelConfigs);
 
+  const sessionTokenUsage = useMemo(() => {
+    let input = 0;
+    let output = 0;
+    
+    messages.forEach(msg => {
+      if (msg.tokenCount) {
+        if (msg.role === 'user') {
+          input += msg.tokenCount;
+        } else if (msg.role === 'assistant') {
+          output += msg.tokenCount;
+        }
+      }
+    });
+    
+    return { input, output };
+  }, [messages]);
+
+  // Cost Currency Setting
+  const [costCurrency, setCostCurrency] = useState<'USD' | 'CNY'>(() => {
+    const stored = localStorage.getItem('nexus_cost_currency');
+    return (stored === 'USD' || stored === 'CNY') ? stored : 'USD';
+  });
+
   const addModelConfig = (config: ModelConfig) => {
     setModelConfigs(prev => {
       const newConfigs = [...prev, { ...config, priority: prev.length + 1 }];
@@ -304,11 +331,12 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
   };
 
   // Model Health Check
-  const healthCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [, setHealthCheckResults] = useState<Map<string, HealthCheckResult>>(new Map());
+  const modelConfigsRef = useRef(modelConfigs);
+  modelConfigsRef.current = modelConfigs;
 
   const checkModelConnection = useCallback(async (modelId: string) => {
-    const config = modelConfigs.find(m => m.id === modelId);
+    const config = modelConfigsRef.current.find(m => m.id === modelId);
     if (!config) return;
     
     const result = await checkModelHealth(config);
@@ -323,15 +351,11 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
       newResults.set(modelId, result);
       return newResults;
     });
-  }, [modelConfigs, updateModelConfig]);
+  }, [updateModelConfig]);
 
   const startModelHealthCheck = useCallback(() => {
-    if (healthCheckIntervalRef.current) {
-      clearInterval(healthCheckIntervalRef.current);
-    }
-    
     const runHealthCheck = async () => {
-      for (const config of modelConfigs) {
+      for (const config of modelConfigsRef.current) {
         if (config.status !== 'inactive') {
           await checkModelConnection(config.id);
         }
@@ -339,22 +363,7 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     };
     
     runHealthCheck();
-    
-    healthCheckIntervalRef.current = setInterval(runHealthCheck, 30000);
-  }, [modelConfigs, checkModelConnection]);
-
-  const stopModelHealthCheck = useCallback(() => {
-    if (healthCheckIntervalRef.current) {
-      clearInterval(healthCheckIntervalRef.current);
-      healthCheckIntervalRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      stopModelHealthCheck();
-    };
-  }, [stopModelHealthCheck]);
+  }, [checkModelConnection]);
 
   // Persist User Settings
   useEffect(() => { localStorage.setItem('nexus_user_name', userName); }, [userName]);
@@ -384,6 +393,9 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
   // Persist Model Settings
   useEffect(() => { localStorage.setItem('nexus_temperature', temperature.toString()); }, [temperature]);
   useEffect(() => { localStorage.setItem('nexus_system_prompt', systemPrompt); }, [systemPrompt]);
+
+  // Persist Cost Currency
+  useEffect(() => { localStorage.setItem('nexus_cost_currency', costCurrency); }, [costCurrency]);
 
   // Sync i18next with global state language
   useEffect(() => {
@@ -879,9 +891,11 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
       addTokenUsageRecord,
       getTokenUsageStats,
       clearTokenUsageRecords,
+      sessionTokenUsage,
+      costCurrency,
+      setCostCurrency,
       checkModelConnection,
-      startModelHealthCheck,
-      stopModelHealthCheck
+      startModelHealthCheck
     }}>
       {children}
     </GlobalStateContext.Provider>
