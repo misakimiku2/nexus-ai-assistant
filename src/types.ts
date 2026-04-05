@@ -150,9 +150,23 @@ export interface Agent {
 }
 
 export interface ModelPricing {
-  inputPrice: number;  // 输入价格（每1M tokens）
-  outputPrice: number; // 输出价格（每1M tokens）
+  inputPrice: number;       // 输入价格（缓存未命中，每1M tokens）
+  outputPrice: number;      // 输出价格（每1M tokens）
   currency: 'USD' | 'CNY';  // 货币类型
+  cacheHitPrice?: number;   // 缓存命中价格（可选，每1M tokens）
+  cacheWritePrice?: number; // 缓存写入价格（可选，Anthropic专用）
+}
+
+export interface AggregatorProvider {
+  id: string;
+  name: string;
+  logo: string;
+  apiUrl: string;
+  apiKeyUrl: string;
+  pricingUrl?: string;
+  supportsModelList: boolean;
+  supportsPricingApi: boolean;
+  currency: 'USD' | 'CNY';
 }
 
 export interface ModelConfig {

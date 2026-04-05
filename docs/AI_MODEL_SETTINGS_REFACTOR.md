@@ -8,6 +8,12 @@
 
 本次重构将 AI 模型设置从单一模型配置改为支持多模型管理，用户可以添加、编辑、删除和排序多个 AI 模型配置。同时新增了 Token 使用统计图表功能，Token统计数据现已升级为本地文件持久化存储。
 
+**最新更新（2026-04-05）：**
+- 新增缓存定价支持（缓存命中/缓存写入价格）
+- 新增 AI 聚合平台支持（OpenRouter、DMXAPI、硅基流动、阿里云百炼）
+- 新增"获取价格"按钮，自动填充预定义价格
+- OpenRouter 支持通过 API 实时获取模型价格
+
 ***
 
 ## 主要修改
@@ -20,9 +26,23 @@
 
 ```typescript
 export interface ModelPricing {
-  inputPrice: number;      // 输入价格（每1M tokens）
-  outputPrice: number;     // 输出价格（每1M tokens）
-  currency: 'USD' | 'CNY'; // 货币类型
+  inputPrice: number;       // 输入价格（缓存未命中，每1M tokens）
+  outputPrice: number;      // 输出价格（每1M tokens）
+  currency: 'USD' | 'CNY';  // 货币类型
+  cacheHitPrice?: number;   // 缓存命中价格（可选，每1M tokens）
+  cacheWritePrice?: number; // 缓存写入价格（可选，Anthropic专用）
+}
+
+export interface AggregatorProvider {
+  id: string;
+  name: string;
+  logo: string;
+  apiUrl: string;
+  apiKeyUrl: string;
+  pricingUrl?: string;
+  supportsModelList: boolean;
+  supportsPricingApi: boolean;
+  currency: 'USD' | 'CNY';
 }
 
 export interface ModelConfig {
@@ -176,13 +196,22 @@ export function useTokenStorage(modelConfigs: ModelConfig[]) {
 模型配置表单组件，支持：
 
 - 提供商选择（LM Studio / Ollama / 在线模型）
-- 在线模型支持多个厂商（Google、OpenAI、Anthropic、Alibaba、DeepSeek）
+- 在线模型支持多个厂商：
+  - **官方厂商**：Google、OpenAI、Anthropic、Alibaba (Qwen)、DeepSeek
+  - **聚合平台**：OpenRouter、DMXAPI、硅基流动、阿里云百炼
 - API URL/Key 配置
 - 模型选择（支持获取模型列表）
+- 聚合平台支持手动输入模型ID
 - 最大上下文长度
 - 请求超时时间（秒）
 - RPM 限流次数
-- 定价配置（输入/输出价格，支持货币切换）
+- 定价配置：
+  - 输入价格（缓存未命中）
+  - 输出价格
+  - 缓存命中价格（可选）
+  - 缓存写入价格（可选，Anthropic专用）
+  - 货币切换（美元/人民币）
+- **"获取价格"按钮**：自动填充预定义价格
 - 连接测试功能
 
 #### 4.3 TokenUsageChart
@@ -273,6 +302,14 @@ Token 使用统计图表组件：
 - 本地模型：折叠显示（标记为测试功能）
 - 支持货币切换（美元/人民币）
 - 价格单位：每百万 tokens
+- **缓存定价支持**：
+  - 缓存命中价格：通常为输入价格的 10%-50%
+  - 缓存写入价格：仅部分厂商支持（如 Anthropic）
+- **"获取价格"按钮**：
+  - OpenRouter：通过 API 实时获取价格
+  - 其他平台：从预定义数据填充
+  - 显示价格来源（API获取/预定义数据）
+- **聚合平台定价**：每个平台的价格可能与官方不同，需根据实际选择填充
 
 ### Token 使用统计
 
@@ -409,21 +446,23 @@ Token 使用统计图表组件：
 
 | 文件                                   | 操作 | 说明                                               |
 | ------------------------------------ | -- | ------------------------------------------------ |
-| `src/types.ts`                       | 修改 | 添加 ModelConfig、ModelPricing、TokenUsageRecord 等类型 |
+| `src/types.ts`                       | 修改 | 添加 ModelConfig、ModelPricing（含缓存价格）、TokenUsageRecord、AggregatorProvider 等类型 |
 | `src/context/GlobalStateContext.tsx` | 修改 | 添加模型配置列表状态、Token存储方法、货币设置、会话Token统计 |
 | `src/services/tokenStorage.ts`       | 新建 | IndexedDB存储服务                                  |
 | `src/services/tauriTokenStorage.ts`  | 新建 | Tauri文件系统存储服务                               |
 | `src/services/modelHealthCheck.ts`   | 新建 | 模型健康检查服务                                      |
+| `src/services/pricingService.ts`     | 新建 | 价格获取服务（OpenRouter API、预定义价格查询）         |
 | `src/hooks/useTokenStorage.ts`       | 新建 | Token存储Hook                                      |
 | `src/hooks/useAgentExecution.ts`     | 修改 | 添加Token使用量追踪、费用计算、累积统计                |
 | `src/components/SettingsView.tsx`    | 重构 | 重写 AI 模型设置部分，集成图表组件                      |
 | `src/components/ModelConfigCard.tsx` | 新建 | 模型配置卡片组件                                         |
-| `src/components/ModelConfigForm.tsx` | 新建 | 模型配置表单组件                                         |
+| `src/components/ModelConfigForm.tsx` | 新建 | 模型配置表单组件（含缓存定价、聚合平台支持）             |
 | `src/components/TokenUsageChart.tsx` | 新建 | Token 使用统计图表组件（含货币切换、实时汇率）          |
 | `src/components/ToolPanel.tsx`       | 修改 | 监视器面板显示实际会话Token消耗                        |
 | `src/agent/llm/functionCalling.ts`   | 修改 | 添加 stream_options 获取准确的流式API token数据       |
-| `src/data/modelPricing.ts`           | 新建 | 预定义模型定价配置                                      |
-| `src/utils/pricing.ts`               | 新建 | 定价计算工具函数                                        |
+| `src/data/modelPricing.ts`           | 新建 | 预定义模型定价配置（含缓存价格、聚合平台价格）           |
+| `src/utils/pricing.ts`               | 新建 | 定价计算工具函数（支持缓存定价计算）                    |
+| `src/config/aggregatorProviders.ts`  | 新建 | 聚合平台配置（OpenRouter、DMXAPI、硅基流动、百炼）     |
 | `src/App.tsx`                        | 修改 | Agent消息Token显示、健康检查启动                       |
 | `src-tauri/capabilities/default.json`| 修改 | 添加文件系统写入权限                                      |
 
@@ -449,11 +488,17 @@ Token 使用统计图表组件：
 - ✅ 预估费用货币切换功能（美元/人民币）
 - ✅ 实时汇率获取和显示
 - ✅ 货币设置持久化
+- ✅ 缓存定价支持（缓存命中/缓存写入价格）
+- ✅ AI 聚合平台支持（OpenRouter、DMXAPI、硅基流动、阿里云百炼）
+- ✅ "获取价格"按钮功能
+- ✅ OpenRouter API 实时价格获取
 
 **待优化：**
+- 更多聚合平台的 API 价格获取支持
 - 模型定价数据的在线更新
 - 更多模型的定价配置支持
 - 汇率缓存优化（避免频繁请求）
+- 缓存命中 token 统计（需要 API 返回缓存命中数据）
 
 ***
 
@@ -527,6 +572,74 @@ const checkModelConnection = useCallback(async (modelId: string) => {
   const config = modelConfigsRef.current.find(m => m.id === modelId);
   // ...
 }, []);  // 无依赖，函数稳定
+```
+
+### 缓存定价计算
+
+支持缓存定价的费用计算：
+
+```typescript
+// src/utils/pricing.ts
+export function calculateCost(
+  inputTokens: number,
+  outputTokens: number,
+  pricing: ModelPricing | undefined,
+  cachedTokens: number = 0
+): number {
+  if (!pricing) return 0;
+  
+  const uncachedTokens = Math.max(0, inputTokens - cachedTokens);
+  
+  // 未缓存的输入 token
+  const inputCost = (uncachedTokens / 1000000) * pricing.inputPrice;
+  
+  // 缓存命中的输入 token
+  const cacheHitCost = cachedTokens > 0 && pricing.cacheHitPrice
+    ? (cachedTokens / 1000000) * pricing.cacheHitPrice
+    : 0;
+  
+  // 输出 token
+  const outputCost = (outputTokens / 1000000) * pricing.outputPrice;
+  
+  return inputCost + cacheHitCost + outputCost;
+}
+```
+
+### 聚合平台模型 ID 格式
+
+聚合平台的模型 ID 通常包含提供商前缀：
+
+| 平台 | 模型 ID 格式示例 |
+|------|-----------------|
+| OpenRouter | `openai/gpt-4o`, `anthropic/claude-3.5-sonnet` |
+| 硅基流动 | `Qwen/Qwen2.5-72B-Instruct`, `deepseek-ai/DeepSeek-V3` |
+| DMXAPI | `gpt-4o`, `claude-3-5-sonnet-20241022` |
+| 阿里云百炼 | `qwen-max`, `qwq-plus` |
+
+### OpenRouter 价格 API
+
+OpenRouter 提供公开的模型价格 API：
+
+```typescript
+// 获取所有模型及其价格
+const response = await fetch('https://openrouter.ai/api/v1/models');
+const data = await response.json();
+
+// 价格格式（每 token）
+const model = data.data.find(m => m.id === 'openai/gpt-4o');
+const inputPrice = parseFloat(model.pricing.prompt) * 1000000;  // 转换为每百万 tokens
+const outputPrice = parseFloat(model.pricing.completion) * 1000000;
+```
+
+### 各厂商缓存定价对比
+
+| 厂商 | 缓存命中折扣 | 缓存写入价格 |
+|------|-------------|-------------|
+| OpenAI | 50%-90% | 无额外费用 |
+| Anthropic | 90% (0.1x) | 1.25x 或 2x |
+| DeepSeek | 75%-87.5% | 无额外费用 |
+| Kimi | 75% | 无额外费用 |
+| 阿里云百炼 | 90% | 无额外费用 |
 
 ***
 

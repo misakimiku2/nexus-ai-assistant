@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Power, Pencil, Trash2, ChevronUp, ChevronDown, Server, Cpu, Globe, RefreshCw, Clock, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { ModelConfig } from '../types';
+import { ModelLogo, ProviderLogo } from './ModelLogo';
 
 interface ModelConfigCardProps {
   config: ModelConfig;
@@ -17,12 +18,6 @@ interface ModelConfigCardProps {
   canMoveUp: boolean;
   canMoveDown: boolean;
 }
-
-const providerIcons = {
-  'lm-studio': Server,
-  'ollama': Cpu,
-  'online': Globe,
-};
 
 const providerLabels = {
   'lm-studio': 'LM Studio',
@@ -44,7 +39,6 @@ export const ModelConfigCard: React.FC<ModelConfigCardProps> = ({
   canMoveDown,
 }) => {
   const [showDetails, setShowDetails] = useState(false);
-  const ProviderIcon = providerIcons[config.provider] || Server;
   
   const statusColors = {
     active: 'bg-emerald-500',
@@ -99,10 +93,11 @@ export const ModelConfigCard: React.FC<ModelConfigCardProps> = ({
             
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <ProviderIcon size={14} className={cn(
-                  "flex-shrink-0",
-                  isDarkMode ? "text-zinc-400" : "text-zinc-500"
-                )} />
+                <ModelLogo 
+                  provider={config.provider === 'online' ? config.onlineProvider : config.provider}
+                  modelId={config.modelId}
+                  size={14}
+                />
                 <span className={cn(
                   "font-medium truncate",
                   isDarkMode ? "text-zinc-200" : "text-zinc-900"

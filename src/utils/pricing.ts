@@ -3,14 +3,40 @@ import { ModelPricing } from '../types';
 export function calculateCost(
   inputTokens: number,
   outputTokens: number,
-  pricing: ModelPricing | undefined
+  pricing: ModelPricing | undefined,
+  cachedTokens: number = 0
 ): number {
   if (!pricing) return 0;
   
-  const inputCost = (inputTokens / 1000000) * pricing.inputPrice;
+  const uncachedTokens = Math.max(0, inputTokens - cachedTokens);
+  
+  const inputCost = (uncachedTokens / 1000000) * pricing.inputPrice;
+  
+  const cacheHitCost = cachedTokens > 0 && pricing.cacheHitPrice
+    ? (cachedTokens / 1000000) * pricing.cacheHitPrice
+    : 0;
+  
   const outputCost = (outputTokens / 1000000) * pricing.outputPrice;
   
-  return inputCost + outputCost;
+  return inputCost + cacheHitCost + outputCost;
+}
+
+export function calculateCostWithCacheWrite(
+  inputTokens: number,
+  outputTokens: number,
+  pricing: ModelPricing | undefined,
+  cachedTokens: number = 0,
+  cacheWriteTokens: number = 0
+): number {
+  if (!pricing) return 0;
+  
+  const baseCost = calculateCost(inputTokens, outputTokens, pricing, cachedTokens);
+  
+  const cacheWriteCost = cacheWriteTokens > 0 && pricing.cacheWritePrice
+    ? (cacheWriteTokens / 1000000) * pricing.cacheWritePrice
+    : 0;
+  
+  return baseCost + cacheWriteCost;
 }
 
 export function formatCost(cost: number, currency: 'USD' | 'CNY' = 'USD'): string {
