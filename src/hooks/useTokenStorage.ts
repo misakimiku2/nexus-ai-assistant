@@ -7,6 +7,8 @@ import {
   getAllTokenRecords as idbGetAllTokenRecords,
   clearAllTokenRecords as idbClearAllTokenRecords,
   migrateFromLocalStorage as idbMigrateFromLocalStorage,
+  deleteTokenRecordsByModelId as idbDeleteTokenRecordsByModelId,
+  updateTokenRecordsModelId as idbUpdateTokenRecordsModelId,
 } from '../services/tokenStorage';
 
 import {
@@ -16,6 +18,8 @@ import {
   migrateFromLocalStorage as tauriMigrateFromLocalStorage,
   migrateFromIndexedDB as tauriMigrateFromIndexedDB,
   getStorageInfo,
+  deleteTokenRecordsByModelId as tauriDeleteTokenRecordsByModelId,
+  updateTokenRecordsModelId as tauriUpdateTokenRecordsModelId,
 } from '../services/tauriTokenStorage';
 
 let isTauriEnv: boolean | null = null;
@@ -174,6 +178,34 @@ export function useTokenStorage(modelConfigs: ModelConfig[]) {
     setRecords(allRecords);
   }, []);
 
+  const deleteRecordsByModelId = useCallback(async (modelId: string) => {
+    const isTauri = await checkTauriEnv();
+    const deletedCount = isTauri 
+      ? await tauriDeleteTokenRecordsByModelId(modelId)
+      : await idbDeleteTokenRecordsByModelId(modelId);
+    
+    if (deletedCount > 0) {
+      setRecords(prev => prev.filter(r => r.modelId !== modelId));
+    }
+    
+    return deletedCount;
+  }, []);
+
+  const updateRecordsModelId = useCallback(async (oldModelId: string, newModelId: string) => {
+    const isTauri = await checkTauriEnv();
+    const updatedCount = isTauri
+      ? await tauriUpdateTokenRecordsModelId(oldModelId, newModelId)
+      : await idbUpdateTokenRecordsModelId(oldModelId, newModelId);
+    
+    if (updatedCount > 0) {
+      setRecords(prev => prev.map(r => 
+        r.modelId === oldModelId ? { ...r, modelId: newModelId } : r
+      ));
+    }
+    
+    return updatedCount;
+  }, []);
+
   return {
     records,
     isLoading,
@@ -183,5 +215,7 @@ export function useTokenStorage(modelConfigs: ModelConfig[]) {
     getStats,
     clearRecords,
     refreshRecords,
+    deleteRecordsByModelId,
+    updateRecordsModelId,
   };
 }

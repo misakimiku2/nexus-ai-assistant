@@ -7,6 +7,7 @@ import { ONLINE_PROVIDERS, isAggregatorProvider } from '../config/aggregatorProv
 import { fetchOpenRouterPricing, fetchModelsFromProvider, getDefaultCurrencyForProvider, getProviderPricingUrl } from '../services/pricingService';
 import { getPricingForProviderModel, PRICING_LAST_UPDATED } from '../data/modelPricing';
 import { ModelLogo, ProviderLogo } from './ModelLogo';
+import { getContextLengthForModel, DEFAULT_CONTEXT_BY_PROVIDER, MODEL_CONTEXT_LENGTHS } from '../config/modelContextLengths';
 
 interface ModelConfigFormProps {
   isDarkMode: boolean;
@@ -16,23 +17,46 @@ interface ModelConfigFormProps {
   addLog: (message: string, type?: 'info' | 'error' | 'command') => void;
 }
 
-const onlineProviders: Record<string, { name: string; models: string[]; apiKeyUrl: string; apiUrl: string; isAggregator?: boolean; supportsModelList?: boolean; isCustom?: boolean }> = {
-  google: { name: 'Google', models: ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'], apiKeyUrl: 'https://aistudio.google.com/app/apikey', apiUrl: 'https://generativelanguage.googleapis.com/v1beta', supportsModelList: true },
-  openai: { name: 'OpenAI', models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'], apiKeyUrl: 'https://platform.openai.com/api-keys', apiUrl: 'https://api.openai.com/v1', supportsModelList: true },
-  anthropic: { name: 'Anthropic', models: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-sonnet-4-20250514', 'claude-opus-4-20250514'], apiKeyUrl: 'https://console.anthropic.com/settings/keys', apiUrl: 'https://api.anthropic.com/v1' },
-  deepseek: { name: 'DeepSeek', models: ['deepseek-chat', 'deepseek-reasoner'], apiKeyUrl: 'https://platform.deepseek.com/api_keys', apiUrl: 'https://api.deepseek.com/v1', supportsModelList: true },
-  zhipu: { name: '智谱', models: ['glm-4-plus', 'glm-4-air', 'glm-4-flash', 'glm-4-long'], apiKeyUrl: 'https://open.bigmodel.cn/api-keys', apiUrl: 'https://open.bigmodel.cn/api/paas/v4', supportsModelList: true },
-  minimax: { name: 'MiniMax', models: ['abab6.5s-chat', 'abab6.5g-chat', 'abab6.5t-chat', 'abab5.5-chat'], apiKeyUrl: 'https://www.minimaxi.com/user-center/basic-information/interface-key', apiUrl: 'https://api.minimax.chat/v1', supportsModelList: true },
-  kimi: { name: 'Kimi (月之暗面)', models: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'], apiKeyUrl: 'https://platform.moonshot.cn/api-keys', apiUrl: 'https://api.moonshot.cn/v1', supportsModelList: true },
-  xiaomi: { name: '小米 MiMo', models: ['MiMo-7B-RL'], apiKeyUrl: 'https://xiaomi.com', apiUrl: '', supportsModelList: false },
-  openrouter: { name: 'OpenRouter', models: [], apiKeyUrl: 'https://openrouter.ai/keys', apiUrl: 'https://openrouter.ai/api/v1', isAggregator: true, supportsModelList: true },
-  dmxapi: { name: 'DMXAPI', models: [], apiKeyUrl: 'https://dmxapi.cn', apiUrl: 'https://api.dmxapi.cn/v1', isAggregator: true, supportsModelList: true },
-  siliconflow: { name: '硅基流动', models: [], apiKeyUrl: 'https://cloud.siliconflow.cn', apiUrl: 'https://api.siliconflow.cn/v1', isAggregator: true, supportsModelList: true },
-  bailian: { name: '阿里云百炼', models: ['qwen-max', 'qwen-plus', 'qwen-turbo', 'qwen-long', 'qwq-plus', 'qwq-32b'], apiKeyUrl: 'https://dashscope.console.aliyun.com/apiKey', apiUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', isAggregator: true, supportsModelList: true },
-  custom: { name: '自定义平台', models: [], apiKeyUrl: '', apiUrl: '', isAggregator: true, supportsModelList: false, isCustom: true },
-};
+const onlineProviders = ONLINE_PROVIDERS;
 
 type Provider = 'lm-studio' | 'ollama' | 'online';
+
+const getDefaultContextLength = (provider: string, onlineProvider?: string, modelId?: string): number => {
+  if (modelId) {
+    return getContextLengthForModel(modelId, onlineProvider);
+  }
+  if (provider === 'lm-studio' || provider === 'ollama') {
+    return 256 * 1024;
+  }
+  if (provider === 'online' && onlineProvider) {
+    return DEFAULT_CONTEXT_BY_PROVIDER[onlineProvider] || 128 * 1024;
+  }
+  return 128 * 1024;
+};
+
+const formatContextLabel = (tokens: number): string => {
+  if (tokens >= 1024 * 1024) {
+    return `${tokens / (1024 * 1024)}M`;
+  }
+  return `${tokens / 1024}K`;
+};
+
+const generateContextMarks = (maxTokens: number): { value: number; label: string }[] => {
+  const marks: { value: number; label: string }[] = [];
+  const minTokens = 1024;
+  
+  marks.push({ value: minTokens, label: formatContextLabel(minTokens) });
+  
+  const step = Math.floor((maxTokens - minTokens) / 4);
+  for (let i = 1; i <= 3; i++) {
+    const value = minTokens + step * i;
+    marks.push({ value, label: formatContextLabel(value) });
+  }
+  
+  marks.push({ value: maxTokens, label: formatContextLabel(maxTokens) });
+  
+  return marks;
+};
 
 export const ModelConfigForm: React.FC<ModelConfigFormProps> = ({
   isDarkMode,
@@ -48,7 +72,13 @@ export const ModelConfigForm: React.FC<ModelConfigFormProps> = ({
   const [modelId, setModelId] = useState(editingConfig?.modelId || '');
   const [apiKey, setApiKey] = useState(editingConfig?.apiKey || '');
   const [onlineProvider, setOnlineProvider] = useState(editingConfig?.onlineProvider || 'google');
-  const [maxContextLength, setMaxContextLength] = useState(editingConfig?.maxContextLength || 4096);
+  const [maxContextLength, setMaxContextLength] = useState(
+    editingConfig?.maxContextLength || getDefaultContextLength(
+      editingConfig?.provider || 'lm-studio', 
+      editingConfig?.onlineProvider,
+      editingConfig?.modelId
+    )
+  );
   const [requestTimeout, setRequestTimeout] = useState(editingConfig?.timeout || 60);
   const [rpm, setRpm] = useState(editingConfig?.rpm || 60);
   const [inputPrice, setInputPrice] = useState(editingConfig?.pricing?.inputPrice || 0);
@@ -77,27 +107,48 @@ export const ModelConfigForm: React.FC<ModelConfigFormProps> = ({
     addLog(message, type === 'success' ? 'info' : type);
   }, [addLog]);
 
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [prevOnlineProvider, setPrevOnlineProvider] = useState<string | undefined>(undefined);
+
   useEffect(() => {
     if (provider === 'online') {
-      setApiKey('');
+      const isSwitchingProvider = isInitialized && prevOnlineProvider !== undefined && prevOnlineProvider !== onlineProvider;
+      if (isSwitchingProvider || (!isInitialized && !editingConfig?.apiKey)) {
+        setApiKey('');
+      }
       setFetchedModels([]);
-      setModelId('');
+      if (isSwitchingProvider || (!isInitialized && !editingConfig?.modelId)) {
+        setModelId('');
+      }
       setCustomApiUrl('');
       const defaultCurrency = getDefaultCurrencyForProvider(onlineProvider);
       setCurrency(defaultCurrency);
-      if (onlineProviders[onlineProvider]?.models.length > 0) {
+      if (onlineProviders[onlineProvider]?.models.length > 0 && (isSwitchingProvider || !editingConfig?.modelId)) {
         setModelId(onlineProviders[onlineProvider].models[0]);
       }
+      setPrevOnlineProvider(onlineProvider);
     }
-  }, [provider, onlineProvider]);
+    setIsInitialized(true);
+  }, [provider, onlineProvider, editingConfig?.maxContextLength, editingConfig?.apiKey, editingConfig?.modelId]);
 
   useEffect(() => {
     if (provider === 'lm-studio') {
       setApiUrl('http://localhost:1234/v1/chat/completions');
+      if (!editingConfig) {
+        setModelId('');
+      }
     } else if (provider === 'ollama') {
       setApiUrl('http://localhost:11434/api/chat');
+      if (!editingConfig) {
+        setModelId('');
+      }
     }
-  }, [provider]);
+    if (provider !== 'online' && !editingConfig) {
+      setMaxContextLength(256 * 1024);
+    } else {
+      setMaxContextLength(getDefaultContextLength(provider, onlineProvider, modelId));
+    }
+  }, [provider, onlineProvider, modelId]);
 
   useEffect(() => {
     if (modelId && !isNameManuallyEdited && !editingConfig) {
@@ -113,6 +164,8 @@ export const ModelConfigForm: React.FC<ModelConfigFormProps> = ({
 
     setIsFetchingPricing(true);
     setPricingSource('none');
+    setCacheHitPrice(0);
+    setCacheWritePrice(0);
 
     try {
       if (onlineProvider === 'openrouter') {
@@ -123,6 +176,10 @@ export const ModelConfigForm: React.FC<ModelConfigFormProps> = ({
           setCurrency(pricing.currency);
           if (pricing.cacheHitPrice) {
             setCacheHitPrice(pricing.cacheHitPrice);
+            setShowCachePricing(true);
+          }
+          if (pricing.cacheWritePrice) {
+            setCacheWritePrice(pricing.cacheWritePrice);
             setShowCachePricing(true);
           }
           setPricingSource('api');
@@ -142,6 +199,7 @@ export const ModelConfigForm: React.FC<ModelConfigFormProps> = ({
           }
           if (pricing.cacheWritePrice) {
             setCacheWritePrice(pricing.cacheWritePrice);
+            setShowCachePricing(true);
           }
           setPricingSource('predefined');
           localAddLog(`已从预定义数据获取价格信息`, 'success');
@@ -347,11 +405,16 @@ export const ModelConfigForm: React.FC<ModelConfigFormProps> = ({
   return (
     <motion.div
       initial={{ opacity: 0, maxHeight: 0 }}
-      animate={{ opacity: 1, maxHeight: 1000 }}
+      animate={{ opacity: 1, maxHeight: '85vh' }}
       exit={{ opacity: 0, maxHeight: 0 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
+      style={{
+        overflowY: 'auto',
+        scrollbarWidth: 'thin',
+        scrollbarColor: isDarkMode ? '#52525b transparent' : '#a1a1aa transparent'
+      }}
       className={cn(
-        "overflow-hidden rounded-xl border",
+        "rounded-xl border",
         isDarkMode ? "border-zinc-700" : "border-zinc-200"
       )}
     >
@@ -778,17 +841,17 @@ export const ModelConfigForm: React.FC<ModelConfigFormProps> = ({
                 value={maxContextLength}
                 onChange={(e) => setMaxContextLength(parseInt(e.target.value) || 4096)}
                 className={cn(
-                  "w-24 border rounded-lg px-3 py-1.5 text-sm text-right focus:ring-1 focus:ring-indigo-500/50 outline-none",
+                  "w-28 text-sm text-right focus:outline-none border-b-2 bg-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
                   isDarkMode
-                    ? "bg-zinc-700 border-zinc-600 text-zinc-200"
-                    : "bg-white border-zinc-300 text-zinc-900"
+                    ? "border-zinc-500 text-zinc-200 focus:border-indigo-400"
+                    : "border-zinc-300 text-zinc-900 focus:border-indigo-500"
                 )}
               />
             </div>
             <input
               type="range"
               min="1024"
-              max="128000"
+              max={getDefaultContextLength(provider, onlineProvider, modelId)}
               step="1024"
               value={maxContextLength}
               onChange={(e) => setMaxContextLength(parseInt(e.target.value))}
@@ -798,9 +861,9 @@ export const ModelConfigForm: React.FC<ModelConfigFormProps> = ({
               "flex justify-between text-[10px]",
               isDarkMode ? "text-zinc-500" : "text-zinc-400"
             )}>
-              <span>1K</span>
-              <span>32K</span>
-              <span>128K</span>
+              {generateContextMarks(getDefaultContextLength(provider, onlineProvider, modelId)).map((mark, index) => (
+                <span key={index}>{mark.label}</span>
+              ))}
             </div>
           </div>
 

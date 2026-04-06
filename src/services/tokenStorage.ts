@@ -102,3 +102,42 @@ export async function migrateFromLocalStorage(): Promise<number> {
     return 0;
   }
 }
+
+export async function deleteTokenRecordsByModelId(modelId: string): Promise<number> {
+  const records = await getAllTokenRecords();
+  const filteredRecords = records.filter(r => r.modelId !== modelId);
+  const deletedCount = records.length - filteredRecords.length;
+  
+  if (deletedCount > 0) {
+    const db = await getDB();
+    await db.clear(STORE_NAME);
+    if (filteredRecords.length > 0) {
+      await addTokenRecords(filteredRecords);
+    }
+    console.log(`[TokenStorage] 删除了 ${deletedCount} 条 modelId=${modelId} 的 token 记录`);
+  }
+  
+  return deletedCount;
+}
+
+export async function updateTokenRecordsModelId(oldModelId: string, newModelId: string): Promise<number> {
+  const records = await getAllTokenRecords();
+  let updatedCount = 0;
+  
+  const updatedRecords = records.map(r => {
+    if (r.modelId === oldModelId) {
+      updatedCount++;
+      return { ...r, modelId: newModelId };
+    }
+    return r;
+  });
+  
+  if (updatedCount > 0) {
+    const db = await getDB();
+    await db.clear(STORE_NAME);
+    await addTokenRecords(updatedRecords);
+    console.log(`[TokenStorage] 更新了 ${updatedCount} 条 token 记录的 modelId: ${oldModelId} -> ${newModelId}`);
+  }
+  
+  return updatedCount;
+}

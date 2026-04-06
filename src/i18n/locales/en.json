@@ -59,6 +59,7 @@
       "tavilyRefreshUsage": "Refresh"
     },
     "ai": {
+      "header": "AI Models Settings",
       "title": "AI Models",
       "subtitle": "Configure online or local AI services",
       "provider": "Model Provider",
@@ -80,6 +81,7 @@
       "maxContextLength": "Max Context Length (Tokens)"
     },
     "rag": {
+      "header": "Local RAG Settings",
       "title": "Local RAG",
       "subtitle": "Manage local knowledge base and retrieval augmentation",
       "coreConfig": "Core Configuration",

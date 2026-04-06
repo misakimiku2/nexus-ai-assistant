@@ -201,11 +201,23 @@ export class ReActEngine {
   }
 
   private async callLLMStream(messages: ConversationMessage[]): Promise<LLMResponse> {
+    // 判断是否支持 stream_options (目前只有原生 OpenAI 支持)
+    const isOpenAICompatible = this.context.agent.onlineProvider === 'openai' ||
+                               this.context.agent.modelProvider === 'lmstudio' ||
+                               this.context.agent.modelProvider === 'ollama' ||
+                               !this.context.agent.onlineProvider;
+    
+    // 判断是否为 Google Gemini 模型（需要特殊兼容性处理）
+    const isGeminiModel = this.context.agent.onlineProvider === 'google' ||
+                           this.context.agent.modelId?.toLowerCase().includes('gemini');
+    
     const config: FunctionCallingConfig = {
       apiUrl: this.context.agent.apiUrl || 'http://localhost:1234/v1/chat/completions',
       modelName: this.context.agent.modelId || 'local-model',
       apiKey: this.context.agent.apiKey,
       temperature: this.context.agent.temperature ?? 0.7,
+      supportsStreamOptions: isOpenAICompatible,
+      isGeminiModel,
     };
 
     let accumulatedContent = '';
@@ -279,11 +291,23 @@ export class ReActEngine {
   }
 
   private async callLLM(messages: ConversationMessage[]): Promise<LLMResponse> {
+    // 判断是否支持 stream_options (目前只有原生 OpenAI 支持)
+    const isOpenAICompatible = this.context.agent.onlineProvider === 'openai' ||
+                               this.context.agent.modelProvider === 'lmstudio' ||
+                               this.context.agent.modelProvider === 'ollama' ||
+                               !this.context.agent.onlineProvider;
+    
+    // 判断是否为 Google Gemini 模型（需要特殊兼容性处理）
+    const isGeminiModel = this.context.agent.onlineProvider === 'google' ||
+                           this.context.agent.modelId?.toLowerCase().includes('gemini');
+    
     const config: FunctionCallingConfig = {
       apiUrl: this.context.agent.apiUrl || 'http://localhost:1234/v1/chat/completions',
       modelName: this.context.agent.modelId || 'local-model',
       apiKey: this.context.agent.apiKey,
       temperature: this.context.agent.temperature ?? 0.7,
+      supportsStreamOptions: isOpenAICompatible,
+      isGeminiModel,
     };
 
     return callLLMWithTools(config, messages);

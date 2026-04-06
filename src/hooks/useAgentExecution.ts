@@ -44,7 +44,11 @@ interface UseAgentExecutionResult {
 interface DefaultAgentConfig {
   apiUrl: string;
   modelId: string;
+  apiModelName: string;
   temperature: number;
+  modelProvider?: string;
+  onlineProvider?: string;
+  apiKey?: string;
 }
 
 interface AgentExecutionCallbacks {
@@ -112,6 +116,16 @@ export function useAgentExecution(
   const currentAgentRef = useRef<Agent | null>(null);
   const tokenUsageRef = useRef<TokenUsage | null>(null);
   callbacksRef.current = callbacks;
+  
+  const activeModelIdRef = useRef(activeModelId);
+  const defaultConfigRef = useRef(defaultConfig);
+  const modelConfigsRef = useRef(modelConfigs);
+  const addTokenUsageRecordRef = useRef(addTokenUsageRecord);
+  
+  activeModelIdRef.current = activeModelId;
+  defaultConfigRef.current = defaultConfig;
+  modelConfigsRef.current = modelConfigs;
+  addTokenUsageRecordRef.current = addTokenUsageRecord;
 
   const notifyExecutionUpdate = useCallback(() => {
     if (callbacksRef.current?.onExecutionUpdate) {
@@ -182,23 +196,27 @@ export function useAgentExecution(
           outputTokens: tokenUsageRef.current.outputTokens,
         });
         
-        const firstModelConfigId = modelConfigs.length > 0 ? modelConfigs[0].id : undefined;
-        const modelIdToUse = activeModelId || defaultConfig?.modelId || firstModelConfigId;
+        const currentModelConfigs = modelConfigsRef.current;
+        const currentActiveModelId = activeModelIdRef.current;
+        const currentDefaultConfig = defaultConfigRef.current;
+        
+        const firstModelConfigId = currentModelConfigs.length > 0 ? currentModelConfigs[0].id : undefined;
+        const modelIdToUse = currentActiveModelId || currentDefaultConfig?.modelId || firstModelConfigId;
         
         console.log('[useAgentExecution] onTokenUsage called:', { 
-          activeModelId, 
-          defaultConfigModelId: defaultConfig?.modelId,
+          activeModelId: currentActiveModelId, 
+          defaultConfigModelId: currentDefaultConfig?.modelId,
           firstModelConfigId,
           modelIdToUse,
           usage,
           cumulative: tokenUsageRef.current,
         });
         if (modelIdToUse) {
-          const modelConfig = modelConfigs.find(m => m.id === modelIdToUse);
+          const modelConfig = currentModelConfigs.find(m => m.id === modelIdToUse);
           const cost = calculateCost(usage.inputTokens, usage.outputTokens, modelConfig?.pricing);
           
           console.log('[useAgentExecution] Calling addTokenUsageRecord with modelId:', modelIdToUse, 'cost:', cost);
-          addTokenUsageRecord({
+          addTokenUsageRecordRef.current({
             modelId: modelIdToUse,
             timestamp: Date.now(),
             inputTokens: usage.inputTokens,
@@ -218,28 +236,33 @@ export function useAgentExecution(
 
   useEffect(() => {
     if (!defaultConfig?.modelId) return;
-    
+
     const newAgent: Agent = {
       ...DEFAULT_AGENT,
       id: currentAgentRef.current?.id || DEFAULT_AGENT.id,
-      modelProvider: 'lmstudio',
-      modelId: defaultConfig.modelId,
+      modelProvider: defaultConfig.modelProvider || 'lmstudio',
+      onlineProvider: defaultConfig.onlineProvider,
+      modelId: defaultConfig.apiModelName || defaultConfig.modelId,
       apiUrl: defaultConfig.apiUrl || 'http://localhost:1234/v1/chat/completions',
+      apiKey: defaultConfig.apiKey,
       temperature: defaultConfig.temperature ?? 0.7,
     };
-    
+
     console.log('[useAgentExecution] Updating agent with new config:', {
-      modelId: defaultConfig.modelId,
+      configId: defaultConfig.modelId,
+      apiModelName: defaultConfig.apiModelName,
+      modelProvider: defaultConfig.modelProvider,
+      onlineProvider: defaultConfig.onlineProvider,
       apiUrl: defaultConfig.apiUrl,
     });
-    
+
     setCurrentAgent(newAgent);
     currentAgentRef.current = newAgent;
-    
+
     if (isInitializedRef.current) {
       initializeRuntime(newAgent);
     }
-  }, [defaultConfig?.modelId, defaultConfig?.apiUrl, defaultConfig?.temperature, initializeRuntime]);
+  }, [defaultConfig?.modelId, defaultConfig?.apiUrl, defaultConfig?.temperature, defaultConfig?.modelProvider, defaultConfig?.onlineProvider, defaultConfig?.apiKey, defaultConfig?.apiModelName, initializeRuntime]);
 
   useEffect(() => {
     if (isInitializedRef.current) return;
@@ -247,21 +270,26 @@ export function useAgentExecution(
 
     const defaultAgentWithSettings: Agent = {
       ...DEFAULT_AGENT,
-      modelProvider: 'lmstudio',
-      modelId: defaultConfig?.modelId || '',
+      modelProvider: defaultConfig?.modelProvider || 'lmstudio',
+      onlineProvider: defaultConfig?.onlineProvider,
+      modelId: defaultConfig?.apiModelName || defaultConfig?.modelId || '',
       apiUrl: defaultConfig?.apiUrl || 'http://localhost:1234/v1/chat/completions',
+      apiKey: defaultConfig?.apiKey,
       temperature: defaultConfig?.temperature ?? 0.7,
     };
 
     console.log('[useAgentExecution] Initializing with config:', {
-      modelId: defaultConfig?.modelId,
+      configId: defaultConfig?.modelId,
+      apiModelName: defaultConfig?.apiModelName,
+      modelProvider: defaultConfig?.modelProvider,
+      onlineProvider: defaultConfig?.onlineProvider,
       apiUrl: defaultConfig?.apiUrl,
     });
 
     setCurrentAgent(defaultAgentWithSettings);
     currentAgentRef.current = defaultAgentWithSettings;
     initializeRuntime(defaultAgentWithSettings);
-  }, [initializeRuntime, defaultConfig?.modelId, defaultConfig?.apiUrl, defaultConfig?.temperature]);
+  }, [initializeRuntime, defaultConfig?.modelId, defaultConfig?.apiUrl, defaultConfig?.temperature, defaultConfig?.modelProvider, defaultConfig?.onlineProvider, defaultConfig?.apiKey, defaultConfig?.apiModelName]);
 
   useEffect(() => {
     if (!currentAgent) return;

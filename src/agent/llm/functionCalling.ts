@@ -13,6 +13,8 @@ export interface FunctionCallingConfig {
   apiKey?: string;
   temperature?: number;
   maxTokens?: number;
+  supportsStreamOptions?: boolean;  // 是否支持 stream_options (OpenAI支持, Gemini等不支持)
+  isGeminiModel?: boolean;  // 是否为 Google Gemini 模型（需要特殊处理）
 }
 
 export interface StreamCallbacks {
@@ -21,6 +23,100 @@ export interface StreamCallbacks {
   onComplete?: (response: LLMResponse) => void;
   onError?: (error: Error) => void;
   onTokenUsage?: (usage: { inputTokens: number; outputTokens: number }) => void;
+}
+
+/**
+ * 转换消息格式以兼容 Google Gemini API
+ * 
+ * Gemini API 有以下特殊要求：
+ * 1. tool 消息的 content 必须是 JSON 对象（google.protobuf.Struct），纯文本会导致 400 错误
+ * 2. tool 消息必须包含 name 字段
+ * 3. assistant 消息中的 tool_calls 格式需要特殊处理
+ */
+function transformMessagesForGemini(messages: ConversationMessage[]): Record<string, unknown>[] {
+  return messages.map(msg => {
+    const transformed: Record<string, unknown> = {
+      role: msg.role,
+    };
+
+    if (msg.role === 'tool') {
+      // Gemini 要求 tool 消息的 content 必须是有效的 JSON 对象
+      // 如果 content 是纯文本，将其包装为 JSON 对象
+      const rawContent = msg.content;
+      
+      if (typeof rawContent === 'string') {
+        // 尝试解析为 JSON，如果失败则包装为对象
+        try {
+          JSON.parse(rawContent);
+          transformed.content = rawContent;
+        } catch {
+          // 纯文本内容，包装为 JSON 对象以满足 Gemini 要求
+          transformed.content = JSON.stringify({ result: rawContent });
+        }
+      } else if (Array.isArray(rawContent)) {
+        // ContentPart 数组，转换为字符串后处理
+        const textContent = rawContent
+          .filter(part => part.type === 'text')
+          .map(part => part.text)
+          .join('');
+        
+        try {
+          JSON.parse(textContent);
+          transformed.content = textContent;
+        } catch {
+          transformed.content = JSON.stringify({ result: textContent });
+        }
+      } else {
+        transformed.content = rawContent;
+      }
+
+      // 确保 tool_call_id 和 name 字段存在（Gemini 要求）
+      if (msg.toolCallId) {
+        transformed.tool_call_id = msg.toolCallId;
+      }
+      if (msg.name) {
+        transformed.name = msg.name;
+      }
+    } else if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0) {
+      // Assistant 消息包含工具调用
+      // Gemini 要求特定的格式，特别是必须保留 thought_signature
+      transformed.content = msg.content || null;
+      transformed.tool_calls = msg.toolCalls.map(tc => {
+        const tcOutput: Record<string, unknown> = {
+          id: tc.id,
+          type: tc.type,
+          function: tc.function,
+        };
+        
+        // Gemini 3 Thought Signature: 必须原样返回
+        // 如果没有签名（比如从其他模型迁移或首次调用），使用 dummy 值
+        // 参考: https://ai.google.dev/gemini-api/docs/thought-signatures
+        if (tc.thoughtSignature) {
+          tcOutput.extra_content = {
+            google: {
+              thought_signature: tc.thoughtSignature,
+            },
+          };
+          console.log('[functionCalling] Preserving thought_signature for tool call:', tc.id);
+        } else {
+          // 没有原始签名时，使用 dummy 值跳过验证
+          // 这适用于：从非 Gemini 模型迁移的对话、或首次调用
+          tcOutput.extra_content = {
+            google: {
+              thought_signature: 'skip_thought_signature_validator',
+            },
+          };
+        }
+        
+        return tcOutput;
+      });
+    } else {
+      // 其他消息类型（system, user, assistant without tool_calls）
+      transformed.content = msg.content;
+    }
+
+    return transformed;
+  });
 }
 
 export function buildToolsForLLM(): { type: 'function'; function: { name: string; description: string; parameters: unknown } }[] {
@@ -211,16 +307,66 @@ export async function* streamLLMWithTools(
 
   const tools = buildToolsForLLM();
 
-  const body = {
+  const body: Record<string, unknown> = {
     model: config.modelName,
     messages,
     temperature: config.temperature ?? 0.7,
-    max_tokens: config.maxTokens,
     tools: tools.length > 0 ? tools : undefined,
-    tool_choice: tools.length > 0 ? 'auto' : undefined,
     stream: true,
-    stream_options: { include_usage: true },
   };
+
+  // Gemini 兼容性处理：移除不支持的参数
+  if (config.isGeminiModel) {
+    // Google Gemini OpenAI 兼容端点不支持以下参数：
+    // - max_tokens: 使用默认值
+    // - tool_choice: Gemini 自动决定是否使用工具
+    // 这些参数会导致 400 Bad Request 错误
+    console.log('[functionCalling] Using Gemini-compatible mode (removing unsupported params)');
+  } else {
+    // 非 Gemini 模型：添加完整参数
+    body.max_tokens = config.maxTokens;
+    body.tool_choice = tools.length > 0 ? 'auto' : undefined;
+  }
+
+  // 只有支持的 API (如 OpenAI) 才添加 stream_options
+  // Google Gemini 等兼容端点不支持此参数，会导致 400 错误
+  if (config.supportsStreamOptions && !config.isGeminiModel) {
+    body.stream_options = { include_usage: true };
+  }
+
+  // Gemini 兼容性处理：转换消息格式
+  // Google Gemini API 要求 tool 消息的 content 必须是 JSON 对象（google.protobuf.Struct）
+  // 纯文本字符串会导致 400 INVALID_ARGUMENT 错误
+  if (config.isGeminiModel) {
+    body.messages = transformMessagesForGemini(messages);
+    console.log('[functionCalling] Messages transformed for Gemini compatibility');
+  }
+
+  console.log('[functionCalling] Request config:', {
+    apiUrl: config.apiUrl,
+    modelName: config.modelName,
+    hasApiKey: !!config.apiKey,
+    supportsStreamOptions: config.supportsStreamOptions,
+    isGeminiModel: config.isGeminiModel,
+    bodyKeys: Object.keys(body),
+    hasTools: !!body.tools,
+    toolCount: Array.isArray(body.tools) ? body.tools.length : 0,
+    messageCount: messages.length,
+  });
+
+  // 对于 Gemini 模型，记录详细的消息内容用于调试
+  if (config.isGeminiModel) {
+    console.log('[functionCalling] Messages for Gemini (debug):', JSON.stringify(messages.map(m => ({
+      role: m.role,
+      hasContent: !!m.content,
+      contentType: typeof m.content,
+      contentLength: typeof m.content === 'string' ? m.content.length : Array.isArray(m.content) ? m.content.length : 0,
+      hasToolCalls: !!(m as {toolCalls?: unknown}).toolCalls,
+      toolCallCount: (m as {toolCalls?: unknown[]}).toolCalls?.length || 0,
+      toolCallId: (m as {toolCallId?: string}).toolCallId,
+      name: (m as {name?: string}).name,
+    })), null, 2));
+  }
 
   const response = await fetch(config.apiUrl, {
     method: 'POST',
@@ -230,8 +376,11 @@ export async function* streamLLMWithTools(
 
   if (!response.ok) {
     let errorMessage = `API request failed: ${response.status} ${response.statusText}`;
+    let errorDetails: unknown = null;
     try {
       const errorData = await response.json();
+      errorDetails = errorData;
+      console.error('[functionCalling] API Error Details:', JSON.stringify(errorData, null, 2));
       if (errorData.error?.message) {
         errorMessage = errorData.error.message;
       } else if (errorData.message) {
@@ -239,8 +388,8 @@ export async function* streamLLMWithTools(
       } else if (typeof errorData.error === 'string') {
         errorMessage = errorData.error;
       }
-    } catch {
-      // Ignore JSON parse errors, use default message
+    } catch (e) {
+      console.error('[functionCalling] Failed to parse error response:', e);
     }
     throw new Error(errorMessage);
   }
@@ -342,6 +491,20 @@ export async function* streamLLMWithTools(
                 if (tc.function?.arguments) {
                   existing.function.arguments += tc.function.arguments;
                 }
+                
+                // 提取 Gemini 3 Thought Signature（位于 extra_content.google.thought_signature）
+                // 这是 Gemini 3 模型的强制要求，必须在后续请求中原样返回
+                if ((tc as Record<string, unknown>)?.extra_content) {
+                  const extraContent = (tc as Record<string, unknown>).extra_content as Record<string, unknown>;
+                  if (extraContent?.google) {
+                    const googleData = extraContent.google as Record<string, unknown>;
+                    if (googleData?.thought_signature && typeof googleData.thought_signature === 'string') {
+                      existing.thoughtSignature = googleData.thought_signature;
+                      console.log('[functionCalling] Extracted Gemini thought_signature for tool call:', id);
+                    }
+                  }
+                }
+                
                 yield { type: 'tool_call', data: existing };
               }
             }

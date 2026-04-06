@@ -88,22 +88,34 @@ async function checkOnlineModelHealth(config: ModelConfig, timeout: number, star
   }
   
   const apiUrl = getOnlineModelApiUrl(config.onlineProvider);
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  
-  if (config.onlineProvider === 'anthropic') {
-    headers['x-api-key'] = config.apiKey;
-    headers['anthropic-version'] = '2023-06-01';
-  } else {
-    headers['Authorization'] = `Bearer ${config.apiKey}`;
-  }
   
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
   
   try {
-    const response = await fetch(`${apiUrl}/models`, {
+    // Google Gemini 使用特殊的认证方式：query parameter 而非 Bearer token
+    let requestUrl: string;
+    let headers: Record<string, string> = {};
+    
+    if (config.onlineProvider === 'google') {
+      // Google API 使用 ?key= 参数进行认证
+      requestUrl = `${apiUrl}/models?key=${config.apiKey}`;
+      headers['Content-Type'] = 'application/json';
+    } else if (config.onlineProvider === 'anthropic') {
+      // Anthropic 使用 x-api-key header
+      requestUrl = `${apiUrl}/models`;
+      headers['x-api-key'] = config.apiKey;
+      headers['anthropic-version'] = '2023-06-01';
+    } else {
+      // 其他提供商（OpenAI、DeepSeek 等）使用 Bearer token
+      requestUrl = `${apiUrl}/models`;
+      headers['Content-Type'] = 'application/json';
+      headers['Authorization'] = `Bearer ${config.apiKey}`;
+    }
+    
+    console.log(`[modelHealthCheck] Checking ${config.onlineProvider} model health at:`, requestUrl.substring(0, 80) + '...');
+    
+    const response = await fetch(requestUrl, {
       method: 'GET',
       headers,
       signal: controller.signal,

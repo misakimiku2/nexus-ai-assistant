@@ -59,6 +59,7 @@
       "tavilyRefreshUsage": "刷新"
     },
     "ai": {
+      "header": "AI 模型设置",
       "title": "AI 模型",
       "subtitle": "配置在线或本地 AI 服务",
       "provider": "模型提供商",
@@ -80,6 +81,7 @@
       "maxContextLength": "最大上下文长度 (Tokens)"
     },
     "rag": {
+      "header": "本地知识库 (RAG) 设置",
       "title": "本地 RAG",
       "subtitle": "管理本地知识库与检索增强",
       "coreConfig": "核心配置",

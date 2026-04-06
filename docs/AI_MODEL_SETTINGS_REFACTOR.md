@@ -2,17 +2,24 @@
 
 **重构日期：** 2026-04-02
 
-**更新日期：** 2026-04-05
+**更新日期：** 2026-04-06
 
 ## 概述
 
 本次重构将 AI 模型设置从单一模型配置改为支持多模型管理，用户可以添加、编辑、删除和排序多个 AI 模型配置。同时新增了 Token 使用统计图表功能，Token统计数据现已升级为本地文件持久化存储。
 
-**最新更新（2026-04-05）：**
-- 新增缓存定价支持（缓存命中/缓存写入价格）
-- 新增 AI 聚合平台支持（OpenRouter、DMXAPI、硅基流动、阿里云百炼）
-- 新增"获取价格"按钮，自动填充预定义价格
-- OpenRouter 支持通过 API 实时获取模型价格
+**最新更新（2026-04-06）：**
+- 新增品牌图标系统（@lobehub/icons），统一所有提供商/模型的 Logo 显示
+- 新增更多在线厂商支持（智谱、MiniMax、Kimi、小米MiMo）
+- 移除 Alibaba (Qwen) 官方入口（已归入阿里云百炼）
+- 新增自定义平台选项（支持手动输入 API 地址）
+- 修复 Google AI Studio / Anthropic 模型列表获取逻辑
+- 各厂商 API 认证方式和响应格式独立适配
+- 表单内联错误日志显示（单行动画）
+- **🔧 修复在线模型选择链路问题**：解决配置在线模型后仍使用本地 LM Studio 模型的 bug
+- **🔧 实现 Google Gemini 完整兼容支持**：包括 API 端点格式、参数兼容、Thought Signature 机制
+- **🔧 修复 API Key 持久化丢失问题**：重启应用后在线模型 API Key 不再清空
+- **🔧 修复模型健康检查认证错误**：Google 使用 `?key=` 参数认证而非 Bearer token
 
 ***
 
@@ -177,44 +184,86 @@ export function useTokenStorage(modelConfigs: ModelConfig[]) {
 
 ### 4. 新增组件
 
-#### 4.1 ModelConfigCard
+#### 4.1 ModelLogo（品牌图标组件）
+
+**文件**: `src/components/ModelLogo.tsx`
+
+基于 @lobehub/icons 库的品牌图标组件，提供统一的提供商和模型图标：
+
+**导出组件：**
+
+| 组件 | 用途 | 说明 |
+|------|------|------|
+| `ModelLogo` | 模型图标 | 根据模型ID匹配对应品牌图标，无匹配时回退到提供商图标 |
+| `ProviderLogo` | 提供商图标 | 根据提供商ID返回对应品牌图标，DMXAPI返回null（仅文字） |
+
+**提供商图标映射表：**
+
+| 提供商 ID | 图标组件 | 来源 |
+|-----------|---------|------|
+| `google` | Google | @lobehub/icons |
+| `openai` | OpenAI | @lobehub/icons |
+| `anthropic` | Anthropic | @lobehub/icons |
+| `deepseek` | DeepSeek | @lobehub/icons |
+| `zhipu` | Zhipu | @lobehub/icons |
+| `minimax` | Minimax | @lobehub/icons |
+| `kimi` | Moonshot | @lobehub/icons |
+| `xiaomi` | XiaomiMiMo | @lobehub/icons |
+| `openrouter` | OpenRouter | @lobehub/icons |
+| `siliconflow` | SiliconCloud | @lobehub/icons |
+| `bailian` | Bailian | @lobehub/icons |
+| `lm-studio` | LmStudio | @lobehub/icons |
+| `ollama` | Ollama | @lobehub/icons |
+| `custom` | Bot | lucide-react（机器人默认图标） |
+| `dmxapi` | 无 | 返回null，仅显示文字 |
+
+**模型图标回退逻辑：**
+- 精确匹配：`gpt-4o` → OpenAI, `claude-3-5-sonnet` → Claude, `gemini-2.0-flash` → Gemini 等
+- 模糊匹配：包含 `gpt`/`o1`/`o3` → OpenAI, 包含 `claude` → Claude, 包含 `gemini` → Gemini 等
+- 最终回退：使用提供商图标
+
+#### 4.2 ModelConfigCard
 
 **文件**: `src/components/ModelConfigCard.tsx`
 
 模型配置卡片组件，显示：
 
-- 模型名称、提供商图标、模型ID
+- 模型名称、**品牌图标**（ModelLogo）、模型ID
 - 运行状态指示灯（绿色/灰色/红色）
 - 优先级数字
 - 操作按钮（仅图标）：启用/停用、编辑、删除
 - 上下移动按钮调整优先级
 
-#### 4.2 ModelConfigForm
+#### 4.3 ModelConfigForm
 
 **文件**: `src/components/ModelConfigForm.tsx`
 
 模型配置表单组件，支持：
 
-- 提供商选择（LM Studio / Ollama / 在线模型）
-- 在线模型支持多个厂商：
-  - **官方厂商**：Google、OpenAI、Anthropic、Alibaba (Qwen)、DeepSeek
-  - **聚合平台**：OpenRouter、DMXAPI、硅基流动、阿里云百炼
-- API URL/Key 配置
-- 模型选择（支持获取模型列表）
-- 聚合平台支持手动输入模型ID
+- **提供商选择**（LM Studio / Ollama / 在线模型），每个选项使用 ProviderLogo 品牌图标
+- **在线模型厂商**完整列表：
+  - **官方厂商**：Google、OpenAI、Anthropic、DeepSeek、智谱、MiniMax、Kimi、小米MiMo
+  - **聚合平台**：OpenRouter、硅基流动、阿里云百炼、DMXAPI
+  - **自定义平台**：手动输入 API URL（机器人图标）
+- API URL / Key 配置
+- 模型选择（下拉选择 + 手动输入）
+- **"获取列表"按钮**：通过 API Key 调用各厂商 /models 端点动态获取可用模型列表
 - 最大上下文长度
-- 请求超时时间（秒）
-- RPM 限流次数
-- 定价配置：
-  - 输入价格（缓存未命中）
-  - 输出价格
-  - 缓存命中价格（可选）
-  - 缓存写入价格（可选，Anthropic专用）
+- 请求超时时间（秒）/ RPM 限流次数
+- 定价配置（可折叠）：
+  - 输入价格（缓存未命中）/ 输出价格
+  - 缓存命中价格 / 缓存写入价格（Anthropic专用）
   - 货币切换（美元/人民币）
-- **"获取价格"按钮**：自动填充预定义价格
-- 连接测试功能
+- **"获取价格"按钮**：自动填充预定义价格或从API实时获取
+- **本地日志显示**：表单内单行动画日志，显示操作结果/错误信息
+- 连接测试功能（提交时验证 API Key 有效性）
 
-#### 4.3 TokenUsageChart
+**提供商切换行为：**
+- 切换在线厂商时自动清除 API Key 和已获取的模型列表
+- 切换到自定义平台时显示 API URL 手动输入框
+- 自动设置该厂商对应的默认货币（USD/CNY）
+
+#### 4.4 TokenUsageChart
 
 **文件**: `src/components/TokenUsageChart.tsx`
 
@@ -233,7 +282,79 @@ Token 使用统计图表组件：
 
 ***
 
-### 5. SettingsView 重构
+### 5. 价格与模型获取服务
+
+**文件**: `src/services/pricingService.ts`
+
+核心服务，负责模型列表获取和价格查询：
+
+#### 5.1 模型列表获取 (`fetchModelsFromProvider`)
+
+根据不同厂商调用各自专用的获取函数：
+
+| 厂商 | 专用函数 | 认证方式 | API端点 | 响应格式 | 特殊处理 |
+|------|---------|---------|---------|---------|---------|
+| **Google** | `fetchGoogleModels()` | `x-goog-api-key` header | `/v1beta/models` | `{ models: [{ name }] }` | 过滤 gemini 系列，去除 `models/` 前缀 |
+| **Anthropic** | `fetchAnthropicModels()` | `x-api-key` + `anthropic-version` header | `/v1/models` | `{ data: [{ id }] }` | 标准格式 |
+| **OpenRouter** | 内置处理 | 无需认证（公共API） | `/api/v1/models` | `{ data: [...] }` | 5分钟缓存 |
+| **智谱** | 通用处理 | `Bearer` token | `/api/paas/v4/models`（专用端点） | `{ data: [{ id }] }` | - |
+| **其他**（OpenAI/DeepSeek/MiniMax/Kimi/SiliconFlow/百炼/DMXAPI） | 通用处理 | `Bearer` token | `{apiUrl}/v1/models` | `{ data: [{ id }] }` | - |
+
+```typescript
+// Google 专用响应格式
+interface GoogleModelsResponse {
+  models: { name: string; displayName?: string; supportedGenerationMethods?: string[] }[];
+}
+```
+
+#### 5.2 价格获取
+
+- **OpenRouter**：通过公共 API 实时获取，带 5 分钟缓存
+- **其他平台**：从预定义数据（`modelPricing.ts`）中查询
+
+#### 5.3 错误处理
+
+- 解析各厂商 API 的错误响应格式（`error.message` / `message`）
+- 返回友好的中文错误信息
+- 区分网络错误、认证错误、空结果等场景
+
+***
+
+### 6. 聚合平台配置
+
+**文件**: `src/config/aggregatorProviders.ts`
+
+定义所有在线厂商和聚合平台的配置：
+
+**官方厂商（8个）：**
+
+| ID | 名称 | 支持模型列表 | 默认货币 |
+|----|------|-------------|---------|
+| `google` | Google | ✅ | USD |
+| `openai` | OpenAI | ✅ | USD |
+| `anthropic` | Anthropic | ✅ | USD |
+| `deepseek` | DeepSeek | ✅ | CNY |
+| `zhipu` | 智谱 | ✅ | CNY |
+| `minimax` | MiniMax | ✅ | CNY |
+| `kimi` | Kimi (月之暗面) | ✅ | CNY |
+| `xiaomi` | 小米 MiMo | ❌ | CNY |
+
+**聚合平台（5个）：**
+
+| ID | 名称 | 支持模型列表 | 默认货币 |
+|----|------|-------------|---------|
+| `openrouter` | OpenRouter | ✅ | USD |
+| `dmxapi` | DMXAPI | ✅ | CNY |
+| `siliconflow` | 硅基流动 | ✅ | CNY |
+| `bailian` | 阿里云百炼 | ✅ | CNY |
+| `custom` | 自定义平台 | ❌ | USD |
+
+导出函数：
+- `isAggregatorProvider(providerId)` — 判断是否为聚合平台
+
+***
+
+### 7. SettingsView 重构
 
 **文件**: `src/components/SettingsView.tsx`
 
@@ -249,7 +370,7 @@ Token 使用统计图表组件：
 
 ***
 
-### 6. Tauri权限配置
+### 8. Tauri权限配置
 
 **文件**: `src-tauri/capabilities/default.json`
 
@@ -296,6 +417,13 @@ Token 使用统计图表组件：
 5. **优先级排序**
    - 使用上下箭头调整顺序
 
+### 在线厂商支持
+
+- **13个在线厂商/平台**：Google、OpenAI、Anthropic、DeepSeek、智谱、MiniMax、Kimi、小米MiMo、OpenRouter、DMXAPI、硅基流动、阿里云百炼、自定义
+- **动态模型列表**：点击"获取列表"按钮，使用用户的 API Key 从各厂商 API 实时拉取可用模型
+- **自定义平台**：支持手动输入任意兼容 OpenAI 格式的 API 地址
+- **品牌图标**：每个厂商使用 @lobehub/icons 对应的品牌 SVG 图标（DMXAPI除外，仅文字）
+
 ### 定价配置
 
 - 在线模型：直接显示定价配置
@@ -335,6 +463,12 @@ Token 使用统计图表组件：
 - 显示当前会话的实际 token 消耗
 - 区分输入/输出 token 数量
 - 基于消息记录计算，而非估算
+
+### 表单反馈
+
+- **本地日志显示**：操作结果（成功/失败）以单行动画形式显示在表单底部
+- **API 验证**：提交前验证 API Key 有效性（调用 /models 端点）
+- **错误信息解析**：解析各厂商 API 返回的错误格式并显示友好提示
 
 ***
 
@@ -376,10 +510,10 @@ Token 使用统计图表组件：
 │  已连接模型                        [+]  │
 ├─────────────────────────────────────────┤
 │ 🟢 GPT-4o                           [1] │
-│    OpenAI · gpt-4o · 可用    [⚡][✏][🗑] │
+│    [OpenAI图标] · gpt-4o · 可用  [⚡][✏][🗑] │
 ├─────────────────────────────────────────┤
-│ 🟢 Qwen-Plus                        [2] │
-│    Alibaba · qwen-plus · 可用 [⚡][✏][🗑]│
+│ 🟢 Qwen-Max                        [2] │
+│    [百炼图标] · qwen-max · 可用  [⚡][✏][🗑]│
 └─────────────────────────────────────────┘
 ```
 
@@ -393,13 +527,19 @@ Token 使用统计图表组件：
 │  [Qwen 3.5                           ]  │
 ├─────────────────────────────────────────┤
 │  提供商                                  │
-│  [LM Studio] [Ollama] [在线模型]        │
+│  [LmStudio图标] [Ollama图标] [🌐在线模型] │
 ├─────────────────────────────────────────┤
-│  API URL                                 │
-│  [http://localhost:1234/v1/...    ] [测试]│
+│  在线厂商                                │
+│  [Google] [OpenAI] [Anthropic] ...     │
+│  [智谱] [MiniMax] [Kimi] [小米]        │
+│  [OpenRouter] [硅基流动] [百炼] [...]  │
+│  [🤖 自定义平台]                        │
+├─────────────────────────────────────────┤
+│  API Key          [获取列表 ↻]          │
+│  [sk-xxx...                        ]    │
 ├─────────────────────────────────────────┤
 │  模型                                    │
-│  [qwen/qwen3.5-9b                  ]    │
+│  [gemini-2.0-flash                  ▾]  │
 ├─────────────────────────────────────────┤
 │  最大上下文长度              [4096]      │
 │  ════════════════════════════════════   │
@@ -409,8 +549,9 @@ Token 使用统计图表组件：
 ├─────────────────────────────────────────┤
 │  定价配置（测试功能）            [▼]    │
 │  输入价格         │  输出价格          │
-│  [$ 0.00]         │  [$ 0.00]          │
+│  [$ 0.00]         │  [$ 0.00]     [获取价格]│
 ├─────────────────────────────────────────┤
+│  ℹ️ 已获取 12 个可用模型                 │
 │                    [取消]  [添加模型]    │
 └─────────────────────────────────────────┘
 ```
@@ -431,7 +572,7 @@ Token 使用统计图表组件：
 │                                          │
 │ 总消耗: 5,163 tokens                     │
 │ 预估费用: ¥0.0352 人民币 [$]             │
-│ 汇率: 1 USD = 7.2456 CNY (更新于 04-05 14:30) │
+│ 汇率: 1 USD = 7.2456 CNY (更新于 04-06) │
 └─────────────────────────────────────────┘
 ```
 
@@ -446,24 +587,27 @@ Token 使用统计图表组件：
 
 | 文件                                   | 操作 | 说明                                               |
 | ------------------------------------ | -- | ------------------------------------------------ |
-| `src/types.ts`                       | 修改 | 添加 ModelConfig、ModelPricing（含缓存价格）、TokenUsageRecord、AggregatorProvider 等类型 |
+| `src/types.ts`                       | 修改 | 添加 ModelConfig、ModelPricing（含缓存价格）、TokenUsageRecord、AggregatorProvider 等类型；新增 ToolCallRequest.thoughtSignature 字段 |
+| `src/agent/types.ts`                 | 修改 | 新增 ToolCallRequest.thoughtSignature 字段（Gemini 3 Thought Signature） |
 | `src/context/GlobalStateContext.tsx` | 修改 | 添加模型配置列表状态、Token存储方法、货币设置、会话Token统计 |
 | `src/services/tokenStorage.ts`       | 新建 | IndexedDB存储服务                                  |
 | `src/services/tauriTokenStorage.ts`  | 新建 | Tauri文件系统存储服务                               |
-| `src/services/modelHealthCheck.ts`   | 新建 | 模型健康检查服务                                      |
-| `src/services/pricingService.ts`     | 新建 | 价格获取服务（OpenRouter API、预定义价格查询）         |
+| `src/services/modelHealthCheck.ts`   | 修改 | 修复 Google 健康检查认证方式（使用 ?key= 参数）     |
+| `src/services/pricingService.ts`     | 新建 | 价格获取服务、模型列表获取（含Google/Anthropic专用函数）         |
 | `src/hooks/useTokenStorage.ts`       | 新建 | Token存储Hook                                      |
-| `src/hooks/useAgentExecution.ts`     | 修改 | 添加Token使用量追踪、费用计算、累积统计                |
+| `src/hooks/useAgentExecution.ts`     | 修改 | 添加Token使用量追踪、费用计算、累积统计；修复 modelProvider 硬编码问题；扩展 DefaultAgentConfig 接口支持 apiModelName/modelProvider/onlineProvider/apiKey |
 | `src/components/SettingsView.tsx`    | 重构 | 重写 AI 模型设置部分，集成图表组件                      |
-| `src/components/ModelConfigCard.tsx` | 新建 | 模型配置卡片组件                                         |
-| `src/components/ModelConfigForm.tsx` | 新建 | 模型配置表单组件（含缓存定价、聚合平台支持）             |
+| `src/components/ModelConfigCard.tsx` | 新建 | 模型配置卡片组件（使用ModelLogo品牌图标）                   |
+| `src/components/ModelConfigForm.tsx` | 修改 | 修复 API Key 在编辑模式下被清空的问题（添加 isInitialized 和 prevOnlineProvider 状态跟踪） |
+| `src/components/ModelLogo.tsx`       | 新建 | 品牌图标组件（基于@lobehub/icons，ProviderLogo+ModelLogo）    |
 | `src/components/TokenUsageChart.tsx` | 新建 | Token 使用统计图表组件（含货币切换、实时汇率）          |
 | `src/components/ToolPanel.tsx`       | 修改 | 监视器面板显示实际会话Token消耗                        |
-| `src/agent/llm/functionCalling.ts`   | 修改 | 添加 stream_options 获取准确的流式API token数据       |
+| `src/agent/llm/functionCalling.ts`   | 修改 | 新增 Gemini 兼容模式（isGeminiModel 配置、参数过滤）；实现 transformMessagesForGemini() 消息转换函数；流式响应解析时提取 thought_signature；发送请求时保留签名 |
+| `src/agent/runtime/ReActEngine.ts`   | 修改 | 自动检测 Gemini 模型并设置 isGeminiModel 标志          |
 | `src/data/modelPricing.ts`           | 新建 | 预定义模型定价配置（含缓存价格、聚合平台价格）           |
 | `src/utils/pricing.ts`               | 新建 | 定价计算工具函数（支持缓存定价计算）                    |
-| `src/config/aggregatorProviders.ts`  | 新建 | 聚合平台配置（OpenRouter、DMXAPI、硅基流动、百炼）     |
-| `src/App.tsx`                        | 修改 | Agent消息Token显示、健康检查启动                       |
+| `src/config/aggregatorProviders.ts`  | 修改 | 导出 ONLINE_PROVIDERS 配置供 App.tsx 使用             |
+| `src/App.tsx`                        | 修改 | 重构 defaultConfig 构建逻辑：使用 effectiveModelId 查找模型配置；根据 provider 类型动态构建 apiUrl/modelProvider/onlineProvider/apiKey/apiModelName；导入 ONLINE_PROVIDERS |
 | `src-tauri/capabilities/default.json`| 修改 | 添加文件系统写入权限                                      |
 
 ***
@@ -492,6 +636,16 @@ Token 使用统计图表组件：
 - ✅ AI 聚合平台支持（OpenRouter、DMXAPI、硅基流动、阿里云百炼）
 - ✅ "获取价格"按钮功能
 - ✅ OpenRouter API 实时价格获取
+- ✅ 更多在线厂商（智谱、MiniMax、Kimi、小米MiMo）
+- ✅ 自定义平台支持
+- ✅ 品牌图标系统（@lobehub/icons）
+- ✅ Google AI Studio / Anthropic 模型列表获取修复
+- ✅ 表单内联错误日志显示
+- ✅ **修复在线模型选择链路问题**（modelProvider 硬编码、activeModelId 回退、ID混淆）
+- ✅ **实现 Google Gemini API 完整兼容**（端点格式、参数过滤、消息转换）
+- ✅ **实现 Gemini 3 Thought Signature 机制**（签名提取与保留）
+- ✅ **修复 API Key 持久化丢失**（编辑模式保留已有 Key）
+- ✅ **修复模型健康检查认证错误**（Google 使用 ?key= 参数）
 
 **待优化：**
 - 更多聚合平台的 API 价格获取支持
@@ -605,6 +759,32 @@ export function calculateCost(
 }
 ```
 
+### 各厂商模型列表 API 差异
+
+不同厂商的 /models 端点有显著差异，需要分别适配：
+
+```typescript
+// Google AI Studio — 完全不同的格式
+GET https://generativelanguage.googleapis.com/v1beta/models
+Header: x-goog-api-key: {apiKey}
+Response: { models: [{ name: "models/gemini-2.0-flash", displayName: "..." }] }
+处理: 过滤 gemini 开头 → 去除 "models/" 前缀
+
+// Anthropic — 专用认证头
+GET https://api.anthropic.com/v1/models
+Header: x-api-key: {apiKey}, anthropic-version: 2023-06-01
+Response: { data: [{ id: "claude-3-5-sonnet-20241022" }] }
+
+// OpenAI 兼容格式（DeepSeek/MiniMax/Kimi/SiliconFlow/百炼/DMXAPI/OpenAI）
+GET {apiUrl}/v1/models
+Header: Authorization: Bearer {apiKey}
+Response: { data: [{ id: "gpt-4o", object: "model" }] }
+
+// 智谱 — 专用端点
+GET https://open.bigmodel.cn/api/paas/v4/models
+Header: Authorization: Bearer {apiKey}
+```
+
 ### 聚合平台模型 ID 格式
 
 聚合平台的模型 ID 通常包含提供商前缀：
@@ -641,10 +821,292 @@ const outputPrice = parseFloat(model.pricing.completion) * 1000000;
 | Kimi | 75% | 无额外费用 |
 | 阿里云百炼 | 90% | 无额外费用 |
 
+### @lobehub/icons 图标映射
+
+使用 @lobehub/icons 库统一品牌图标，覆盖 200+ AI/LLM 品牌：
+
+```typescript
+import { OpenAI, Anthropic, Google, DeepSeek, Zhipu, Moonshot, Minimax,
+         LmStudio, Ollama, OpenRouter, XiaomiMiMo, SiliconCloud, Bailian,
+         Meta, Mistral, Gemini, Claude, Qwen } from '@lobehub/icons';
+import { Bot } from 'lucide-react';
+
+// DMXAPI 无对应图标，ProviderLogo 返回 null（仅显示文字）
+// 自定义平台使用 Bot（机器人）图标作为默认
+```
+
+### 在线模型选择与调用链路
+
+#### 问题背景
+
+原实现在配置在线模型（如 Google Gemini）后，实际调用时仍会使用本地 LM Studio 模型。问题出在模型配置传递链路的多个环节：
+
+1. **`modelProvider` 硬编码**：`useAgentExecution.ts` 中 `modelProvider: 'lmstudio'` 被硬编码，无论选择什么模型都强制设为 LM Studio
+2. **`activeModelId` 为 null 时的回退逻辑错误**：当用户未手动激活模型时，`activeModelId` 为 null，导致代码错误地回退到 LM Studio 地址
+3. **配置 ID 与 API 模型名混淆**：`ModelConfig.id`（内部 ID 如 `1775415795139xha4ddo`）被当作 API 的 `model` 参数发送
+
+#### 修复方案
+
+**1. 扩展 DefaultAgentConfig 接口**
+
+```typescript
+interface DefaultAgentConfig {
+  apiUrl: string;
+  modelId: string;           // 配置ID（用于 Token 统计）
+  apiModelName: string;      // API模型名（用于 API 调用）
+  temperature: number;
+  modelProvider?: string;    // 动态 provider（不再硬编码）
+  onlineProvider?: string;   // 在线服务商标识
+  apiKey?: string;           // API 密钥
+}
+```
+
+**2. App.tsx 中的模型查找逻辑优化**
+
+```typescript
+// 使用 effectiveModelId 查找模型配置，而不是仅依赖 activeModel
+const modelToUse = modelConfigs.find(m => m.id === effectiveModelId) || null;
+
+if (modelToUse) {
+  if (modelToUse.provider === 'online') {
+    if (modelToUse.apiUrl) {
+      apiUrl = modelToUse.apiUrl;
+    } else if (modelToUse.onlineProvider && ONLINE_PROVIDERS[modelToUse.onlineProvider]) {
+      const providerConfig = ONLINE_PROVIDERS[modelToUse.onlineProvider];
+      const baseUrl = providerConfig.apiUrl;
+      // Google Gemini 使用 OpenAI 兼容端点
+      if (modelToUse.onlineProvider === 'google') {
+        apiUrl = `${baseUrl}/openai/chat/completions`;
+      } else {
+        apiUrl = `${baseUrl}/chat/completions`;
+      }
+    }
+    apiModelName = modelToUse.modelId;  // ModelConfig.modelId 是实际的 API 模型名
+  }
+}
+```
+
+**3. useAgentExecution.ts 中的 Agent 构建**
+
+```typescript
+const newAgent: Agent = {
+  ...DEFAULT_AGENT,
+  modelProvider: defaultConfig.modelProvider || 'lmstudio',  // 动态获取
+  onlineProvider: defaultConfig.onlineProvider,
+  modelId: defaultConfig.apiModelName || defaultConfig.modelId,  // 使用 API 模型名
+  apiKey: defaultConfig.apiKey,
+};
+```
+
+### Google Gemini API 完整兼容支持
+
+#### Gemini 特殊要求
+
+Google Gemini 的 OpenAI 兼容端点与标准 OpenAI API 有以下差异：
+
+| 参数 | 标准 OpenAI | Google Gemini | 处理方式 |
+|------|------------|--------------|---------|
+| `max_tokens` | ✅ 支持 | ❌ 不支持 | Gemini 模式移除 |
+| `tool_choice` | ✅ 支持 | ❌ 不支持 | Gemini 模式移除 |
+| `stream_options` | ✅ 支持 | ❌ 不支持 | 根据 `supportsStreamOptions` 判断 |
+| Tool content 格式 | 纯文本/JSON | **必须是 JSON 对象** | 自动转换 |
+| Thought Signature | 不需要 | **Gemini 3 强制要求** | 提取并保留 |
+
+#### Gemini 兼容模式实现
+
+**1. FunctionCallingConfig 扩展**
+
+```typescript
+export interface FunctionCallingConfig {
+  apiUrl: string;
+  modelName: string;
+  apiKey?: string;
+  temperature?: number;
+  maxTokens?: number;
+  supportsStreamOptions?: boolean;  // 是否支持 stream_options
+  isGeminiModel?: boolean;          // 是否为 Gemini 模型
+}
+```
+
+**2. 请求体参数过滤**
+
+```typescript
+if (config.isGeminiModel) {
+  console.log('[functionCalling] Using Gemini-compatible mode');
+  // 移除不支持的参数：max_tokens, tool_choice
+} else {
+  body.max_tokens = config.maxTokens;
+  body.tool_choice = tools.length > 0 ? 'auto' : undefined;
+}
+```
+
+**3. Tool 消息内容转换**
+
+Gemini 要求 tool 消息的 `content` 必须是有效的 JSON 对象（`google.protobuf.Struct`），纯文本会导致 400 错误：
+
+```typescript
+function transformMessagesForGemini(messages): Record<string, unknown>[] {
+  return messages.map(msg => {
+    if (msg.role === 'tool') {
+      const rawContent = msg.content;
+      try {
+        JSON.parse(rawContent);
+        transformed.content = rawContent;  // 已是 JSON
+      } catch {
+        transformed.content = JSON.stringify({ result: rawContent });  // 包装为对象
+      }
+    }
+  });
+}
+```
+
+### Gemini 3 Thought Signature 机制
+
+#### 什么是 Thought Signature
+
+Thought Signature 是 Google Gemini 3 模型的内部推理过程的加密表示，用于在多轮对话中保持推理上下文。
+
+> **官方文档**：https://ai.google.dev/gemini-api/docs/thought-signatures
+>
+> **关键规则**：
+> - Gemini 3 模型在 Function Calling 响应中**必须包含** thought_signature
+> - 后续请求中**必须原样返回**该签名
+> - 缺失签名会导致 **400 INVALID_ARGUMENT** 错误
+
+#### OpenAI 兼容格式中的签名位置
+
+```json
+{
+  "role": "assistant",
+  "tool_calls": [
+    {
+      "id": "function-call-1",
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "arguments": "{\"query\":\"test\"}"
+      },
+      "extra_content": {
+        "google": {
+          "thought_signature": "<Signature A>"  // ← 这里！
+        }
+      }
+    }
+  ]
+}
+```
+
+#### 实现方案
+
+**1. 类型扩展** (`src/agent/types.ts`)
+
+```typescript
+export interface ToolCallRequest {
+  id: string;
+  type: 'function';
+  function: { name: string; arguments: string };
+  thoughtSignature?: string;  // Gemini 3 Thought Signature
+}
+```
+
+**2. 流式响应解析时提取签名** (`src/agent/llm/functionCalling.ts`)
+
+```typescript
+if (tc.extra_content?.google?.thought_signature) {
+  existing.thoughtSignature = tc.extra_content.google.thoughtSignature;
+}
+```
+
+**3. 发送请求时保留签名** (`transformMessagesForGemini`)
+
+```typescript
+if (tc.thoughtSignature) {
+  tcOutput.extra_content = {
+    google: { thought_signature: tc.thoughtSignature }
+  };
+} else {
+  // 无原始签名时使用 dummy 值跳过验证（首次调用或从其他模型迁移）
+  tcOutput.extra_content = {
+    google: { thought_signature: 'skip_thought_signature_validator' }
+  };
+}
+```
+
+### API Key 持久化修复
+
+#### 问题原因
+
+`ModelConfigForm.tsx` 中的 `useEffect` 在组件加载或切换在线模式时会清空 `apiKey`：
+
+```typescript
+// 问题代码
+useEffect(() => {
+  if (provider === 'online') {
+    setApiKey('');  // ← 总是被清空！
+  }
+}, [provider, onlineProvider]);
+```
+
+#### 修复方案
+
+使用 `isInitialized` 和 `prevOnlineProvider` 状态跟踪，只在必要时重置：
+
+```typescript
+const [isInitialized, setIsInitialized] = useState(false);
+const [prevOnlineProvider, setPrevOnlineProvider] = useState(undefined);
+
+useEffect(() => {
+  if (provider === 'online') {
+    const isSwitchingProvider = isInitialized && prevOnlineProvider !== onlineProvider;
+    
+    // 只在切换服务商时重置，编辑模式下保留已有的 apiKey
+    if (isSwitchingProvider || (!isInitialized && !editingConfig?.apiKey)) {
+      setApiKey('');
+    }
+  }
+  setIsInitialized(true);
+  setPrevOnlineProvider(onlineProvider);
+}, [provider, onlineProvider]);
+```
+
+### 模型健康检查认证修复
+
+#### 问题原因
+
+Google 的 `/v1beta/models` 端点不接受 Bearer token 认证，需要使用 URL query parameter：
+
+```typescript
+// 错误方式（导致 401 Unauthorized）
+headers['Authorization'] = `Bearer ${config.apiKey}`;
+fetch(`${apiUrl}/models`, { headers });
+```
+
+#### 各厂商认证方式
+
+| 提供商 | 认证方式 | 示例 |
+|-------|---------|------|
+| **Google** | URL Query Parameter | `?key=API_KEY` |
+| **Anthropic** | Header: `x-api-key` | `x-api-key: API_KEY` |
+| **其他** (OpenAI/DeepSeek等) | Header: Bearer Token | `Authorization: Bearer API_KEY` |
+
+#### 修复后的代码
+
+```typescript
+if (config.onlineProvider === 'google') {
+  requestUrl = `${apiUrl}/models?key=${config.apiKey}`;
+} else if (config.onlineProvider === 'anthropic') {
+  requestUrl = `${apiUrl}/models`;
+  headers['x-api-key'] = config.apiKey;
+} else {
+  requestUrl = `${apiUrl}/models`;
+  headers['Authorization'] = `Bearer ${config.apiKey}`;
+}
+```
+
 ***
 
 ## 相关文档
 
-- 计划文档：`.trae/documents/ai-model-settings-redesign.md`
+- 计划文档：`.trae/documents/cache-pricing-integration-plan.md`
 - 后续开发计划：`.trae/documents/ai-model-settings-follow-up-plan.md`
 - 原有重构文档：`docs/REMOVE_LLM_CHAT_MODE.md`

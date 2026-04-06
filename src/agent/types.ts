@@ -112,6 +112,7 @@ export interface ToolCallRequest {
     name: string;
     arguments: string;
   };
+  thoughtSignature?: string;  // Gemini 3 Thought Signature (必须保留用于多轮对话)
 }
 
 export interface LLMResponse {

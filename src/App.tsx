@@ -26,6 +26,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from './hooks/useTranslation';
 import { ConversationMessage, ReasoningStep, ToolCallRecord, AgentStatus, ContentPart } from './agent/types';
 import { DEFAULT_AGENT } from './data/agents';
+import { ONLINE_PROVIDERS } from './config/aggregatorProviders';
 
 export default function App() {
   const { t, i18n } = useTranslation();
@@ -212,11 +213,68 @@ export default function App() {
       // 最后才使用默认值
       const firstModelConfigId = modelConfigs.length > 0 ? modelConfigs[0].id : undefined;
       const effectiveModelId = activeModelId || firstModelConfigId;
-      
+
+      // 根据模型类型确定 apiUrl 和 provider
+      // 关键修复：使用 effectiveModelId 查找模型配置，而不是仅依赖 activeModel
+      // 因为 activeModelId 可能为 null（用户未手动激活），但 modelConfigs 中有配置
+      const modelToUse = modelConfigs.find(m => m.id === effectiveModelId) || null;
+
+      let apiUrl: string;
+      let modelProvider: string;
+      let onlineProviderName: string | undefined;
+      let apiKey: string | undefined;
+      let apiModelName: string;  // 实际发送给 API 的模型名称
+
+      if (modelToUse) {
+        if (modelToUse.provider === 'online') {
+          // 在线模型：获取正确的 API URL
+          // 优先使用 ModelConfig 中保存的 apiUrl（自定义平台会有值）
+          // 如果为空（标准在线模型如 Google），从 ONLINE_PROVIDERS 配置中获取
+          if (modelToUse.apiUrl) {
+            apiUrl = modelToUse.apiUrl;
+          } else if (modelToUse.onlineProvider && ONLINE_PROVIDERS[modelToUse.onlineProvider]) {
+            // 标准在线模型：从预配置中获取基础URL，并拼接正确的路径
+            const providerConfig = ONLINE_PROVIDERS[modelToUse.onlineProvider];
+            const baseUrl = providerConfig.apiUrl;
+            // Google Gemini 使用 OpenAI 兼容端点
+            if (modelToUse.onlineProvider === 'google') {
+              apiUrl = `${baseUrl}/openai/chat/completions`;
+            } else {
+              // 其他 OpenAI 兼容提供商
+              apiUrl = `${baseUrl}/chat/completions`;
+            }
+          } else {
+            apiUrl = lmStudioUrl;
+          }
+          modelProvider = 'openai-compatible';
+          onlineProviderName = modelToUse.onlineProvider;
+          apiKey = modelToUse.apiKey;
+          apiModelName = modelToUse.modelId;  // ModelConfig.modelId 是实际的 API 模型名
+        } else {
+          // 本地模型（LM Studio / Ollama）
+          apiUrl = modelToUse.apiUrl || lmStudioUrl;
+          modelProvider = modelToUse.provider === 'ollama' ? 'ollama' : 'lmstudio';
+          onlineProviderName = undefined;
+          apiKey = undefined;
+          apiModelName = modelToUse.modelId;  // 使用配置的实际模型名
+        }
+      } else {
+        // 没有任何模型配置时，回退到默认 LM Studio 配置
+        apiUrl = lmStudioUrl;
+        modelProvider = 'lmstudio';
+        onlineProviderName = undefined;
+        apiKey = undefined;
+        apiModelName = 'local-model';
+      }
+
       return {
-        apiUrl: activeModel?.apiUrl || lmStudioUrl,
-        modelId: effectiveModelId,
-        temperature: temperature,
+        apiUrl,
+        modelId: effectiveModelId,       // 配置ID（用于Token统计）
+        apiModelName,                     // API模型名（用于API调用）
+        temperature,
+        modelProvider,
+        onlineProvider: onlineProviderName,
+        apiKey,
       };
     }, [activeModel, activeModelId, modelConfigs, lmStudioUrl, temperature]),
     useMemo(() => ({

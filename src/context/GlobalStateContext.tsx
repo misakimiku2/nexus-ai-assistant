@@ -126,6 +126,8 @@ interface GlobalState {
   addTokenUsageRecord: (record: Omit<TokenUsageRecord, 'id'>) => void;
   getTokenUsageStats: (modelId?: string, timeRange?: 'day' | 'week' | 'month' | 'year') => { totalInputTokens: number; totalOutputTokens: number; totalCost: number };
   clearTokenUsageRecords: () => void;
+  deleteRecordsByModelId: (modelId: string) => Promise<number>;
+  updateRecordsModelId: (oldModelId: string, newModelId: string) => Promise<number>;
   sessionTokenUsage: { input: number; output: number };
   
   // Cost Currency Setting
@@ -266,6 +268,8 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     addRecord: addTokenUsageRecord,
     getStats: getTokenUsageStats,
     clearRecords: clearTokenUsageRecords,
+    deleteRecordsByModelId,
+    updateRecordsModelId,
   } = useTokenStorage(modelConfigs);
 
   const sessionTokenUsage = useMemo(() => {
@@ -299,7 +303,12 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
   };
 
   const updateModelConfig = (id: string, config: Partial<ModelConfig>) => {
+    const oldConfig = modelConfigs.find(c => c.id === id);
     setModelConfigs(prev => prev.map(c => c.id === id ? { ...c, ...config } : c));
+    
+    if (oldConfig && config.id && config.id !== id) {
+      updateRecordsModelId(id, config.id);
+    }
   };
 
   const deleteModelConfig = (id: string) => {
@@ -310,6 +319,7 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     if (activeModelId === id) {
       setActiveModelId(null);
     }
+    deleteRecordsByModelId(id);
   };
 
   const setActiveModel = (id: string | null) => {
@@ -891,6 +901,8 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
       addTokenUsageRecord,
       getTokenUsageStats,
       clearTokenUsageRecords,
+      deleteRecordsByModelId,
+      updateRecordsModelId,
       sessionTokenUsage,
       costCurrency,
       setCostCurrency,

@@ -21,6 +21,10 @@ interface OpenAIModelsResponse {
   data: { id: string; object: string; owned_by?: string }[];
 }
 
+interface GoogleModelsResponse {
+  models: { name: string; displayName?: string; supportedGenerationMethods?: string[] }[];
+}
+
 let openRouterModelsCache: OpenRouterModel[] | null = null;
 let openRouterCacheTime: number = 0;
 const CACHE_DURATION = 5 * 60 * 1000;
@@ -82,18 +86,26 @@ export async function fetchModelsFromProvider(
     return { models: [], error: '该提供商不支持获取模型列表，请手动输入模型ID' };
   }
 
-  const apiUrl = providerConfig.apiUrl;
-  if (!apiUrl) {
-    return { models: [], error: '该提供商未配置 API 地址' };
-  }
-
   try {
-    let modelsEndpoint = apiUrl;
-    
     if (provider === 'openrouter') {
       const openRouterModels = await fetchOpenRouterModels();
       return { models: openRouterModels.map(m => m.id) };
     }
+
+    if (provider === 'google') {
+      return await fetchGoogleModels(apiKey);
+    }
+
+    if (provider === 'anthropic') {
+      return await fetchAnthropicModels(apiKey);
+    }
+
+    const apiUrl = providerConfig.apiUrl;
+    if (!apiUrl) {
+      return { models: [], error: '该提供商未配置 API 地址' };
+    }
+
+    let modelsEndpoint: string;
     
     if (provider === 'zhipu') {
       modelsEndpoint = 'https://open.bigmodel.cn/api/paas/v4/models';
@@ -101,17 +113,14 @@ export async function fetchModelsFromProvider(
       modelsEndpoint = apiUrl.replace(/\/v1.*$/, '/v1/models');
     } else if (!apiUrl.endsWith('/models')) {
       modelsEndpoint = apiUrl.replace(/\/$/, '') + '/models';
+    } else {
+      modelsEndpoint = apiUrl;
     }
     
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
     };
-    
-    if (provider === 'google') {
-      headers['x-goog-api-key'] = apiKey;
-    } else {
-      headers['Authorization'] = `Bearer ${apiKey}`;
-    }
     
     const response = await fetch(modelsEndpoint, {
       method: 'GET',
@@ -148,6 +157,89 @@ export async function fetchModelsFromProvider(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '获取模型列表失败';
     console.error(`Failed to fetch models from ${provider}:`, error);
+    return { models: [], error: `网络错误: ${errorMessage}` };
+  }
+}
+
+async function fetchGoogleModels(apiKey: string): Promise<{ models: string[]; error?: string }> {
+  try {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
+      method: 'GET',
+      headers: {
+        'x-goog-api-key': apiKey,
+      },
+    });
+    
+    if (!response.ok) {
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        const errorData = await response.json();
+        if (errorData.error?.message) {
+          errorMessage = errorData.error.message;
+        }
+      } catch { /* ignore */ }
+      return { models: [], error: `Google API 错误: ${errorMessage}` };
+    }
+    
+    const data: GoogleModelsResponse = await response.json();
+    
+    if (data.models && Array.isArray(data.models)) {
+      const models = data.models
+        .filter(m => {
+          if (!m.name) return false;
+          const name = m.name.replace(/^models\//, '');
+          return name.startsWith('gemini');
+        })
+        .map(m => m.name.replace(/^models\//, ''))
+        .sort();
+      
+      if (models.length > 0) {
+        return { models };
+      }
+    }
+    
+    return { models: [], error: '未获取到任何模型，请检查 API Key 是否有效' };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '获取模型列表失败';
+    return { models: [], error: `网络错误: ${errorMessage}` };
+  }
+}
+
+async function fetchAnthropicModels(apiKey: string): Promise<{ models: string[]; error?: string }> {
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/models', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+    });
+    
+    if (!response.ok) {
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        const errorData = await response.json();
+        if (errorData.error?.message) {
+          errorMessage = errorData.error.message;
+        }
+      } catch { /* ignore */ }
+      return { models: [], error: `Anthropic API 错误: ${errorMessage}` };
+    }
+    
+    const data = await response.json();
+    
+    if (data.data && Array.isArray(data.data)) {
+      const models = data.data
+        .filter((m: { id: string }) => m?.id)
+        .map((m: { id: string }) => m.id)
+        .sort();
+      return { models };
+    }
+    
+    return { models: [], error: '未获取到任何模型，请检查 API Key 是否有效' };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '获取模型列表失败';
     return { models: [], error: `网络错误: ${errorMessage}` };
   }
 }
