@@ -21,6 +21,7 @@
     "fs:allow-exists",
     "fs:allow-remove",
     "fs:allow-read-dir",
+    "dialog:default",
     {
       "identifier": "fs:scope",
       "allow": [

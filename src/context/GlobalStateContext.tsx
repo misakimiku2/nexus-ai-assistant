@@ -7,6 +7,7 @@ import { generateMockConversation, generateClusterMockConversation } from '../ut
 import { checkModelHealth, HealthCheckResult } from '../services/modelHealthCheck';
 import { getSessionStorage, SessionStorageService } from '../services/sessionStorage';
 import { migrateFromLocalStorage, checkMigrationNeeded } from '../services/sessionMigration';
+import { exportSession, batchExportSessions, importSessionFromData, ExportFormat, getFileExtension, getMimeType } from '../services/sessionExport';
 
 interface GlobalState {
   messages: Message[];
@@ -147,6 +148,11 @@ interface GlobalState {
   sessionStorageState: StorageState;
   saveCurrentSession: () => Promise<void>;
   loadAllSessions: () => Promise<void>;
+  
+  // Session Export/Import
+  exportSessionToFile: (id: string, format: ExportFormat) => Promise<void>;
+  importSessionFromFile: () => Promise<void>;
+  batchExportSessionsToFile: (ids: string[], format: ExportFormat) => Promise<void>;
 }
 
 export const GlobalStateContext = createContext<GlobalState | undefined>(undefined);
@@ -603,6 +609,137 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
       }));
     }
   }, [currentSessionId, sessions]);
+
+  const checkTauriEnv = async (): Promise<boolean> => {
+    try {
+      if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+        return true;
+      }
+    } catch {
+      return false;
+    }
+    return false;
+  };
+
+  const exportSessionToFile = useCallback(async (id: string, format: ExportFormat): Promise<void> => {
+    try {
+      const session = sessions.find(s => s.id === id);
+      if (!session) {
+        console.error('[GlobalState] 导出失败: 会话不存在');
+        return;
+      }
+
+      const content = await exportSession(id, format);
+      const isTauri = await checkTauriEnv();
+
+      if (isTauri) {
+        try {
+          const { save } = await import('@tauri-apps/plugin-dialog');
+          const filePath = await save({
+            defaultPath: `${session.title}${getFileExtension(format)}`,
+            filters: [{
+              name: format === 'json' ? 'JSON Files' : 'Markdown Files',
+              extensions: [format === 'json' ? 'json' : 'md'],
+            }],
+          });
+
+          if (filePath) {
+            const { writeFile: writeTauriFile } = await import('@tauri-apps/plugin-fs');
+            await writeTauriFile(filePath, new TextEncoder().encode(content));
+            console.log('[GlobalState] 会话已导出到:', filePath);
+          }
+        } catch (dialogErr) {
+          console.warn('[GlobalState] Tauri dialog 不可用，使用浏览器下载:', dialogErr);
+          downloadFile(content, `${session.title}${getFileExtension(format)}`, getMimeType(format));
+        }
+      } else {
+        downloadFile(content, `${session.title}${getFileExtension(format)}`, getMimeType(format));
+      }
+    } catch (error) {
+      console.error('[GlobalState] 导出会话失败:', error);
+      throw error;
+    }
+  }, [sessions]);
+
+  const importSessionFromFile = useCallback(async (): Promise<void> => {
+    try {
+      const isTauri = await checkTauriEnv();
+      let fileContent: string | null = null;
+
+      if (isTauri) {
+        try {
+          const { open } = await import('@tauri-apps/plugin-dialog');
+          const filePath = await open({
+            multiple: false,
+            filters: [{
+              name: 'Session Files',
+              extensions: ['json', 'md'],
+            }],
+          });
+
+          if (filePath) {
+            const { readFile: readTauriFile } = await import('@tauri-apps/plugin-fs');
+            const content = await readTauriFile(filePath as string);
+            fileContent = new TextDecoder().decode(content);
+          }
+        } catch (dialogErr) {
+          console.warn('[GlobalState] Tauri dialog 不可用，使用浏览器文件选择:', dialogErr);
+          fileContent = await pickFileViaBrowser();
+        }
+      } else {
+        fileContent = await pickFileViaBrowser();
+      }
+
+      if (!fileContent) return;
+
+      const importedSessions = await importSessionFromData(fileContent);
+      console.log('[GlobalState] 导入了', importedSessions.length, '个会话');
+
+      setSessions(prev => [...importedSessions, ...prev]);
+      if (importedSessions.length > 0) {
+        setCurrentSessionId(importedSessions[0].id);
+        setMessages(importedSessions[0].messages);
+      }
+    } catch (error) {
+      console.error('[GlobalState] 导入会话失败:', error);
+      throw error;
+    }
+  }, []);
+
+  const batchExportSessionsToFile = useCallback(async (ids: string[], format: ExportFormat): Promise<void> => {
+    try {
+      const content = await batchExportSessions(ids, format);
+      const isTauri = await checkTauriEnv();
+      const fileName = `sessions-export-${new Date().toISOString().slice(0, 10)}`;
+
+      if (isTauri) {
+        try {
+          const { save } = await import('@tauri-apps/plugin-dialog');
+          const filePath = await save({
+            defaultPath: `${fileName}${getFileExtension(format)}`,
+            filters: [{
+              name: format === 'json' ? 'JSON Files' : 'Markdown Files',
+              extensions: [format === 'json' ? 'json' : 'md'],
+            }],
+          });
+
+          if (filePath) {
+            const { writeFile: writeTauriFile } = await import('@tauri-apps/plugin-fs');
+            await writeTauriFile(filePath, new TextEncoder().encode(content));
+            console.log('[GlobalState] 批量导出到:', filePath);
+          }
+        } catch (dialogErr) {
+          console.warn('[GlobalState] Tauri dialog 不可用，使用浏览器下载:', dialogErr);
+          downloadFile(content, `${fileName}${getFileExtension(format)}`, getMimeType(format));
+        }
+      } else {
+        downloadFile(content, `${fileName}${getFileExtension(format)}`, getMimeType(format));
+      }
+    } catch (error) {
+      console.error('[GlobalState] 批量导出会话失败:', error);
+      throw error;
+    }
+  }, []);
 
   const [systemPromptPresets, setSystemPromptPresets] = useState<{ id: string; name: string; content: string }[]>([
     { id: '1', name: t?.presets?.defaultAssistant || '默认助手', content: t?.systemPrompts?.defaultAssistant || '你是一个专业、简洁的 AI 助手。' },
@@ -1181,8 +1318,41 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
       sessionStorageState,
       saveCurrentSession,
       loadAllSessions,
+      exportSessionToFile,
+      importSessionFromFile,
+      batchExportSessionsToFile,
     }}>
       {children}
     </GlobalStateContext.Provider>
   );
 };
+
+function downloadFile(content: string, fileName: string, mimeType: string): void {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function pickFileViaBrowser(): Promise<string | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,.md';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (file) {
+        const text = await file.text();
+        resolve(text);
+      } else {
+        resolve(null);
+      }
+    };
+    input.click();
+  });
+}

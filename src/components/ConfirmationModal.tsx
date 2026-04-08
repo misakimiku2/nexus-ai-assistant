@@ -4,7 +4,8 @@ import { X } from 'lucide-react';
 interface ConfirmationModalProps {
   isOpen: boolean;
   title: string;
-  message: string;
+  message?: string;
+  children?: React.ReactNode;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -13,6 +14,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   isOpen,
   title,
   message,
+  children,
   onConfirm,
   onCancel,
 }) => {
@@ -27,7 +29,8 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             <X size={20} />
           </button>
         </div>
-        <p className="text-zinc-600 dark:text-zinc-300 mb-6">{message}</p>
+        {message && <p className="text-zinc-600 dark:text-zinc-300 mb-6">{message}</p>}
+        {children && <div className="mb-6">{children}</div>}
         <div className="flex justify-end gap-3">
           <button
             onClick={onCancel}

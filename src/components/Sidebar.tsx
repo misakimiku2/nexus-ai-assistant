@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   MessageSquare, 
@@ -26,13 +26,17 @@ import {
   Layout,
   ChevronRight,
   ChevronDown,
-  FileText
+  FileText,
+  Download,
+  Upload,
+  Filter
 } from 'lucide-react';
 import { NexusLogo } from './NexusLogo';
 import { cn } from '../lib/utils';
 import { useGlobalState } from '../context/GlobalStateContext';
 import { ConfirmationModal } from './ConfirmationModal';
 import { ChatSession } from '../types';
+import { ExportFormat } from '../services/sessionExport';
 
 type TabType = 'chat' | 'search' | 'terminal' | 'mcp' | 'agents';
 
@@ -68,60 +72,192 @@ export const Sidebar: React.FC<SidebarProps> = ({
     deleteFolder,
     toggleFolder,
     moveSessionToFolder,
-    agents
+    agents,
+    exportSessionToFile,
+    importSessionFromFile,
+    batchExportSessionsToFile
   } = useGlobalState();
 
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
+  const [selectedFolders, setSelectedFolders] = useState<Set<string>>(new Set());
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
+  const [isChatCollapsed, setIsChatCollapsed] = useState(false);
   const [expandedAgents, setExpandedAgents] = useState<Set<string>>(new Set(agents.filter(a => !a.parentId).map(a => a.id)));
 
-  // Drag and Drop State
-  const [draggedSessionId, setDraggedSessionId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchMode, setSearchMode] = useState<'title' | 'content'>('title');
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; targetId: string; targetType: 'session' | 'folder' } | null>(null);
 
-  const handleDragStart = (e: React.DragEvent, sessionId: string) => {
-    setDraggedSessionId(sessionId);
-    e.dataTransfer.effectAllowed = 'move';
+  const [dragState, setDragState] = useState<{
+    isDragging: boolean;
+    sessionId: string | null;
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+    overFolderId: string | null;
+  }>({ isDragging: false, sessionId: null, startX: 0, startY: 0, currentX: 0, currentY: 0, overFolderId: null });
+
+  const sidebarRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handleClick = () => setContextMenu(null);
+    const handleKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') setContextMenu(null); };
+    document.addEventListener('click', handleClick);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('click', handleClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [contextMenu]);
+
+  useEffect(() => {
+    if (!dragState.isDragging) return;
+    const handleMove = (e: PointerEvent) => {
+      setDragState(prev => ({ ...prev, currentX: e.clientX, currentY: e.clientY }));
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const folderEl = el?.closest('[data-folder-id]');
+      const overFolderId = folderEl ? folderEl.getAttribute('data-folder-id') : null;
+      setDragState(prev => prev.overFolderId !== overFolderId ? { ...prev, overFolderId } : prev);
+    };
+    const handleUp = () => {
+      setDragState(prev => {
+        if (prev.isDragging && prev.sessionId && prev.overFolderId) {
+          moveSessionToFolder(prev.sessionId, prev.overFolderId);
+        } else if (prev.isDragging && prev.sessionId && !prev.overFolderId) {
+          moveSessionToFolder(prev.sessionId, undefined);
+        }
+        return { isDragging: false, sessionId: null, startX: 0, startY: 0, currentX: 0, currentY: 0, overFolderId: null };
+      });
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setDragState({ isDragging: false, sessionId: null, startX: 0, startY: 0, currentX: 0, currentY: 0, overFolderId: null });
+      }
+    };
+    document.addEventListener('pointermove', handleMove);
+    document.addEventListener('pointerup', handleUp);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointermove', handleMove);
+      document.removeEventListener('pointerup', handleUp);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [dragState.isDragging, moveSessionToFolder]);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value);
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+    searchDebounceRef.current = setTimeout(() => {
+      setDebouncedQuery(value.toLowerCase().trim());
+    }, 300);
+  }, []);
+
+  const filteredSessions = useMemo(() => {
+    if (!debouncedQuery) return sessions;
+    return sessions.filter(session => {
+      if (searchMode === 'title') {
+        return session.title.toLowerCase().includes(debouncedQuery);
+      }
+      const contentMatch = session.messages.some(msg =>
+        msg.content.toLowerCase().includes(debouncedQuery) ||
+        (msg.thinking && msg.thinking.toLowerCase().includes(debouncedQuery))
+      );
+      const titleMatch = session.title.toLowerCase().includes(debouncedQuery);
+      return contentMatch || titleMatch;
+    });
+  }, [sessions, debouncedQuery, searchMode]);
+
+  const filteredSessionIds = useMemo(() => new Set(filteredSessions.map(s => s.id)), [filteredSessions]);
+
+  const highlightText = (text: string) => {
+    if (!debouncedQuery) return text;
+    const regex = new RegExp(`(${debouncedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const parts = text.split(regex);
+    return parts.map((part, i) =>
+      regex.test(part) ? <mark key={i} className="bg-yellow-300/50 dark:bg-yellow-500/30 rounded px-0.5">{part}</mark> : part
+    );
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+  const handleExport = useCallback(async (sessionId: string, format: ExportFormat) => {
+    setIsExporting(true);
+    setContextMenu(null);
+    try {
+      await exportSessionToFile(sessionId, format);
+    } catch (err) {
+      console.error('[Sidebar] 导出失败:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [exportSessionToFile]);
+
+  const handleBatchExport = useCallback(async (format: ExportFormat) => {
+    if (selectedSessions.size === 0) return;
+    setIsExporting(true);
+    try {
+      await batchExportSessionsToFile(Array.from(selectedSessions), format);
+    } catch (err) {
+      console.error('[Sidebar] 批量导出失败:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [selectedSessions, batchExportSessionsToFile]);
+
+  const handleImport = useCallback(async () => {
+    setIsImporting(true);
+    try {
+      await importSessionFromFile();
+    } catch (err) {
+      console.error('[Sidebar] 导入失败:', err);
+    } finally {
+      setIsImporting(false);
+    }
+  }, [importSessionFromFile]);
+
+  const handleSessionPointerDown = (e: React.PointerEvent, sessionId: string) => {
+    if (e.button !== 0 || editingSessionId || isMultiSelectMode || contextMenu) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDragState(prev => ({
+      ...prev,
+      sessionId,
+      startX: e.clientX,
+      startY: e.clientY,
+      currentX: e.clientX,
+      currentY: e.clientY,
+    }));
   };
 
-  const handleDropOnFolder = (e: React.DragEvent, folderId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (isMultiSelectMode && selectedSessions.size > 0) {
-      selectedSessions.forEach(id => moveSessionToFolder(id, folderId));
-      setSelectedSessions(new Set());
-      setIsMultiSelectMode(false);
-      setDraggedSessionId(null);
-    } else if (draggedSessionId) {
-      moveSessionToFolder(draggedSessionId, folderId);
-      setDraggedSessionId(null);
+  const handleSessionPointerMove = (e: React.PointerEvent) => {
+    if (!dragState.sessionId || dragState.isDragging || editingSessionId || contextMenu) return;
+    const dx = e.clientX - dragState.startX;
+    const dy = e.clientY - dragState.startY;
+    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+      setDragState(prev => ({ ...prev, isDragging: true }));
     }
   };
 
-  const handleDropOnRoot = (e: React.DragEvent) => {
-    e.preventDefault();
-    if (isMultiSelectMode && selectedSessions.size > 0) {
-      selectedSessions.forEach(id => moveSessionToFolder(id, undefined));
-      setSelectedSessions(new Set());
-      setIsMultiSelectMode(false);
-      setDraggedSessionId(null);
-    } else if (draggedSessionId) {
-      moveSessionToFolder(draggedSessionId, undefined);
-      setDraggedSessionId(null);
+  const handleSessionPointerUp = () => {
+    if (!dragState.isDragging && dragState.sessionId) {
+      setDragState({ isDragging: false, sessionId: null, startX: 0, startY: 0, currentX: 0, currentY: 0, overFolderId: null });
     }
   };
 
   const handleEditStart = (id: string, currentTitle: string, isFolder: boolean = false) => {
+    setDragState({ isDragging: false, sessionId: null, startX: 0, startY: 0, currentX: 0, currentY: 0, overFolderId: null });
     if (isFolder) {
       setEditingFolderId(id);
     } else {
@@ -158,6 +294,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setSelectedSessions(newSelection);
   };
 
+  const toggleFolderSelection = (id: string) => {
+    const newSelection = new Set(selectedFolders);
+    if (newSelection.has(id)) {
+      newSelection.delete(id);
+    } else {
+      newSelection.add(id);
+    }
+    setSelectedFolders(newSelection);
+  };
+
   const confirmDelete = (id: string | null, isFolder: boolean = false) => {
     if (isFolder) {
       setFolderToDelete(id);
@@ -169,18 +315,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const handleDelete = () => {
     if (folderToDelete) {
+      const folderSessions = sessions.filter(s => s.folderId === folderToDelete);
+      folderSessions.forEach(s => deleteSession(s.id));
       deleteFolder(folderToDelete);
     } else if (sessionToDelete) {
       deleteSession(sessionToDelete);
-    } else if (selectedSessions.size > 0) {
+    } else if (selectedSessions.size > 0 || selectedFolders.size > 0) {
+      selectedFolders.forEach(fid => {
+        const folderSessions = sessions.filter(s => s.folderId === fid);
+        folderSessions.forEach(s => deleteSession(s.id));
+        deleteFolder(fid);
+      });
       batchDeleteSessions(Array.from(selectedSessions));
       setSelectedSessions(new Set());
+      setSelectedFolders(new Set());
       setIsMultiSelectMode(false);
     }
     setIsDeleteModalOpen(false);
     setSessionToDelete(null);
     setFolderToDelete(null);
   };
+
+  const deleteModalMessage = useMemo(() => {
+    if (folderToDelete) return undefined;
+    if (sessionToDelete) return t('sidebar.deleteSessionMsg');
+    return t('sidebar.batchDeleteMsg', { count: selectedSessions.size + selectedFolders.size });
+  }, [folderToDelete, sessionToDelete, selectedSessions, selectedFolders, t]);
+
+  const folderDeleteSessions = useMemo(() => {
+    if (!folderToDelete) return [];
+    return sessions.filter(s => s.folderId === folderToDelete);
+  }, [folderToDelete, sessions]);
 
   const handleCreateFolder = () => {
     createFolder(t('sidebar.newFolder'));
@@ -222,46 +387,53 @@ export const Sidebar: React.FC<SidebarProps> = ({
       return title.replace(/\s*\([^)]*\)$/, '');
     };
 
+    const isDragTarget = dragState.isDragging && dragState.sessionId === session.id;
+
     return (
       <div 
         key={`${session.id}-${index}`}
-        draggable={editingSessionId !== session.id}
-        onDragStart={(e) => handleDragStart(e, session.id)}
         className={cn(
-          "relative group flex items-center justify-between p-2 rounded-md text-sm transition-all cursor-pointer",
+          "relative group flex items-center justify-between p-2 rounded-md text-sm transition-all cursor-pointer select-none",
           currentSessionId === session.id 
-            ? "bg-blue-600 text-white font-medium shadow-sm" 
-            : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-500/10 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-zinc-300",
+            ? "border-2 border-dashed border-blue-500 bg-blue-500/5 text-blue-700 dark:text-blue-300 font-medium" 
+            : "border border-transparent text-zinc-600 dark:text-zinc-400 hover:bg-zinc-500/10 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-zinc-300",
           level > 0 && !isClusterChild && "ml-4 pl-4",
-          isClusterChild && "ml-8 pl-4 py-1.5"
+          isClusterChild && "ml-8 pl-4 py-1.5",
+          isDragTarget && "opacity-40"
         )}
-        onClick={() => switchSession(session.id)}
+        onClick={() => {
+          if (dragState.isDragging) return;
+          switchSession(session.id);
+        }}
+        onPointerDown={(e) => handleSessionPointerDown(e, session.id)}
+        onPointerMove={handleSessionPointerMove}
+        onPointerUp={handleSessionPointerUp}
         onDoubleClick={(e) => {
           e.stopPropagation();
           handleEditStart(session.id, session.title);
         }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setContextMenu({ x: e.clientX, y: e.clientY, targetId: session.id, targetType: 'session' });
+        }}
       >
-        {/* Tree Lines */}
         {level > 0 && !isClusterChild && (
           <div className="absolute left-0 top-0 bottom-0 w-4 pointer-events-none">
-            {/* Vertical line segment */}
             <div className={cn(
               "absolute left-0 w-[2px] bg-zinc-300 dark:bg-zinc-600",
               isLastChild ? "top-0 h-1/2" : "top-0 h-full"
             )} />
-            {/* Rounded connector */}
             <div className="absolute left-0 top-0 w-3 h-1/2 border-l-2 border-b-2 border-zinc-300 dark:border-zinc-600 rounded-bl-lg" />
           </div>
         )}
 
         {isClusterChild && (
           <div className="absolute left-0 top-0 bottom-0 w-5 pointer-events-none">
-            {/* Vertical line segment */}
             <div className={cn(
               "absolute left-0 w-[2px] bg-zinc-300 dark:bg-zinc-600",
               isLastChild ? "top-0 h-1/2" : "top-0 h-full"
             )} />
-            {/* Rounded connector */}
             <div className="absolute left-0 top-0 w-4 h-1/2 border-l-2 border-b-2 border-zinc-300 dark:border-zinc-600 rounded-bl-xl" />
           </div>
         )}
@@ -278,7 +450,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 selectedSessions.has(session.id) ? "bg-blue-500 border-blue-500 text-white" : "border-zinc-600 hover:border-zinc-400"
               )}
             >
-              {selectedSessions.has(session.id) && <div className="w-2 h-2 bg-white rounded-full" />}
+              {selectedSessions.has(session.id) && <div className="w-2 h-2 bg-blue-500 rounded-full" />}
             </div>
           )}
           
@@ -286,7 +458,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div 
               className={cn(
                 "p-1 shrink-0 relative group/agent", 
-                currentSessionId === session.id ? "text-white" : (agent.themeColor || '').split(' ')[0].replace('bg-', 'text-')
+                currentSessionId === session.id ? "text-blue-600" : (agent.themeColor || '').split(' ')[0].replace('bg-', 'text-')
               )}
               title={agent.name}
             >
@@ -300,7 +472,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </div>
           ) : (
-            <div className={cn("p-1 shrink-0", currentSessionId === session.id ? "text-white" : "text-zinc-400")}>
+            <div className={cn("p-1 shrink-0", currentSessionId === session.id ? "text-blue-500" : "text-zinc-400")}>
               <MessageSquare size={14} />
             </div>
           )}
@@ -320,7 +492,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }}
                 className={cn(
                   "w-full bg-transparent border-none rounded px-1 py-0.5 text-xs focus:outline-none",
-                  currentSessionId === session.id ? "text-white placeholder:text-white/50" : "text-zinc-800 dark:text-zinc-200"
+                  currentSessionId === session.id ? "text-blue-700 dark:text-blue-300 placeholder:text-blue-400" : "text-zinc-800 dark:text-zinc-200"
                 )}
                 autoFocus
               />
@@ -332,41 +504,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
             </div>
           ) : (
-            <span className={cn("truncate flex-1", currentSessionId === session.id ? "text-white" : "")}>
-              {stripAgentName(session.title)}
+            <span className={cn("truncate flex-1", currentSessionId === session.id ? "text-blue-700 dark:text-blue-300 font-medium" : "")}>
+              {debouncedQuery ? highlightText(stripAgentName(session.title)) : stripAgentName(session.title)}
             </span>
           )}
         </div>
-        
-        {!editingSessionId && (
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleEditStart(session.id, session.title);
-              }}
-              className={cn("p-1 transition-colors", currentSessionId === session.id ? "text-white/70 hover:text-white" : "text-zinc-500 hover:text-blue-400")}
-            >
-              <Edit2 size={12} />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                confirmDelete(session.id);
-              }}
-              className={cn("p-1 transition-colors", currentSessionId === session.id ? "text-white/70 hover:text-white" : "text-zinc-500 hover:text-red-400")}
-            >
-              <Trash2 size={12} />
-            </button>
-          </div>
-        )}
       </div>
     );
   };
 
   return (
     <>
-      <aside className={cn(
+      <aside 
+        ref={sidebarRef}
+        onClick={() => setContextMenu(null)}
+        className={cn(
         "flex flex-col py-4 glass z-20 transition-all duration-300 border-r border-zinc-700/50",
         isExpanded ? "w-72 items-stretch px-3" : "w-16 items-center"
       )}>
@@ -382,83 +534,162 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <nav className="flex flex-col gap-2 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
           {navItems.map((item) => (
             <div key={item.id} className="flex flex-col gap-1">
-              <button 
-                onClick={() => setActiveTab(item.id)}
-                className={cn(
-                  "p-2.5 rounded-xl transition-all flex items-center gap-3",
-                  activeTab === item.id 
-                    ? "bg-blue-600 text-white shadow-md shadow-blue-900/20" 
-                    : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200",
-                  isExpanded ? "justify-start px-3" : "justify-center"
-                )}
-                title={!isExpanded ? item.label : undefined}
-              >
-                <item.icon size={20} className="shrink-0" />
-                {isExpanded && <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>}
-              </button>
-
-              {/* Chat Sessions List */}
-              {isExpanded && item.id === 'chat' && activeTab === 'chat' && (
-                <div 
-                  className="mt-1 mb-4 flex flex-col gap-1 pl-4 border-l border-zinc-200 dark:border-zinc-700 ml-5"
-                  onDragOver={handleDragOver}
-                  onDrop={handleDropOnRoot}
-                >
-                  <div className="flex items-center justify-between mb-2 px-2">
-                    <div className="flex items-center gap-1.5 text-xs text-zinc-500 font-medium uppercase tracking-wider">
-                      <MessageSquare size={12} className="shrink-0 opacity-70" />
-                      <span>{t('sidebar.sessions')}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => setIsMultiSelectMode(!isMultiSelectMode)}
-                        className={cn(
-                          "p-1 rounded transition-colors",
-                          isMultiSelectMode ? "text-blue-400 bg-blue-500/10" : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
-                        )}
-                        title={t('sidebar.multiSelect')}
-                      >
-                        {isMultiSelectMode ? <CheckSquare size={14} /> : <Square size={14} />}
-                      </button>
-                      {isMultiSelectMode && selectedSessions.size > 0 && (
+              {item.id === 'chat' && isExpanded && activeTab === 'chat' ? (
+                <>
+                  <button 
+                    onClick={() => setIsChatCollapsed(!isChatCollapsed)}
+                    className={cn(
+                      "w-full p-2.5 rounded-xl transition-all flex items-center gap-3",
+                      activeTab === item.id 
+                        ? "bg-blue-600 text-white shadow-md shadow-blue-900/20" 
+                        : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                    )}
+                  >
+                    <MessageSquare size={20} className="shrink-0" />
+                    <span className="text-sm font-medium whitespace-nowrap">{t('sidebar.chat')}</span>
+                    <div className={cn(
+                      "flex items-center gap-0.5 shrink-0 ml-auto transition-all duration-300 overflow-hidden",
+                      isChatCollapsed ? "w-0 opacity-0" : "w-auto opacity-100"
+                    )}>
                         <button
-                          onClick={() => confirmDelete(null)}
-                          className="p-1 text-red-400 hover:bg-red-500/10 rounded transition-colors"
-                          title={t('sidebar.batchDelete')}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsMultiSelectMode(!isMultiSelectMode);
+                          }}
+                          className={cn(
+                            "p-1.5 rounded-md transition-colors",
+                            isMultiSelectMode ? "text-blue-300 bg-white/10" : "text-inherit opacity-70 hover:opacity-100"
+                          )}
+                          title={t('sidebar.multiSelect')}
                         >
-                          <Trash2 size={14} />
+                          {isMultiSelectMode ? <CheckSquare size={14} /> : <Square size={14} />}
                         </button>
-                      )}
+                        {isMultiSelectMode && (selectedSessions.size > 0 || selectedFolders.size > 0) && (
+                          <>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleBatchExport('json'); }}
+                              className="p-1.5 text-emerald-400 hover:bg-emerald-500/20 rounded-md transition-colors"
+                              title={t('sidebar.batchExport')}
+                              disabled={isExporting}
+                            >
+                              <Download size={14} />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); confirmDelete(null); }}
+                              className="p-1.5 text-red-400 hover:bg-red-500/20 rounded-md transition-colors"
+                              title={t('sidebar.batchDelete')}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </>
+                        )}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleImport(); }}
+                          className="p-1.5 text-inherit opacity-70 hover:opacity-100 rounded-md transition-colors"
+                          title={t('sidebar.importSession')}
+                          disabled={isImporting}
+                        >
+                          <Upload size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleCreateFolder(); }}
+                          className="p-1.5 text-inherit opacity-70 hover:opacity-100 rounded-md transition-colors"
+                          title={t('sidebar.newFolder')}
+                        >
+                          <FolderPlus size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); createNewSession(); }}
+                          className="p-1.5 text-inherit opacity-70 hover:opacity-100 rounded-md transition-colors"
+                          title={t('sidebar.newSession')}
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                  </button>
+
+                  <div className={cn(
+                    "grid transition-all duration-300 ease-in-out",
+                    isChatCollapsed ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100"
+                  )}>
+                  <div className="overflow-hidden">
+                  <div className="bg-zinc-500/5 dark:bg-zinc-800/30 rounded-xl p-2 border border-zinc-200/60 dark:border-zinc-700/50 mt-1">
+                    <div className="flex items-center gap-1 mb-1.5">
+                      <div className="flex-1 flex items-center gap-1.5 bg-white/50 dark:bg-zinc-800/50 rounded-md px-2 py-1.5 border border-zinc-200/80 dark:border-zinc-600/50 focus-within:border-blue-500 transition-colors">
+                        <Search size={12} className="text-zinc-500 shrink-0" />
+                        <input
+                          ref={searchInputRef}
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => handleSearchChange(e.target.value)}
+                          placeholder={t('sidebar.searchPlaceholder')}
+                          className="w-full bg-transparent border-none text-xs text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-500 focus:outline-none"
+                        />
+                        {searchQuery && (
+                          <button
+                            onClick={() => { setSearchQuery(''); setDebouncedQuery(''); }}
+                            className="text-zinc-500 hover:text-zinc-300 shrink-0"
+                          >
+                            <X size={10} />
+                          </button>
+                        )}
+                      </div>
                       <button
-                        onClick={handleCreateFolder}
-                        className="p-1 text-zinc-500 hover:text-blue-400 hover:bg-blue-500/10 rounded transition-colors"
-                        title={t('sidebar.newFolder')}
+                        onClick={() => setSearchMode(searchMode === 'title' ? 'content' : 'title')}
+                        className={cn(
+                          "p-1 rounded transition-colors shrink-0",
+                          searchMode === 'content' ? "text-blue-400 bg-blue-500/10" : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
+                        )}
+                        title={searchMode === 'title' ? t('sidebar.searchModeTitle') : t('sidebar.searchModeContent')}
                       >
-                        <FolderPlus size={14} />
-                      </button>
-                      <button
-                        onClick={createNewSession}
-                        className="p-1 text-zinc-500 hover:text-blue-400 hover:bg-blue-500/10 rounded transition-colors"
-                        title={t('sidebar.newSession')}
-                      >
-                        <Plus size={14} />
+                        <Filter size={12} />
                       </button>
                     </div>
-                  </div>
-                  
-                  {/* Folders */}
-                  {folders.map(folder => (
+
+                    <div className="flex flex-col gap-0.5 max-h-[calc(100vh-340px)] overflow-y-auto no-scrollbar">
+                  {folders.filter(folder => !debouncedQuery || filteredSessions.some(s => s.folderId === folder.id)).map(folder => (
                     <div 
                       key={folder.id} 
                       className="flex flex-col"
-                      onDragOver={handleDragOver}
-                      onDrop={(e) => handleDropOnFolder(e, folder.id)}
+                      data-folder-id={folder.id}
                     >
                       <div 
-                        className="group flex items-center justify-between p-2 rounded-md text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-500/10 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-zinc-300 cursor-pointer transition-colors"
-                        onClick={() => toggleFolder(folder.id)}
+                        className={cn(
+                          "group flex items-center justify-between p-2 rounded-md text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-500/10 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-zinc-300 cursor-pointer transition-colors select-none",
+                          dragState.isDragging && dragState.overFolderId === folder.id && "bg-blue-500/10 dark:bg-blue-500/20 border border-blue-400/50 dark:border-blue-500/30 ring-1 ring-blue-400/30"
+                        )}
+                        onClick={() => {
+                          if (isMultiSelectMode) {
+                            toggleFolderSelection(folder.id);
+                          } else {
+                            toggleFolder(folder.id);
+                          }
+                        }}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          handleEditStart(folder.id, folder.name, true);
+                        }}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setContextMenu({ x: e.clientX, y: e.clientY, targetId: folder.id, targetType: 'folder' });
+                        }}
                       >
                         <div className="flex items-center gap-2 overflow-hidden flex-1">
+                          {isMultiSelectMode && (
+                            <div 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleFolderSelection(folder.id);
+                              }}
+                              className={cn(
+                                "w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-colors",
+                                selectedFolders.has(folder.id) ? "bg-blue-500 border-blue-500 text-white" : "border-zinc-600 hover:border-zinc-400"
+                              )}
+                            >
+                              {selectedFolders.has(folder.id) && <div className="w-2 h-2 bg-blue-500 rounded-full" />}
+                            </div>
+                          )}
                           {folder.isExpanded ? <FolderOpen size={14} className="text-blue-400" /> : <Folder size={14} className="text-blue-400" />}
                           {editingFolderId === folder.id ? (
                             <div className="flex items-center gap-1 flex-1" onClick={e => e.stopPropagation()}>
@@ -486,42 +717,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <span className="truncate font-medium">{folder.name}</span>
                           )}
                         </div>
-                        {!editingFolderId && (
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditStart(folder.id, folder.name, true);
-                              }}
-                              className="p-1 text-zinc-500 hover:text-blue-400 transition-colors"
-                            >
-                              <Edit2 size={12} />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                confirmDelete(folder.id, true);
-                              }}
-                              className="p-1 text-zinc-500 hover:text-red-400 transition-colors"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
-                        )}
                       </div>
                       {folder.isExpanded && (
                         <div className="flex flex-col">
                           {folder.isClusterTask ? (
                             <>
-                              {/* Main Agent Session */}
-                              {sessions.filter(s => s.folderId === folder.id && s.activeAgents?.includes('nexus-architect')).map((session, idx) => renderSession(session, 1, false, false, idx))}
-                              {/* Sub Agent Sessions */}
-                              {sessions.filter(s => s.folderId === folder.id && !s.activeAgents?.includes('nexus-architect')).map((session, index, array) => 
+                              {filteredSessions.filter(s => s.folderId === folder.id && s.activeAgents?.includes('nexus-architect')).map((session, idx) => renderSession(session, 1, false, false, idx))}
+                              {filteredSessions.filter(s => s.folderId === folder.id && !s.activeAgents?.includes('nexus-architect')).map((session, index, array) => 
                                 renderSession(session, 0, true, index === array.length - 1, index + 100)
                               )}
                             </>
                           ) : (
-                            sessions.filter(s => s.folderId === folder.id).map((session, index, array) => 
+                            filteredSessions.filter(s => s.folderId === folder.id).map((session, index, array) => 
                               renderSession(session, 1, false, index === array.length - 1, index)
                             )
                           )}
@@ -530,13 +737,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                   ))}
 
-                  {/* Root Sessions */}
-                  {sessions.filter(s => !s.folderId).map((session, idx) => renderSession(session, 0, false, false, idx))}
+                  {filteredSessions.filter(s => !s.folderId).map((session, idx) => renderSession(session, 0, false, false, idx))}
                 </div>
-              )}
+                </div>
+                  </div>
+                  </div>
+              </>
+            ) : (
+              <button 
+                onClick={() => setActiveTab(item.id)}
+                className={cn(
+                  "p-2.5 rounded-xl transition-all flex items-center gap-3",
+                  activeTab === item.id 
+                    ? "bg-blue-600 text-white shadow-md shadow-blue-900/20" 
+                    : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200",
+                  isExpanded ? "justify-start px-3" : "justify-center"
+                )}
+                title={!isExpanded ? item.label : undefined}
+              >
+                <item.icon size={20} className="shrink-0" />
+                {isExpanded && <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>}
+              </button>
+            )}
 
-          {/* Agents List */}
-          {isExpanded && item.id === 'agents' && activeTab === 'agents' && (
+            {isExpanded && item.id === 'agents' && (
+            <div className={cn(
+              "grid transition-all duration-300 ease-in-out",
+              activeTab === 'agents' ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+            )}>
+            <div className="overflow-hidden">
             <div className="mt-2 mb-4 flex flex-col gap-1 pl-1">
               <div className="flex items-center justify-between mb-2 px-2">
                 <span className="text-xs text-zinc-500 font-medium uppercase tracking-wider">{t('sidebar.onlineAgents')}</span>
@@ -603,8 +832,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 })}
               </div>
             </div>
-          )}
             </div>
+            </div>
+          )}
+          </div>
           ))}
         </nav>
 
@@ -636,17 +867,118 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </aside>
 
+      {dragState.isDragging && dragState.sessionId && (
+        <div
+          className="fixed z-[9998] pointer-events-none px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg shadow-xl opacity-90 whitespace-nowrap"
+          style={{ left: dragState.currentX + 12, top: dragState.currentY + 12 }}
+        >
+          {sessions.find(s => s.id === dragState.sessionId)?.title}
+        </div>
+      )}
+
+      {contextMenu && (
+        <div
+          className="fixed z-[9999]"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-600/80 rounded-lg shadow-2xl py-1.5 min-w-[160px] backdrop-blur-sm">
+            {contextMenu.targetType === 'session' && (
+              <>
+                <button
+                  onClick={() => {
+                    handleExport(contextMenu.targetId, 'json');
+                    setContextMenu(null);
+                  }}
+                  className="w-full px-3 py-2 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-left flex items-center gap-2.5 transition-colors"
+                >
+                  <Download size={13} className="text-emerald-500 dark:text-emerald-400" />
+                  <span>{t('sidebar.exportJSON')}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    handleExport(contextMenu.targetId, 'markdown');
+                    setContextMenu(null);
+                  }}
+                  className="w-full px-3 py-2 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-left flex items-center gap-2.5 transition-colors"
+                >
+                  <FileText size={13} className="text-emerald-500 dark:text-emerald-400" />
+                  <span>{t('sidebar.exportMarkdown')}</span>
+                </button>
+                <div className="my-1 border-t border-zinc-200 dark:border-zinc-700/60" />
+              </>
+            )}
+            <button
+              onClick={() => {
+                if (contextMenu.targetType === 'folder') {
+                  const folder = folders.find(f => f.id === contextMenu.targetId);
+                  if (folder) handleEditStart(folder.id, folder.name, true);
+                } else {
+                  const session = sessions.find(s => s.id === contextMenu.targetId);
+                  if (session) handleEditStart(session.id, session.title);
+                }
+                setContextMenu(null);
+              }}
+              className="w-full px-3 py-2 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-left flex items-center gap-2.5 transition-colors"
+            >
+              <Edit2 size={13} className="text-blue-500 dark:text-blue-400" />
+              <span>{t('sidebar.rename')}</span>
+            </button>
+            <div className="my-1 border-t border-zinc-200 dark:border-zinc-700/60" />
+            <button
+              onClick={() => {
+                confirmDelete(contextMenu.targetId, contextMenu.targetType === 'folder');
+                setContextMenu(null);
+              }}
+              className="w-full px-3 py-2 text-xs text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 text-left flex items-center gap-2.5 transition-colors"
+            >
+              <Trash2 size={13} />
+              <span>{t('sidebar.delete')}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       <ConfirmationModal
         isOpen={isDeleteModalOpen}
         title={folderToDelete ? t('sidebar.deleteFolder') : (sessionToDelete ? t('sidebar.deleteSession') : t('sidebar.batchDeleteConfirm'))}
-        message={folderToDelete ? t('sidebar.deleteFolderMsg') : (sessionToDelete ? t('sidebar.deleteSessionMsg') : t('sidebar.batchDeleteMsg', { count: selectedSessions.size }))}
+        message={deleteModalMessage}
         onConfirm={handleDelete}
         onCancel={() => {
           setIsDeleteModalOpen(false);
           setSessionToDelete(null);
           setFolderToDelete(null);
         }}
-      />
+      >
+        {folderToDelete && (
+          <div className="flex flex-col gap-2">
+            <p className="text-zinc-600 dark:text-zinc-300">{t('sidebar.deleteFolderMsg')}</p>
+            {folderDeleteSessions.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                  {t('sidebar.deleteFolderSessions', { count: folderDeleteSessions.length })}:
+                </p>
+                <div className="flex flex-col gap-0.5 max-h-40 overflow-y-auto bg-zinc-50 dark:bg-zinc-800/50 rounded-lg p-2 border border-zinc-200 dark:border-zinc-600/50">
+                  {folderDeleteSessions.map(s => {
+                    const agent = s.activeAgents?.[0] ? agents.find(a => a.id === s.activeAgents![0]) : null;
+                    const AgentIcon = agent ? (iconMap[agent.avatar] || Bot) : null;
+                    return (
+                      <div key={s.id} className="flex items-center gap-2 px-2 py-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        {agent && AgentIcon ? (
+                          <AgentIcon size={13} className="shrink-0 opacity-70" />
+                        ) : (
+                          <MessageSquare size={13} className="shrink-0 opacity-50" />
+                        )}
+                        <span className="truncate">{s.title}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </ConfirmationModal>
     </>
   );
 };

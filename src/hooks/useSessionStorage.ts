@@ -23,6 +23,9 @@ export interface UseSessionStorageResult {
   deleteAttachment: (sessionId: string, attachmentId: string) => Promise<void>;
   
   getStorageInfo: () => Promise<{ path?: string; sessionCount: number; totalSize?: number }>;
+  
+  exportSession: (id: string) => Promise<string>;
+  importSession: (data: string) => Promise<ChatSession>;
 }
 
 export function useSessionStorage(): UseSessionStorageResult {
@@ -237,6 +240,38 @@ export function useSessionStorage(): UseSessionStorageResult {
     }
   }, [storage]);
 
+  const exportSession = useCallback(async (id: string): Promise<string> => {
+    if (!storage) {
+      throw new Error('存储服务未初始化');
+    }
+
+    try {
+      const data = await storage.exportSession(id);
+      console.log('[useSessionStorage] 会话已导出:', id);
+      return data;
+    } catch (err) {
+      console.error('[useSessionStorage] 导出会话失败:', err);
+      setError(err instanceof Error ? err.message : '导出会话失败');
+      throw err;
+    }
+  }, [storage]);
+
+  const importSession = useCallback(async (data: string): Promise<ChatSession> => {
+    if (!storage) {
+      throw new Error('存储服务未初始化');
+    }
+
+    try {
+      const session = await storage.importSession(data);
+      console.log('[useSessionStorage] 会话已导入:', session.id);
+      return session;
+    } catch (err) {
+      console.error('[useSessionStorage] 导入会话失败:', err);
+      setError(err instanceof Error ? err.message : '导入会话失败');
+      throw err;
+    }
+  }, [storage]);
+
   return {
     isInitialized,
     isLoading,
@@ -254,6 +289,8 @@ export function useSessionStorage(): UseSessionStorageResult {
     loadAttachment,
     deleteAttachment,
     getStorageInfo,
+    exportSession,
+    importSession,
   };
 }
 
