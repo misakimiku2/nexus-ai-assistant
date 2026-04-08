@@ -2,9 +2,9 @@ export const MODEL_CONTEXT_LENGTHS: Record<string, number> = {
   'gemini-2.5-pro': 1 * 1024 * 1024,
   'gemini-2.5-flash': 1 * 1024 * 1024,
   'gemini-2.5-flash-lite': 1 * 1024 * 1024,
-  'gemini-3.1-pro': 1 * 1024 * 1024,
-  'gemini-3.1-flash-lite': 1 * 1024 * 1024,
-  'gemini-3-flash': 1 * 1024 * 1024,
+  'gemini-3.1-pro-preview': 1 * 1024 * 1024,
+  'gemini-3.1-flash-lite-preview': 1 * 1024 * 1024,
+  'gemini-3-flash-preview': 1 * 1024 * 1024,
 
   'gpt-5.4': 256 * 1024,
   'gpt-5.4-mini': 256 * 1024,

@@ -97,9 +97,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     fontFamily, setFontFamily,
     closeWindowAskEveryTime, setCloseWindowAskEveryTime,
     closeWindowAction, setCloseWindowAction,
+    startupMode, setStartupMode,
     searchEngine, setSearchEngine,
     tavilyApiKey, setTavilyApiKey,
-    tavilyEnabled, setTavilyEnabled,
     tavilySearchDepth, setTavilySearchDepth,
     tavilyIncludeAnswer, setTavilyIncludeAnswer,
     modelConfigs,
@@ -720,6 +720,36 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               )}></div>
                             </label>
                           </div>
+                          
+                          <div className={cn("border-t pt-4", isDarkMode ? "border-zinc-600/50" : "border-zinc-200")} />
+                          
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className={cn(
+                                "p-2 rounded-lg",
+                                isDarkMode ? "bg-zinc-600" : "bg-zinc-200"
+                              )}>
+                                <MessageSquare size={16} className="text-indigo-500" />
+                              </div>
+                              <div>
+                                <p className={cn("text-sm font-medium", isDarkMode ? "text-zinc-200" : "text-zinc-800")}>{t('settings.user.startupMode')}</p>
+                                <p className={cn("text-xs", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>{t('settings.user.startupModeDesc')}</p>
+                              </div>
+                            </div>
+                            <select
+                              id="startupMode"
+                              name="startupMode"
+                              value={startupMode}
+                              onChange={(e) => setStartupMode(e.target.value as 'empty' | 'lastSession')}
+                              className={cn(
+                                "border rounded-xl px-3 py-2 text-sm focus:ring-1 focus:ring-indigo-500/50 outline-none appearance-none cursor-pointer",
+                                isDarkMode ? "bg-zinc-700 border-zinc-600 text-zinc-200" : "bg-white border-zinc-300 text-zinc-900"
+                              )}
+                            >
+                              <option value="empty">{t('settings.user.startupModeEmpty')}</option>
+                              <option value="lastSession">{t('settings.user.startupModeLastSession')}</option>
+                            </select>
+                          </div>
                         </div>
                       </section>
 
@@ -884,27 +914,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                 </div>
                               </div>
                             )}
-
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className={cn("text-sm font-medium", isDarkMode ? "text-zinc-200" : "text-zinc-800")}>{t('settings.user.tavilyEnabled')}</p>
-                                <p className={cn("text-xs", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>{t('settings.user.tavilyEnabledDesc')}</p>
-                              </div>
-                              <label htmlFor="tavilyEnabled" className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                  id="tavilyEnabled"
-                                  name="tavilyEnabled"
-                                  type="checkbox"
-                                  className="sr-only peer"
-                                  checked={tavilyEnabled}
-                                  onChange={(e) => setTavilyEnabled(e.target.checked)}
-                                />
-                                <div className={cn(
-                                  "w-9 h-5 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500",
-                                  isDarkMode ? "bg-zinc-600" : "bg-zinc-300"
-                                )}></div>
-                              </label>
-                            </div>
 
                             <div className="space-y-2">
                               <label className={cn("text-xs font-medium", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>

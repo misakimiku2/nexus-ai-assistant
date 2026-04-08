@@ -27,6 +27,7 @@ import { useTranslation } from './hooks/useTranslation';
 import { ConversationMessage, ReasoningStep, ToolCallRecord, AgentStatus, ContentPart } from './agent/types';
 import { DEFAULT_AGENT } from './data/agents';
 import { ONLINE_PROVIDERS } from './config/aggregatorProviders';
+import { supportsVision, getVisionUnsupportedMessage } from './config/visionModels';
 
 export default function App() {
   const { t, i18n } = useTranslation();
@@ -37,6 +38,7 @@ export default function App() {
     isStreaming, setIsStreaming,
     addLog,
     createNewSessionWithAgent,
+    ensureCurrentSession,
     currentSessionId,
     sessions,
     agents,
@@ -499,6 +501,27 @@ export default function App() {
 
   const handleSendMessage = async () => {
     if (!input.trim() && attachments.length === 0) return;
+
+    const imageAttachments = attachments.filter(a => a.type === 'image');
+    if (imageAttachments.length > 0 && agentExecution.currentAgent) {
+      const modelId = agentExecution.currentAgent.modelId || '';
+      const provider = agentExecution.currentAgent.onlineProvider;
+      
+      if (!supportsVision(modelId, provider)) {
+        const errorMsg = getVisionUnsupportedMessage(modelId, provider);
+        addLog(errorMsg, 'error');
+        setMessages(prev => [...prev, {
+          id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+          role: 'assistant',
+          content: errorMsg,
+          timestamp: Date.now(),
+          error: errorMsg,
+        }]);
+        return;
+      }
+    }
+
+    await ensureCurrentSession();
 
     const messageContent = input.trim() || (attachments.length > 0 ? t.image.placeholder : '');
     const userMessage: Message = {

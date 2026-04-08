@@ -218,6 +218,7 @@ export class ReActEngine {
       temperature: this.context.agent.temperature ?? 0.7,
       supportsStreamOptions: isOpenAICompatible,
       isGeminiModel,
+      includeThoughts: isGeminiModel,  // Gemini 模型启用思考内容
     };
 
     let accumulatedContent = '';
@@ -405,7 +406,14 @@ export class ReActEngine {
       let observationData: Array<{ title: string; url: string; snippet?: string }> | undefined;
       if (result.success && result.output && toolName === 'web_search') {
         try {
-          const parsed = JSON.parse(result.output);
+          let jsonStr = result.output;
+          if (result.output.includes('AI Answer:') && result.output.includes('Search Results:')) {
+            const searchResultsIndex = result.output.indexOf('Search Results:');
+            if (searchResultsIndex !== -1) {
+              jsonStr = result.output.substring(searchResultsIndex + 'Search Results:'.length).trim();
+            }
+          }
+          const parsed = JSON.parse(jsonStr);
           if (Array.isArray(parsed)) {
             observationData = parsed.map((item: any) => ({
               title: item.title || item.name || 'Unknown',

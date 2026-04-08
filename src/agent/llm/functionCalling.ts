@@ -15,6 +15,7 @@ export interface FunctionCallingConfig {
   maxTokens?: number;
   supportsStreamOptions?: boolean;  // 是否支持 stream_options (OpenAI支持, Gemini等不支持)
   isGeminiModel?: boolean;  // 是否为 Google Gemini 模型（需要特殊处理）
+  includeThoughts?: boolean;  // 是否包含思考内容 (Gemini 3/2.5 支持)
 }
 
 export interface StreamCallbacks {
@@ -32,6 +33,7 @@ export interface StreamCallbacks {
  * 1. tool 消息的 content 必须是 JSON 对象（google.protobuf.Struct），纯文本会导致 400 错误
  * 2. tool 消息必须包含 name 字段
  * 3. assistant 消息中的 tool_calls 格式需要特殊处理
+ * 4. 图片消息需要使用 inlineData 格式（OpenAI 兼容端点对 image_url 支持有限）
  */
 function transformMessagesForGemini(messages: ConversationMessage[]): Record<string, unknown>[] {
   return messages.map(msg => {
@@ -110,8 +112,22 @@ function transformMessagesForGemini(messages: ConversationMessage[]): Record<str
         
         return tcOutput;
       });
+    } else if (msg.role === 'user' && Array.isArray(msg.content)) {
+      // User 消息包含多模态内容（文本 + 图片）
+      // Gemini OpenAI 兼容端点支持标准的 image_url 格式，无需转换
+      // 参考: https://ai.google.dev/gemini-api/docs/openai
+      transformed.content = msg.content;
+      console.log('[functionCalling] User message with multimodal content for Gemini:', {
+        partCount: msg.content.length,
+        parts: msg.content.map(p => ({
+          type: p.type,
+          hasText: !!p.text,
+          hasImageUrl: !!p.image_url?.url,
+          imageUrlPrefix: p.image_url?.url?.substring(0, 50) + '...'
+        }))
+      });
     } else {
-      // 其他消息类型（system, user, assistant without tool_calls）
+      // 其他消息类型（system, user without images, assistant without tool_calls）
       transformed.content = msg.content;
     }
 
@@ -322,6 +338,20 @@ export async function* streamLLMWithTools(
     // - tool_choice: Gemini 自动决定是否使用工具
     // 这些参数会导致 400 Bad Request 错误
     console.log('[functionCalling] Using Gemini-compatible mode (removing unsupported params)');
+    
+    // Gemini 思考配置：启用思考总结
+    // 参考: https://ai.google.dev/gemini-api/docs/openai (Thinking 部分)
+    // 使用 extra_body 字段传递 Gemini 特定配置
+    if (config.includeThoughts !== false) {
+      body.extra_body = {
+        google: {
+          thinking_config: {
+            include_thoughts: true
+          }
+        }
+      };
+      console.log('[functionCalling] Enabled Gemini thinking with extra_body.google.thinking_config');
+    }
   } else {
     // 非 Gemini 模型：添加完整参数
     body.max_tokens = config.maxTokens;
@@ -366,6 +396,24 @@ export async function* streamLLMWithTools(
       toolCallId: (m as {toolCallId?: string}).toolCallId,
       name: (m as {name?: string}).name,
     })), null, 2));
+    
+    // 检查图片消息格式
+    const userMsgWithImage = messages.find(m => 
+      m.role === 'user' && Array.isArray(m.content) && 
+      m.content.some(p => p.type === 'image_url')
+    );
+    if (userMsgWithImage && Array.isArray(userMsgWithImage.content)) {
+      const imagePart = userMsgWithImage.content.find(p => p.type === 'image_url');
+      if (imagePart?.image_url?.url) {
+        const imageUrl = imagePart.image_url.url;
+        console.log('[functionCalling] Image URL format check:', {
+          startsWithData: imageUrl.startsWith('data:'),
+          urlLength: imageUrl.length,
+          urlPrefix: imageUrl.substring(0, 100),
+          estimatedSizeKB: Math.round(imageUrl.length * 0.75 / 1024), // Base64 约为原始大小的 4/3
+        });
+      }
+    }
   }
 
   const response = await fetch(config.apiUrl, {
@@ -450,6 +498,19 @@ export async function* streamLLMWithTools(
           const json = JSON.parse(data);
           const delta = json.choices?.[0]?.delta;
 
+          // 调试：记录 Gemini 返回的完整 delta 结构
+          if (config.isGeminiModel && delta) {
+            const deltaKeys = Object.keys(delta);
+            
+            // 详细记录 extra_content 结构
+            if (delta?.extra_content) {
+              const isThought = delta.extra_content.google?.thought === true;
+              if (isThought) {
+                console.log('[functionCalling] Gemini thinking content detected, content length:', delta.content?.length || 0);
+              }
+            }
+          }
+
           if (json.usage) {
             usageData = json.usage;
             console.log('[functionCalling] Received usage data from API:', usageData);
@@ -460,9 +521,35 @@ export async function* streamLLMWithTools(
             yield { type: 'reasoning_content', data: delta.reasoning_content };
           }
 
+          // Gemini 思考内容处理
+          // Gemini 3/2.5 模型通过 extra_content.google.thought 标识思考内容
+          // 当 thought === true 时，delta.content 包含的是思考文本
+          if (delta?.thoughts && Array.isArray(delta.thoughts)) {
+            for (const thought of delta.thoughts) {
+              if (thought?.text) {
+                accumulatedReasoningContent += thought.text;
+                yield { type: 'reasoning_content', data: thought.text };
+                console.log('[functionCalling] Received Gemini thought:', thought.text.substring(0, 100) + '...');
+              }
+            }
+          }
+
+          // Gemini 通过 extra_content.google.thought 标志区分思考和正常内容
+          const isGeminiThought = config.isGeminiModel && 
+            (delta as Record<string, unknown>)?.extra_content !== undefined &&
+            ((delta as Record<string, unknown>).extra_content as Record<string, unknown>)?.google !== undefined &&
+            (((delta as Record<string, unknown>).extra_content as Record<string, unknown>).google as Record<string, unknown>)?.thought === true;
+
           if (delta?.content) {
-            accumulatedContent += delta.content;
-            yield { type: 'content', data: delta.content };
+            if (isGeminiThought) {
+              // 这是 Gemini 的思考内容
+              accumulatedReasoningContent += delta.content;
+              yield { type: 'reasoning_content', data: delta.content };
+            } else {
+              // 正常回复内容
+              accumulatedContent += delta.content;
+              yield { type: 'content', data: delta.content };
+            }
           }
 
           if (delta?.tool_calls) {

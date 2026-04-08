@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import { 
-  Cpu, ShieldAlert, CheckCircle, XCircle, Wrench, Bot, Database, Globe, Shield, Layout, Terminal, Brain, Search, FileEdit, AlertTriangle, ChevronDown, ChevronUp, User, Edit2,
+  Cpu, ShieldAlert, CheckCircle, XCircle, Wrench, Bot, Database, Globe, Shield, Layout, Terminal, Brain, FileEdit, AlertTriangle, ChevronDown, ChevronUp, User, Edit2,
   Copy, RotateCcw, ChevronLeft, ChevronRight, Check, FileText, PanelLeftOpen, PanelLeftClose, ArrowUp, ArrowDown, Loader2, Eye
 } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -661,21 +661,6 @@ export const ChatView: React.FC<ChatViewProps> = ({
                             </div>
                           );
                         })}
-                      </div>
-                    </CollapsibleSection>
-                  )}
-
-                  {msg.searchResults && msg.searchResults.length > 0 && (
-                    <CollapsibleSection title={`网络搜索 (${msg.searchResults.length} 个结果)`} icon={<Search size={16} className="text-blue-500" />} isDarkMode={isDarkMode}>
-                      <div className="space-y-3">
-                        {msg.searchResults.map((result, idx) => (
-                          <div key={`${result.url}-${idx}`} className="text-sm">
-                            <a href={result.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline font-medium block truncate">
-                              {result.title}
-                            </a>
-                            <p className="opacity-70 line-clamp-2 mt-1">{result.snippet}</p>
-                          </div>
-                        ))}
                       </div>
                     </CollapsibleSection>
                   )}

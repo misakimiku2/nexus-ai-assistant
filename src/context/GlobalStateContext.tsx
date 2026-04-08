@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
 import { useTokenStorage } from '../hooks/useTokenStorage';
-import { Message, LogEntry, ChatSession, ChatFolder, Agent, TodoItem, SearchGroup, SearchResult, McpServer, ModelConfig, TokenUsageRecord } from '../types';
+import { Message, LogEntry, ChatSession, ChatFolder, Agent, TodoItem, SearchGroup, SearchResult, McpServer, ModelConfig, TokenUsageRecord, StorageState } from '../types';
 import { AGENTS as INITIAL_AGENTS } from '../data/agents';
 import { generateMockConversation, generateClusterMockConversation } from '../utils/mockData';
 import { checkModelHealth, HealthCheckResult } from '../services/modelHealthCheck';
+import { getSessionStorage, SessionStorageService } from '../services/sessionStorage';
+import { migrateFromLocalStorage, checkMigrationNeeded } from '../services/sessionMigration';
 
 interface GlobalState {
   messages: Message[];
@@ -25,13 +27,14 @@ interface GlobalState {
   // Session Management
   sessions: ChatSession[];
   currentSessionId: string;
-  createNewSession: () => void;
-  createNewSessionWithAgent: (agentId: string) => void;
+  createNewSession: () => Promise<void>;
+  createNewSessionWithAgent: (agentId: string) => Promise<void>;
+  ensureCurrentSession: () => Promise<string>;
   switchSession: (id: string) => void;
   updateSessionTitle: (id: string, title: string) => void;
   updateSessionAgents: (id: string, agentIds: string[]) => void;
-  deleteSession: (id: string) => void;
-  batchDeleteSessions: (ids: string[]) => void;
+  deleteSession: (id: string) => Promise<void>;
+  batchDeleteSessions: (ids: string[]) => Promise<void>;
   
   // Folder Management
   folders: ChatFolder[];
@@ -88,6 +91,10 @@ interface GlobalState {
   closeWindowAction: 'minimize' | 'close';
   setCloseWindowAction: (action: 'minimize' | 'close') => void;
   
+  // Startup Mode Settings
+  startupMode: 'empty' | 'lastSession';
+  setStartupMode: (mode: 'empty' | 'lastSession') => void;
+  
   // Search Engine Settings
   searchEngine: string;
   setSearchEngine: (engine: string) => void;
@@ -95,8 +102,6 @@ interface GlobalState {
   // Tavily Settings
   tavilyApiKey: string;
   setTavilyApiKey: (key: string) => void;
-  tavilyEnabled: boolean;
-  setTavilyEnabled: (enabled: boolean) => void;
   tavilySearchDepth: 'basic' | 'advanced';
   setTavilySearchDepth: (depth: 'basic' | 'advanced') => void;
   tavilyIncludeAnswer: boolean;
@@ -137,6 +142,11 @@ interface GlobalState {
   // Model Health Check
   checkModelConnection: (modelId: string) => Promise<void>;
   startModelHealthCheck: () => void;
+  
+  // Session Storage State
+  sessionStorageState: StorageState;
+  saveCurrentSession: () => Promise<void>;
+  loadAllSessions: () => Promise<void>;
 }
 
 export const GlobalStateContext = createContext<GlobalState | undefined>(undefined);
@@ -151,6 +161,8 @@ export const useGlobalState = () => {
 
 const estimateTokens = (text: string) => Math.ceil(text.length * 0.5);
 
+const SAVE_DEBOUNCE_MS = 1000;
+
 export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { i18n, t } = useTranslation();
   
@@ -161,8 +173,8 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     updatedAt: Date.now(),
   });
   
-  const [sessions, setSessions] = useState<ChatSession[]>([createInitialSession()]);
-  const [currentSessionId, setCurrentSessionId] = useState<string>(sessions[0].id);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [currentTokenCount, setCurrentTokenCount] = useState(0);
@@ -171,6 +183,17 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [agents, setAgents] = useState<Agent[]>(INITIAL_AGENTS);
   const [searchGroups, setSearchGroups] = useState<SearchGroup[]>([]);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  
+  const [sessionStorageState, setSessionStorageState] = useState<StorageState>({
+    isInitialized: false,
+    isLoading: true,
+    error: null,
+    lastSavedAt: null,
+  });
+  
+  const storageRef = useRef<SessionStorageService | null>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isInitializedRef = useRef(false);
   
   // MCP State
   const [mcpServers, setMcpServers] = useState<McpServer[]>([
@@ -206,6 +229,12 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     return (stored === 'minimize' || stored === 'close') ? stored : 'minimize';
   });
 
+  // Startup Mode Settings
+  const [startupMode, setStartupMode] = useState<'empty' | 'lastSession'>(() => {
+    const stored = localStorage.getItem('nexus_startup_mode');
+    return (stored === 'empty' || stored === 'lastSession') ? stored : 'empty';
+  });
+
   // Search Engine Settings
   const [searchEngine, setSearchEngine] = useState<string>(() => {
     return localStorage.getItem('nexus_search_engine') || 'auto';
@@ -214,10 +243,6 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
   // Tavily Settings
   const [tavilyApiKey, setTavilyApiKey] = useState<string>(() => {
     return localStorage.getItem('nexus_tavily_api_key') || '';
-  });
-  const [tavilyEnabled, setTavilyEnabled] = useState<boolean>(() => {
-    const stored = localStorage.getItem('nexus_tavily_enabled');
-    return stored === 'true';
   });
   const [tavilySearchDepth, setTavilySearchDepth] = useState<'basic' | 'advanced'>(() => {
     const stored = localStorage.getItem('nexus_tavily_search_depth');
@@ -386,7 +411,6 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
   useEffect(() => { localStorage.setItem('nexus_close_window_action', closeWindowAction); }, [closeWindowAction]);
   useEffect(() => { localStorage.setItem('nexus_search_engine', searchEngine); }, [searchEngine]);
   useEffect(() => { localStorage.setItem('nexus_tavily_api_key', tavilyApiKey); }, [tavilyApiKey]);
-  useEffect(() => { localStorage.setItem('nexus_tavily_enabled', String(tavilyEnabled)); }, [tavilyEnabled]);
   useEffect(() => { localStorage.setItem('nexus_tavily_search_depth', tavilySearchDepth); }, [tavilySearchDepth]);
   useEffect(() => { localStorage.setItem('nexus_tavily_include_answer', String(tavilyIncludeAnswer)); }, [tavilyIncludeAnswer]);
 
@@ -407,12 +431,178 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
   // Persist Cost Currency
   useEffect(() => { localStorage.setItem('nexus_cost_currency', costCurrency); }, [costCurrency]);
 
+  // Persist Startup Mode
+  useEffect(() => { localStorage.setItem('nexus_startup_mode', startupMode); }, [startupMode]);
+
   // Sync i18next with global state language
   useEffect(() => {
     if (language) {
       i18n.changeLanguage(language);
     }
   }, [language, i18n]);
+
+  // Initialize session storage
+  useEffect(() => {
+    if (isInitializedRef.current) return;
+    isInitializedRef.current = true;
+
+    async function initStorage() {
+      try {
+        setSessionStorageState(prev => ({ ...prev, isLoading: true, error: null }));
+        
+        const storage = await getSessionStorage();
+        storageRef.current = storage;
+        
+        const needsMigration = await checkMigrationNeeded();
+        if (needsMigration) {
+          console.log('[GlobalState] 检测到需要迁移旧数据...');
+          const migrationResult = await migrateFromLocalStorage();
+          console.log('[GlobalState] 迁移完成:', migrationResult);
+        }
+        
+        const [loadedSessions, loadedFolders] = await Promise.all([
+          storage.getAllSessions(),
+          storage.getAllFolders(),
+        ]);
+        
+        console.log('[GlobalState] 加载了', loadedSessions.length, '个会话');
+        console.log('[GlobalState] 加载了', loadedFolders.length, '个文件夹');
+        
+        setSessions(loadedSessions);
+        
+        const allSearchGroups = loadedSessions.flatMap(s => s.searchGroups || []);
+        if (allSearchGroups.length > 0) {
+          setSearchGroups(allSearchGroups);
+          console.log('[GlobalState] 加载了', allSearchGroups.length, '个搜索组');
+        }
+        
+        if (loadedFolders.length > 0) {
+          setFolders(loadedFolders);
+        }
+        
+        const currentStartupMode = localStorage.getItem('nexus_startup_mode') || 'empty';
+        
+        if (currentStartupMode === 'lastSession' && loadedSessions.length > 0) {
+          const lastSession = loadedSessions[0];
+          setCurrentSessionId(lastSession.id);
+          setMessages(lastSession.messages);
+          console.log('[GlobalState] 存储初始化完成 (恢复上次会话)');
+        } else {
+          setCurrentSessionId('');
+          setMessages([]);
+          console.log('[GlobalState] 存储初始化完成 (会话列表已加载，当前界面为空)');
+        }
+        
+        setSessionStorageState(prev => ({
+          ...prev,
+          isInitialized: true,
+          isLoading: false,
+        }));
+      } catch (error) {
+        console.error('[GlobalState] 存储初始化失败:', error);
+        setSessionStorageState(prev => ({
+          ...prev,
+          isInitialized: true,
+          isLoading: false,
+          error: error instanceof Error ? error.message : '存储初始化失败',
+        }));
+        
+        setSessions([]);
+        setCurrentSessionId('');
+        setMessages([]);
+      }
+    }
+
+    initStorage();
+  }, [t?.session?.newChat]);
+
+  // Auto-save sessions when they change
+  const saveCurrentSession = useCallback(async () => {
+    if (!storageRef.current || !currentSessionId || !sessionStorageState.isInitialized) {
+      return;
+    }
+
+    const currentSession = sessions.find(s => s.id === currentSessionId);
+    if (!currentSession) return;
+
+    try {
+      await storageRef.current.saveSession(currentSession);
+      setSessionStorageState(prev => ({ ...prev, lastSavedAt: Date.now() }));
+      console.log('[GlobalState] 会话已保存:', currentSessionId);
+    } catch (error) {
+      console.error('[GlobalState] 保存会话失败:', error);
+      setSessionStorageState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : '保存会话失败',
+      }));
+    }
+  }, [currentSessionId, sessions, sessionStorageState.isInitialized]);
+
+  // Debounced save on messages change
+  useEffect(() => {
+    if (!sessionStorageState.isInitialized || !currentSessionId) return;
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(() => {
+      saveCurrentSession();
+    }, SAVE_DEBOUNCE_MS);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [messages, searchGroups, currentSessionId, sessionStorageState.isInitialized, saveCurrentSession]);
+
+  // Save folders when they change
+  useEffect(() => {
+    if (!storageRef.current || !sessionStorageState.isInitialized) return;
+
+    const saveFolders = async () => {
+      try {
+        for (const folder of folders) {
+          await storageRef.current!.saveFolder(folder);
+        }
+      } catch (error) {
+        console.error('[GlobalState] 保存文件夹失败:', error);
+      }
+    };
+
+    saveFolders();
+  }, [folders, sessionStorageState.isInitialized]);
+
+  const loadAllSessions = useCallback(async () => {
+    if (!storageRef.current) return;
+
+    try {
+      setSessionStorageState(prev => ({ ...prev, isLoading: true }));
+      
+      const [loadedSessions, loadedFolders] = await Promise.all([
+        storageRef.current.getAllSessions(),
+        storageRef.current.getAllFolders(),
+      ]);
+      
+      setSessions(loadedSessions);
+      setFolders(loadedFolders);
+      
+      if (loadedSessions.length > 0 && !sessions.find(s => s.id === currentSessionId)) {
+        setCurrentSessionId(loadedSessions[0].id);
+        setMessages(loadedSessions[0].messages);
+      }
+      
+      setSessionStorageState(prev => ({ ...prev, isLoading: false }));
+    } catch (error) {
+      console.error('[GlobalState] 加载会话失败:', error);
+      setSessionStorageState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: error instanceof Error ? error.message : '加载会话失败',
+      }));
+    }
+  }, [currentSessionId, sessions]);
 
   const [systemPromptPresets, setSystemPromptPresets] = useState<{ id: string; name: string; content: string }[]>([
     { id: '1', name: t?.presets?.defaultAssistant || '默认助手', content: t?.systemPrompts?.defaultAssistant || '你是一个专业、简洁的 AI 助手。' },
@@ -434,6 +624,17 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
       return session;
     }));
   }, [messages, currentSessionId, t?.session?.newChat]);
+
+  useEffect(() => {
+    if (!currentSessionId) return;
+    setSessions(prev => prev.map(session => {
+      if (session.id === currentSessionId) {
+        const sessionSearchGroups = searchGroups.filter(g => g.sessionId === currentSessionId);
+        return { ...session, searchGroups: sessionSearchGroups };
+      }
+      return session;
+    }));
+  }, [searchGroups, currentSessionId]);
 
   // Sync current session messages to state when switching sessions
   useEffect(() => {
@@ -531,18 +732,58 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   };
 
-  const createNewSession = () => {
+  const createNewSession = async () => {
     const newSession = createInitialSession();
     setSessions(prev => [newSession, ...prev]);
     setCurrentSessionId(newSession.id);
     setMessages([]);
+    
+    if (storageRef.current && sessionStorageState.isInitialized) {
+      try {
+        await storageRef.current.saveSession(newSession);
+        console.log('[GlobalState] 新会话已保存:', newSession.id);
+      } catch (error) {
+        console.error('[GlobalState] 保存新会话失败:', error);
+      }
+    }
   };
 
-  const createNewSessionWithAgent = (agentId: string) => {
+  const ensureCurrentSession = async (): Promise<string> => {
+    if (currentSessionId && sessions.find(s => s.id === currentSessionId)) {
+      return currentSessionId;
+    }
+    
+    const newSession = createInitialSession();
+    setSessions(prev => [newSession, ...prev]);
+    setCurrentSessionId(newSession.id);
+    setMessages([]);
+    
+    if (storageRef.current && sessionStorageState.isInitialized) {
+      try {
+        await storageRef.current.saveSession(newSession);
+        console.log('[GlobalState] 自动创建并保存新会话:', newSession.id);
+      } catch (error) {
+        console.error('[GlobalState] 保存新会话失败:', error);
+      }
+    }
+    
+    return newSession.id;
+  };
+
+  const createNewSessionWithAgent = async (agentId: string) => {
     let folderId = folders.find(f => f.name === (t?.session?.agentCluster || 'Agent 集群'))?.id;
     if (!folderId) {
       folderId = Date.now().toString() + Math.random().toString(36).substring(2, 9) + '-folder';
-      setFolders(prev => [{ id: folderId!, name: t?.session?.agentCluster || 'Agent 集群', isExpanded: true }, ...prev]);
+      const newFolder = { id: folderId!, name: t?.session?.agentCluster || 'Agent 集群', isExpanded: true };
+      setFolders(prev => [newFolder, ...prev]);
+      
+      if (storageRef.current && sessionStorageState.isInitialized) {
+        try {
+          await storageRef.current.saveFolder(newFolder);
+        } catch (error) {
+          console.error('[GlobalState] 保存文件夹失败:', error);
+        }
+      }
     }
 
     const agent = agents.find(a => a.id === agentId);
@@ -557,11 +798,24 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     setSessions(prev => [newSession, ...prev]);
     setCurrentSessionId(newSession.id);
     setMessages([]);
+    
+    if (storageRef.current && sessionStorageState.isInitialized) {
+      try {
+        await storageRef.current.saveSession(newSession);
+        console.log('[GlobalState] Agent会话已保存:', newSession.id);
+      } catch (error) {
+        console.error('[GlobalState] 保存Agent会话失败:', error);
+      }
+    }
   };
 
   const switchSession = (id: string) => {
     if (id !== currentSessionId) {
       setCurrentSessionId(id);
+      const session = sessions.find(s => s.id === id);
+      if (session) {
+        setMessages(session.messages);
+      }
     }
   };
 
@@ -573,37 +827,53 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     setSessions(prev => prev.map(s => s.id === id ? { ...s, activeAgents: agentIds } : s));
   };
 
-  const deleteSession = (id: string) => {
+  const deleteSession = async (id: string) => {
+    if (storageRef.current && sessionStorageState.isInitialized) {
+      try {
+        await storageRef.current.deleteSession(id);
+        console.log('[GlobalState] 已从存储中删除会话:', id);
+      } catch (error) {
+        console.error('[GlobalState] 删除存储中的会话失败:', error);
+      }
+    }
+    
     setSessions(prev => {
       const newSessions = prev.filter(s => s.id !== id);
       if (newSessions.length === 0) {
-        const newSession = createInitialSession();
-        setCurrentSessionId(newSession.id);
-        return [newSession];
+        setCurrentSessionId('');
+        setMessages([]);
+        return [];
       }
       if (id === currentSessionId) {
         setCurrentSessionId(newSessions[0].id);
       }
       return newSessions;
     });
-    // Clean up associated search groups
     setSearchGroups(prev => prev.filter(g => g.sessionId !== id));
   };
 
-  const batchDeleteSessions = (ids: string[]) => {
+  const batchDeleteSessions = async (ids: string[]) => {
+    if (storageRef.current && sessionStorageState.isInitialized) {
+      try {
+        await storageRef.current.batchDeleteSessions(ids);
+        console.log('[GlobalState] 已从存储中批量删除会话:', ids);
+      } catch (error) {
+        console.error('[GlobalState] 批量删除存储中的会话失败:', error);
+      }
+    }
+    
     setSessions(prev => {
       const newSessions = prev.filter(s => !ids.includes(s.id));
       if (newSessions.length === 0) {
-        const newSession = createInitialSession();
-        setCurrentSessionId(newSession.id);
-        return [newSession];
+        setCurrentSessionId('');
+        setMessages([]);
+        return [];
       }
       if (ids.includes(currentSessionId)) {
         setCurrentSessionId(newSessions[0].id);
       }
       return newSessions;
     });
-    // Clean up associated search groups
     setSearchGroups(prev => prev.filter(g => !g.sessionId || !ids.includes(g.sessionId)));
   };
 
@@ -860,7 +1130,7 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
       currentTokenCount, setCurrentTokenCount,
       isStreaming, setIsStreaming,
       addLog, simulateSmbCheck, simulateTest, simulateClusterTest, clearHistory, compressMessages,
-      sessions, currentSessionId, createNewSession, createNewSessionWithAgent, switchSession, updateSessionTitle, updateSessionAgents, deleteSession, batchDeleteSessions,
+      sessions, currentSessionId, createNewSession, createNewSessionWithAgent, ensureCurrentSession, switchSession, updateSessionTitle, updateSessionAgents, deleteSession, batchDeleteSessions,
       folders, createFolder, updateFolder, deleteFolder, toggleFolder, moveSessionToFolder,
       agents, addAgent, updateAgent, deleteAgent,
       systemPromptPresets, addPreset, updatePreset, deletePreset,
@@ -877,9 +1147,9 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
       fontFamily, setFontFamily,
       closeWindowAskEveryTime, setCloseWindowAskEveryTime,
       closeWindowAction, setCloseWindowAction,
+      startupMode, setStartupMode,
       searchEngine, setSearchEngine,
       tavilyApiKey, setTavilyApiKey,
-      tavilyEnabled, setTavilyEnabled,
       tavilySearchDepth, setTavilySearchDepth,
       tavilyIncludeAnswer, setTavilyIncludeAnswer,
       modelConfigs,
@@ -907,7 +1177,10 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
       costCurrency,
       setCostCurrency,
       checkModelConnection,
-      startModelHealthCheck
+      startModelHealthCheck,
+      sessionStorageState,
+      saveCurrentSession,
+      loadAllSessions,
     }}>
       {children}
     </GlobalStateContext.Provider>

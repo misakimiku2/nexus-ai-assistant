@@ -119,12 +119,12 @@ IMPORTANT: Write concise, natural search queries like a human would.
         const query = params.query as string;
         const searchEngine = localStorage.getItem('nexus_search_engine') || 'auto';
         const tavilyApiKey = localStorage.getItem('nexus_tavily_api_key');
-        const tavilyEnabled = localStorage.getItem('nexus_tavily_enabled') === 'true';
         const maxResults = (params.max_results as number) || 5;
 
-        console.log(`[web_search] Query: "${query}", Engine: "${searchEngine}", Tavily Enabled: ${tavilyEnabled}`);
+        console.log(`[web_search] Query: "${query}", Engine: "${searchEngine}"`);
 
-        if ((searchEngine === 'tavily' || tavilyEnabled) && tavilyApiKey) {
+        const shouldUseTavily = (searchEngine === 'tavily' || (searchEngine === 'auto' && tavilyApiKey));
+        if (shouldUseTavily && tavilyApiKey) {
           try {
             console.log('[web_search] Using Tavily SDK');
             const tavilyResponse = await searchWithTavily(query, maxResults);

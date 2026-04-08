@@ -11,6 +11,24 @@ export interface Attachment {
   size?: number;
 }
 
+export interface AttachmentReference {
+  id: string;
+  type: 'image' | 'document';
+  name: string;
+  mimeType: string;
+  size?: number;
+  storagePath?: string;
+  storageKey?: string;
+}
+
+export interface StorageState {
+  isInitialized: boolean;
+  isLoading: boolean;
+  error: string | null;
+  lastSavedAt: number | null;
+  storagePath?: string;
+}
+
 export interface AgentExecutionData {
   reasoningSteps: ReasoningStep[];
   toolCalls: ToolCallRecord[];
@@ -96,7 +114,8 @@ export interface ChatSession {
   messages: Message[];
   updatedAt: number;
   folderId?: string;
-  activeAgents?: string[]; // IDs of agents active in this session
+  activeAgents?: string[];
+  searchGroups?: SearchGroup[];
 }
 
 export type AppMode = 'chat' | 'command';
