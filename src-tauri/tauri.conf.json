@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Nexus AI Assistant",
+  "productName": "I.R.I.S.",
   "version": "0.1.0",
-  "identifier": "com.nexus-ai.assistant",
+  "identifier": "com.iris.assistant",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:3000",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Nexus AI Assistant",
+        "title": "I.R.I.S.",
         "width": 1200,
         "height": 800,
         "minWidth": 800,

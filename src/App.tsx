@@ -57,6 +57,8 @@ export default function App() {
     activeModelId,
     modelConfigs,
     startModelHealthCheck,
+    generatingTitleSessionId,
+    setGeneratingTitleSessionId,
   } = useGlobalState();
 
   const [isDarkMode, setIsDarkMode] = useState(() => 
@@ -68,7 +70,6 @@ export default function App() {
   const [input, setInput] = useState('');
   const [isToolPanelOpen, setIsToolPanelOpen] = useState(true);
   const [appMode, setAppMode] = useState<AppMode>('chat');
-  const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(false);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -432,21 +433,49 @@ export default function App() {
   };
 
 
-  const generateSessionTitle = async (firstUserMessage: string, firstAssistantMessage: string, sessionId: string) => {
+  const generateSessionTitle = async (firstUserMessage: string, sessionId: string) => {
     try {
-      // Use default values or get from active agent
-      let currentApiUrl = 'http://localhost:1234/v1/chat/completions';
-      let currentModelName = 'local-model';
+      setGeneratingTitleSessionId(sessionId);
+
+      let currentApiUrl = '';
+      let currentModelName = '';
       let currentApiKey = '';
       
       const currentSession = sessions.find(s => s.id === sessionId);
       if (currentSession && currentSession.activeAgents && currentSession.activeAgents.length > 0) {
         const activeAgent = agents.find(a => a.id === currentSession.activeAgents![0]);
         if (activeAgent) {
-          if (activeAgent.apiUrl) currentApiUrl = activeAgent.apiUrl;
           if (activeAgent.modelId) currentModelName = activeAgent.modelId;
           if (activeAgent.apiKey) currentApiKey = activeAgent.apiKey;
+          if (activeAgent.apiUrl) {
+            currentApiUrl = activeAgent.apiUrl;
+          } else if (activeAgent.onlineProvider && ONLINE_PROVIDERS[activeAgent.onlineProvider]) {
+            const providerConfig = ONLINE_PROVIDERS[activeAgent.onlineProvider];
+            const baseUrl = providerConfig.apiUrl;
+            currentApiUrl = activeAgent.onlineProvider === 'google'
+              ? `${baseUrl}/openai/chat/completions`
+              : `${baseUrl}/chat/completions`;
+          }
         }
+      }
+
+      if (!currentApiUrl && activeModel) {
+        currentModelName = activeModel.modelId || '';
+        currentApiKey = activeModel.apiKey || '';
+        if (activeModel.apiUrl) {
+          currentApiUrl = activeModel.apiUrl;
+        } else if (activeModel.onlineProvider && ONLINE_PROVIDERS[activeModel.onlineProvider]) {
+          const providerConfig = ONLINE_PROVIDERS[activeModel.onlineProvider];
+          const baseUrl = providerConfig.apiUrl;
+          currentApiUrl = activeModel.onlineProvider === 'google'
+            ? `${baseUrl}/openai/chat/completions`
+            : `${baseUrl}/chat/completions`;
+        }
+      }
+
+      if (!currentApiUrl) {
+        setGeneratingTitleSessionId(null);
+        return;
       }
 
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -461,7 +490,7 @@ export default function App() {
           model: currentModelName,
           messages: [
             { role: 'system', content: t.systemPrompts.titleGenerator },
-            { role: 'user', content: `用户提问：${firstUserMessage}\n\nAI回答：${firstAssistantMessage}` }
+            { role: 'user', content: firstUserMessage }
           ],
           temperature: 0.3,
           stream: false
@@ -483,8 +512,8 @@ export default function App() {
           title = title.replace(/^(标题：|标题:|Title:\s*)/i, '').trim();
           
           // 兜底截断，防止模型不听话输出过长
-          if (title.length > 12) {
-            title = title.substring(0, 12);
+          if (title.length > 14) {
+            title = title.substring(0, 14);
           }
           
           if (title) {
@@ -496,6 +525,8 @@ export default function App() {
     } catch (error) {
       console.error('Failed to generate title:', error);
       addLog(t.logs.titleGenerateFailed, 'error');
+    } finally {
+      setGeneratingTitleSessionId(null);
     }
   };
 
@@ -521,7 +552,7 @@ export default function App() {
       }
     }
 
-    await ensureCurrentSession();
+    const sessionId = await ensureCurrentSession();
 
     const messageContent = input.trim() || (attachments.length > 0 ? t.image.placeholder : '');
     const userMessage: Message = {
@@ -541,6 +572,11 @@ export default function App() {
     const currentAttachments = [...attachments];
     setInput('');
     setAttachments([]);
+
+    const userMessageCount = messages.filter(m => m.role === 'user').length;
+    if (userMessageCount === 0 && sessionId) {
+      generateSessionTitle(messageContent, sessionId);
+    }
 
     // Always use Agent mode
     await handleAgentExecution(currentMsgs, originalInput, currentAttachments);
@@ -661,11 +697,6 @@ export default function App() {
         }
         return m;
       }));
-
-      const userMessages = currentMsgs.filter(m => m.role === 'user');
-      if (userMessages.length === 1) {
-        generateSessionTitle(originalInput, result, currentSessionId);
-      }
 
       addLog(t.logs.aiResponseComplete.replace('{time}', String(executionTime)).replace('{tokens}', String(tokenCount)).replace('{speed}', String(tokenSpeed)), 'info');
     } catch (error) {
@@ -980,8 +1011,6 @@ export default function App() {
                   fileInputRef={fileInputRef}
                   handleFileUpload={handleFileUpload}
                   removeAttachment={removeAttachment}
-                  isWebSearchEnabled={isWebSearchEnabled}
-                  setIsWebSearchEnabled={setIsWebSearchEnabled}
                 />
               </motion.div>
 

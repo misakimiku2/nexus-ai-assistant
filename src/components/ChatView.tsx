@@ -356,36 +356,36 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
       {/* Scroll Up Button Hover Area */}
       {appMode === 'command' && messages.length > 0 && canScrollUp && (
-        <div className="absolute top-12 left-0 right-0 h-24 flex justify-center items-start pt-4 opacity-0 hover:opacity-100 transition-opacity duration-300 z-20 pointer-events-none">
+        <div className="absolute top-12 left-0 right-0 h-12 flex justify-center items-start pt-2 opacity-0 hover:opacity-100 transition-opacity duration-300 z-20 pointer-events-none">
           <button
             onClick={scrollToPreviousMessage}
             className={cn(
-              "pointer-events-auto backdrop-blur border rounded-full p-2.5 shadow-sm transition-all",
+              "pointer-events-auto backdrop-blur border rounded-full p-2 shadow-sm transition-all",
               isDarkMode 
                 ? "bg-zinc-700/90 border-zinc-600 text-zinc-400 hover:text-indigo-400 hover:bg-zinc-600" 
                 : "bg-white/90 border-zinc-200 text-zinc-500 hover:text-indigo-600 hover:bg-zinc-50"
             )}
             title="跳转到上一条请求"
           >
-            <ArrowUp size={20} />
+            <ArrowUp size={18} />
           </button>
         </div>
       )}
 
       {/* Scroll Down Button Hover Area */}
       {appMode === 'command' && messages.length > 0 && canScrollDown && (
-        <div className="absolute bottom-0 left-0 right-0 h-24 flex justify-center items-end pb-4 opacity-0 hover:opacity-100 transition-opacity duration-300 z-20 pointer-events-none">
+        <div className="absolute bottom-0 left-0 right-0 h-12 flex justify-center items-end pb-2 opacity-0 hover:opacity-100 transition-opacity duration-300 z-20 pointer-events-none">
           <button
             onClick={scrollToNextMessage}
             className={cn(
-              "pointer-events-auto backdrop-blur border rounded-full p-2.5 shadow-sm transition-all",
+              "pointer-events-auto backdrop-blur border rounded-full p-2 shadow-sm transition-all",
               isDarkMode 
                 ? "bg-zinc-700/90 border-zinc-600 text-zinc-400 hover:text-indigo-400 hover:bg-zinc-600" 
                 : "bg-white/90 border-zinc-200 text-zinc-500 hover:text-indigo-600 hover:bg-zinc-50"
             )}
             title="跳转到下一条请求"
           >
-            <ArrowDown size={20} />
+            <ArrowDown size={18} />
           </button>
         </div>
       )}
@@ -941,37 +941,25 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   "text-[10px] opacity-40 font-mono flex flex-wrap items-center gap-x-3 gap-y-1 group/footer",
                   isUser ? "justify-end" : "justify-start"
                 )}>
-                  {/* User Message Actions - 在对话模式下放在时间左边 */}
+                  {/* User Message Actions - 对话模式下纯图标按钮 */}
                   {msg.role === 'user' && !isStreaming && !editingMessageId && appMode !== 'command' && (
-                    <div className="flex items-center gap-1.5 opacity-100">
+                    <div className="flex items-center gap-1 opacity-100">
                       <button
                         onClick={() => handleCopy(msg.content, `user-copy-${msg.id}`)}
-                        className={cn(
-                          "px-2 py-1 rounded-md transition-colors flex items-center gap-1.5 border",
-                          isDarkMode 
-                            ? "bg-zinc-700 hover:bg-zinc-600 text-zinc-300 border-zinc-600" 
-                            : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border-zinc-200"
-                        )}
+                        className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-600 rounded-lg transition-colors"
                         title="复制消息"
                       >
-                        {copiedId === `user-copy-${msg.id}` ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
-                        <span className="text-[11px] font-medium">复制</span>
+                        {copiedId === `user-copy-${msg.id}` ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
                       </button>
                       <button
                         onClick={() => {
                           setEditContent(msg.content);
                           setEditingMessageId(msg.id);
                         }}
-                        className={cn(
-                          "px-2 py-1 rounded-md transition-colors flex items-center gap-1.5 border",
-                          isDarkMode 
-                            ? "bg-zinc-700 hover:bg-zinc-600 text-zinc-300 border-zinc-600" 
-                            : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border-zinc-200"
-                        )}
+                        className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-600 rounded-lg transition-colors"
                         title="编辑消息"
                       >
-                        <Edit2 size={12} />
-                        <span className="text-[11px] font-medium">编辑</span>
+                        <Edit2 size={14} />
                       </button>
                     </div>
                   )}
@@ -1014,63 +1002,39 @@ export const ChatView: React.FC<ChatViewProps> = ({
                     </div>
                   )}
 
-                  {/* Assistant Message Actions - Relocated here */}
-                  {msg.role === 'assistant' && !isStreaming && (
-                    <div className="flex items-center gap-1.5 opacity-100">
+                  {/* Assistant Message Actions - 对话模式下纯图标按钮 */}
+                  {msg.role === 'assistant' && !isStreaming && appMode !== 'command' && (
+                    <div className="flex items-center gap-1 opacity-100">
                       <button
                         onClick={() => handleCopy((msg.content || '').replace(/<think>[\s\S]*?<\/think>/g, '').trim(), `text-${msg.id}`)}
-                        className={cn(
-                          "px-2 py-1 rounded-md transition-colors flex items-center gap-1.5 border",
-                          isDarkMode 
-                            ? "bg-zinc-700 hover:bg-zinc-600 text-zinc-300 border-zinc-600" 
-                            : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border-zinc-200"
-                        )}
+                        className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-600 rounded-lg transition-colors"
                         title="复制文字"
                       >
-                        {copiedId === `text-${msg.id}` ? <Check size={12} className="text-emerald-500" /> : <FileText size={12} />}
-                        <span className="text-[11px] font-medium">文字</span>
+                        {copiedId === `text-${msg.id}` ? <Check size={14} className="text-emerald-500" /> : <FileText size={14} />}
                       </button>
                       <button
                         onClick={() => handleCopy(msg.content, `md-${msg.id}`)}
-                        className={cn(
-                          "px-2 py-1 rounded-md transition-colors flex items-center gap-1.5 border",
-                          isDarkMode 
-                            ? "bg-zinc-700 hover:bg-zinc-600 text-zinc-300 border-zinc-600" 
-                            : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border-zinc-200"
-                        )}
+                        className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-600 rounded-lg transition-colors"
                         title="复制 Markdown"
                       >
-                        {copiedId === `md-${msg.id}` ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
-                        <span className="text-[11px] font-medium">MD</span>
+                        {copiedId === `md-${msg.id}` ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
                       </button>
                       <button
                         onClick={() => handleRegenerateMessage?.(msg.id)}
-                        className={cn(
-                          "px-2 py-1 rounded-md transition-colors flex items-center gap-1.5 border",
-                          isDarkMode 
-                            ? "bg-zinc-700 hover:bg-zinc-600 text-zinc-300 border-zinc-600" 
-                            : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border-zinc-200"
-                        )}
+                        className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-600 rounded-lg transition-colors"
                         title="重新回答"
                       >
-                        <RotateCcw size={12} />
-                        <span className="text-[11px] font-medium">重试</span>
+                        <RotateCcw size={14} />
                       </button>
                       <button
                         onClick={() => {
                           setEditContent(msg.content);
                           setEditingMessageId(msg.id);
                         }}
-                        className={cn(
-                          "px-2 py-1 rounded-md transition-colors flex items-center gap-1.5 border",
-                          isDarkMode 
-                            ? "bg-zinc-700 hover:bg-zinc-600 text-zinc-300 border-zinc-600" 
-                            : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border-zinc-200"
-                        )}
+                        className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-600 rounded-lg transition-colors"
                         title="编辑回答"
                       >
-                        <Edit2 size={12} />
-                        <span className="text-[11px] font-medium">编辑</span>
+                        <Edit2 size={14} />
                       </button>
 
                       {/* Pagination */}

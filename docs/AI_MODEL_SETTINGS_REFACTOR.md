@@ -9,6 +9,7 @@
 本次重构将 AI 模型设置从单一模型配置改为支持多模型管理，用户可以添加、编辑、删除和排序多个 AI 模型配置。同时新增了 Token 使用统计图表功能，Token统计数据现已升级为本地文件持久化存储。
 
 **最新更新（2026-04-06）：**
+
 - 新增品牌图标系统（@lobehub/icons），统一所有提供商/模型的 Logo 显示
 - 新增更多在线厂商支持（智谱、MiniMax、Kimi、小米MiMo）
 - 移除 Alibaba (Qwen) 官方入口（已归入阿里云百炼）
@@ -95,23 +96,23 @@ export interface TokenUsageStats {
 
 新增状态和方法：
 
-| 状态/方法                 | 类型                                                   | 说明        |
-| --------------------- | ---------------------------------------------------- | --------- |
-| `modelConfigs`        | `ModelConfig[]`                                      | 模型配置列表    |
-| `activeModelId`       | `string \| null`                                     | 当前激活的模型ID |
-| `addModelConfig`      | `(config: ModelConfig) => void`                      | 添加模型配置    |
-| `updateModelConfig`   | `(id: string, config: Partial<ModelConfig>) => void` | 更新模型配置    |
-| `deleteModelConfig`   | `(id: string) => void`                               | 删除模型配置    |
-| `setActiveModel`      | `(id: string \| null) => void`                       | 设置激活模型    |
-| `reorderModelConfigs` | `(id: string, direction: 'up' \| 'down') => void`    | 重排序模型     |
-| `tokenUsageRecords`   | `TokenUsageRecord[]`                                 | Token使用记录   |
-| `isTokenStorageLoading`| `boolean`                                             | 存储加载状态    |
-| `addTokenUsageRecord` | `(record: Omit<TokenUsageRecord, 'id'>) => void`      | 添加Token记录    |
-| `getTokenUsageStats`  | `(modelId?, timeRange?) => Stats`                    | 获取统计数据    |
-| `clearTokenUsageRecords`| `() => void`                                          | 清除所有记录    |
-| `sessionTokenUsage`    | `{ input: number; output: number }`                      | 当前会话Token使用量 |
-| `costCurrency`        | `'USD' \| 'CNY'`                                         | 预估费用显示货币   |
-| `setCostCurrency`     | `(currency: 'USD' \| 'CNY') => void`                     | 设置预估费用货币   |
+| 状态/方法                    | 类型                                                   | 说明           |
+| ------------------------ | ---------------------------------------------------- | ------------ |
+| `modelConfigs`           | `ModelConfig[]`                                      | 模型配置列表       |
+| `activeModelId`          | `string \| null`                                     | 当前激活的模型ID    |
+| `addModelConfig`         | `(config: ModelConfig) => void`                      | 添加模型配置       |
+| `updateModelConfig`      | `(id: string, config: Partial<ModelConfig>) => void` | 更新模型配置       |
+| `deleteModelConfig`      | `(id: string) => void`                               | 删除模型配置       |
+| `setActiveModel`         | `(id: string \| null) => void`                       | 设置激活模型       |
+| `reorderModelConfigs`    | `(id: string, direction: 'up' \| 'down') => void`    | 重排序模型        |
+| `tokenUsageRecords`      | `TokenUsageRecord[]`                                 | Token使用记录    |
+| `isTokenStorageLoading`  | `boolean`                                            | 存储加载状态       |
+| `addTokenUsageRecord`    | `(record: Omit<TokenUsageRecord, 'id'>) => void`     | 添加Token记录    |
+| `getTokenUsageStats`     | `(modelId?, timeRange?) => Stats`                    | 获取统计数据       |
+| `clearTokenUsageRecords` | `() => void`                                         | 清除所有记录       |
+| `sessionTokenUsage`      | `{ input: number; output: number }`                  | 当前会话Token使用量 |
+| `costCurrency`           | `'USD' \| 'CNY'`                                     | 预估费用显示货币     |
+| `setCostCurrency`        | `(currency: 'USD' \| 'CNY') => void`                 | 设置预估费用货币     |
 
 所有配置自动持久化到 `localStorage`。
 
@@ -130,6 +131,7 @@ IndexedDB存储服务，用于浏览器环境：
 - 索引: `by-model`, `by-timestamp`, `by-model-timestamp`
 
 主要功能：
+
 - `addTokenRecord` - 添加单条记录
 - `addTokenRecords` - 批量添加记录
 - `getAllTokenRecords` - 获取所有记录
@@ -149,6 +151,7 @@ Tauri文件系统存储服务，用于桌面应用环境：
 - 完整路径: `C:\Users\{用户名}\AppData\Roaming\com.nexus-ai.assistant\nexus-ai-assistant\token-usage.json`
 
 主要功能：
+
 - 自动检测Tauri环境
 - 创建存储目录
 - JSON格式持久化存储
@@ -192,32 +195,33 @@ export function useTokenStorage(modelConfigs: ModelConfig[]) {
 
 **导出组件：**
 
-| 组件 | 用途 | 说明 |
-|------|------|------|
-| `ModelLogo` | 模型图标 | 根据模型ID匹配对应品牌图标，无匹配时回退到提供商图标 |
+| 组件             | 用途    | 说明                                |
+| -------------- | ----- | --------------------------------- |
+| `ModelLogo`    | 模型图标  | 根据模型ID匹配对应品牌图标，无匹配时回退到提供商图标       |
 | `ProviderLogo` | 提供商图标 | 根据提供商ID返回对应品牌图标，DMXAPI返回null（仅文字） |
 
 **提供商图标映射表：**
 
-| 提供商 ID | 图标组件 | 来源 |
-|-----------|---------|------|
-| `google` | Google | @lobehub/icons |
-| `openai` | OpenAI | @lobehub/icons |
-| `anthropic` | Anthropic | @lobehub/icons |
-| `deepseek` | DeepSeek | @lobehub/icons |
-| `zhipu` | Zhipu | @lobehub/icons |
-| `minimax` | Minimax | @lobehub/icons |
-| `kimi` | Moonshot | @lobehub/icons |
-| `xiaomi` | XiaomiMiMo | @lobehub/icons |
-| `openrouter` | OpenRouter | @lobehub/icons |
-| `siliconflow` | SiliconCloud | @lobehub/icons |
-| `bailian` | Bailian | @lobehub/icons |
-| `lm-studio` | LmStudio | @lobehub/icons |
-| `ollama` | Ollama | @lobehub/icons |
-| `custom` | Bot | lucide-react（机器人默认图标） |
-| `dmxapi` | 无 | 返回null，仅显示文字 |
+| 提供商 ID        | 图标组件         | 来源                    |
+| ------------- | ------------ | --------------------- |
+| `google`      | Google       | @lobehub/icons        |
+| `openai`      | OpenAI       | @lobehub/icons        |
+| `anthropic`   | Anthropic    | @lobehub/icons        |
+| `deepseek`    | DeepSeek     | @lobehub/icons        |
+| `zhipu`       | Zhipu        | @lobehub/icons        |
+| `minimax`     | Minimax      | @lobehub/icons        |
+| `kimi`        | Moonshot     | @lobehub/icons        |
+| `xiaomi`      | XiaomiMiMo   | @lobehub/icons        |
+| `openrouter`  | OpenRouter   | @lobehub/icons        |
+| `siliconflow` | SiliconCloud | @lobehub/icons        |
+| `bailian`     | Bailian      | @lobehub/icons        |
+| `lm-studio`   | LmStudio     | @lobehub/icons        |
+| `ollama`      | Ollama       | @lobehub/icons        |
+| `custom`      | Bot          | lucide-react（机器人默认图标） |
+| `dmxapi`      | 无            | 返回null，仅显示文字          |
 
 **模型图标回退逻辑：**
+
 - 精确匹配：`gpt-4o` → OpenAI, `claude-3-5-sonnet` → Claude, `gemini-2.0-flash` → Gemini 等
 - 模糊匹配：包含 `gpt`/`o1`/`o3` → OpenAI, 包含 `claude` → Claude, 包含 `gemini` → Gemini 等
 - 最终回退：使用提供商图标
@@ -259,6 +263,7 @@ export function useTokenStorage(modelConfigs: ModelConfig[]) {
 - 连接测试功能（提交时验证 API Key 有效性）
 
 **提供商切换行为：**
+
 - 切换在线厂商时自动清除 API Key 和已获取的模型列表
 - 切换到自定义平台时显示 API URL 手动输入框
 - 自动设置该厂商对应的默认货币（USD/CNY）
@@ -292,13 +297,13 @@ Token 使用统计图表组件：
 
 根据不同厂商调用各自专用的获取函数：
 
-| 厂商 | 专用函数 | 认证方式 | API端点 | 响应格式 | 特殊处理 |
-|------|---------|---------|---------|---------|---------|
-| **Google** | `fetchGoogleModels()` | `x-goog-api-key` header | `/v1beta/models` | `{ models: [{ name }] }` | 过滤 gemini 系列，去除 `models/` 前缀 |
-| **Anthropic** | `fetchAnthropicModels()` | `x-api-key` + `anthropic-version` header | `/v1/models` | `{ data: [{ id }] }` | 标准格式 |
-| **OpenRouter** | 内置处理 | 无需认证（公共API） | `/api/v1/models` | `{ data: [...] }` | 5分钟缓存 |
-| **智谱** | 通用处理 | `Bearer` token | `/api/paas/v4/models`（专用端点） | `{ data: [{ id }] }` | - |
-| **其他**（OpenAI/DeepSeek/MiniMax/Kimi/SiliconFlow/百炼/DMXAPI） | 通用处理 | `Bearer` token | `{apiUrl}/v1/models` | `{ data: [{ id }] }` | - |
+| 厂商                                                         | 专用函数                     | 认证方式                                     | API端点                       | 响应格式                     | 特殊处理                         |
+| ---------------------------------------------------------- | ------------------------ | ---------------------------------------- | --------------------------- | ------------------------ | ---------------------------- |
+| **Google**                                                 | `fetchGoogleModels()`    | `x-goog-api-key` header                  | `/v1beta/models`            | `{ models: [{ name }] }` | 过滤 gemini 系列，去除 `models/` 前缀 |
+| **Anthropic**                                              | `fetchAnthropicModels()` | `x-api-key` + `anthropic-version` header | `/v1/models`                | `{ data: [{ id }] }`     | 标准格式                         |
+| **OpenRouter**                                             | 内置处理                     | 无需认证（公共API）                              | `/api/v1/models`            | `{ data: [...] }`        | 5分钟缓存                        |
+| **智谱**                                                     | 通用处理                     | `Bearer` token                           | `/api/paas/v4/models`（专用端点） | `{ data: [{ id }] }`     | -                            |
+| **其他**（OpenAI/DeepSeek/MiniMax/Kimi/SiliconFlow/百炼/DMXAPI） | 通用处理                     | `Bearer` token                           | `{apiUrl}/v1/models`        | `{ data: [{ id }] }`     | -                            |
 
 ```typescript
 // Google 专用响应格式
@@ -328,28 +333,29 @@ interface GoogleModelsResponse {
 
 **官方厂商（8个）：**
 
-| ID | 名称 | 支持模型列表 | 默认货币 |
-|----|------|-------------|---------|
-| `google` | Google | ✅ | USD |
-| `openai` | OpenAI | ✅ | USD |
-| `anthropic` | Anthropic | ✅ | USD |
-| `deepseek` | DeepSeek | ✅ | CNY |
-| `zhipu` | 智谱 | ✅ | CNY |
-| `minimax` | MiniMax | ✅ | CNY |
-| `kimi` | Kimi (月之暗面) | ✅ | CNY |
-| `xiaomi` | 小米 MiMo | ❌ | CNY |
+| ID          | 名称          | 支持模型列表 | 默认货币 |
+| ----------- | ----------- | ------ | ---- |
+| `google`    | Google      | ✅      | USD  |
+| `openai`    | OpenAI      | ✅      | USD  |
+| `anthropic` | Anthropic   | ✅      | USD  |
+| `deepseek`  | DeepSeek    | ✅      | CNY  |
+| `zhipu`     | 智谱          | ✅      | CNY  |
+| `minimax`   | MiniMax     | ✅      | CNY  |
+| `kimi`      | Kimi (月之暗面) | ✅      | CNY  |
+| `xiaomi`    | 小米 MiMo     | ❌      | CNY  |
 
 **聚合平台（5个）：**
 
-| ID | 名称 | 支持模型列表 | 默认货币 |
-|----|------|-------------|---------|
-| `openrouter` | OpenRouter | ✅ | USD |
-| `dmxapi` | DMXAPI | ✅ | CNY |
-| `siliconflow` | 硅基流动 | ✅ | CNY |
-| `bailian` | 阿里云百炼 | ✅ | CNY |
-| `custom` | 自定义平台 | ❌ | USD |
+| ID            | 名称         | 支持模型列表 | 默认货币 |
+| ------------- | ---------- | ------ | ---- |
+| `openrouter`  | OpenRouter | ✅      | USD  |
+| `dmxapi`      | DMXAPI     | ✅      | CNY  |
+| `siliconflow` | 硅基流动       | ✅      | CNY  |
+| `bailian`     | 阿里云百炼      | ✅      | CNY  |
+| `custom`      | 自定义平台      | ❌      | USD  |
 
 导出函数：
+
 - `isAggregatorProvider(providerId)` — 判断是否为聚合平台
 
 ***
@@ -476,14 +482,15 @@ interface GoogleModelsResponse {
 
 ### 存储方案选择
 
-| 环境 | 存储方案 | 存储位置 |
-| ---- | -------- | -------- |
-| Tauri桌面应用 | 本地JSON文件 | `{AppData}/nexus-ai-assistant/token-usage.json` |
-| 浏览器 | IndexedDB | 浏览器IndexedDB |
+| 环境        | 存储方案      | 存储位置                                            |
+| --------- | --------- | ----------------------------------------------- |
+| Tauri桌面应用 | 本地JSON文件  | `{AppData}/nexus-ai-assistant/token-usage.json` |
+| 浏览器       | IndexedDB | 浏览器IndexedDB                                    |
 
 ### 数据迁移
 
 首次运行时自动迁移：
+
 1. localStorage → IndexedDB（浏览器环境）
 2. localStorage → 本地文件（Tauri环境）
 3. IndexedDB → 本地文件（Tauri环境）
@@ -577,6 +584,7 @@ interface GoogleModelsResponse {
 ```
 
 **货币切换说明：**
+
 - 点击货币符号按钮（$ 或 ¥）切换显示货币
 - 货币设置自动保存，下次打开保持不变
 - 汇率信息始终显示，方便用户了解换算基准
@@ -585,36 +593,37 @@ interface GoogleModelsResponse {
 
 ## 文件修改清单
 
-| 文件                                   | 操作 | 说明                                               |
-| ------------------------------------ | -- | ------------------------------------------------ |
-| `src/types.ts`                       | 修改 | 添加 ModelConfig、ModelPricing（含缓存价格）、TokenUsageRecord、AggregatorProvider 等类型；新增 ToolCallRequest.thoughtSignature 字段 |
-| `src/agent/types.ts`                 | 修改 | 新增 ToolCallRequest.thoughtSignature 字段（Gemini 3 Thought Signature） |
-| `src/context/GlobalStateContext.tsx` | 修改 | 添加模型配置列表状态、Token存储方法、货币设置、会话Token统计 |
-| `src/services/tokenStorage.ts`       | 新建 | IndexedDB存储服务                                  |
-| `src/services/tauriTokenStorage.ts`  | 新建 | Tauri文件系统存储服务                               |
-| `src/services/modelHealthCheck.ts`   | 修改 | 修复 Google 健康检查认证方式（使用 ?key= 参数）     |
-| `src/services/pricingService.ts`     | 新建 | 价格获取服务、模型列表获取（含Google/Anthropic专用函数）         |
-| `src/hooks/useTokenStorage.ts`       | 新建 | Token存储Hook                                      |
-| `src/hooks/useAgentExecution.ts`     | 修改 | 添加Token使用量追踪、费用计算、累积统计；修复 modelProvider 硬编码问题；扩展 DefaultAgentConfig 接口支持 apiModelName/modelProvider/onlineProvider/apiKey |
-| `src/components/SettingsView.tsx`    | 重构 | 重写 AI 模型设置部分，集成图表组件                      |
-| `src/components/ModelConfigCard.tsx` | 新建 | 模型配置卡片组件（使用ModelLogo品牌图标）                   |
-| `src/components/ModelConfigForm.tsx` | 修改 | 修复 API Key 在编辑模式下被清空的问题（添加 isInitialized 和 prevOnlineProvider 状态跟踪） |
-| `src/components/ModelLogo.tsx`       | 新建 | 品牌图标组件（基于@lobehub/icons，ProviderLogo+ModelLogo）    |
-| `src/components/TokenUsageChart.tsx` | 新建 | Token 使用统计图表组件（含货币切换、实时汇率）          |
-| `src/components/ToolPanel.tsx`       | 修改 | 监视器面板显示实际会话Token消耗                        |
-| `src/agent/llm/functionCalling.ts`   | 修改 | 新增 Gemini 兼容模式（isGeminiModel 配置、参数过滤）；实现 transformMessagesForGemini() 消息转换函数；流式响应解析时提取 thought_signature；发送请求时保留签名 |
-| `src/agent/runtime/ReActEngine.ts`   | 修改 | 自动检测 Gemini 模型并设置 isGeminiModel 标志          |
-| `src/data/modelPricing.ts`           | 新建 | 预定义模型定价配置（含缓存价格、聚合平台价格）           |
-| `src/utils/pricing.ts`               | 新建 | 定价计算工具函数（支持缓存定价计算）                    |
-| `src/config/aggregatorProviders.ts`  | 修改 | 导出 ONLINE_PROVIDERS 配置供 App.tsx 使用             |
-| `src/App.tsx`                        | 修改 | 重构 defaultConfig 构建逻辑：使用 effectiveModelId 查找模型配置；根据 provider 类型动态构建 apiUrl/modelProvider/onlineProvider/apiKey/apiModelName；导入 ONLINE_PROVIDERS |
-| `src-tauri/capabilities/default.json`| 修改 | 添加文件系统写入权限                                      |
+| 文件                                    | 操作 | 说明                                                                                                                                               |
+| ------------------------------------- | -- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/types.ts`                        | 修改 | 添加 ModelConfig、ModelPricing（含缓存价格）、TokenUsageRecord、AggregatorProvider 等类型；新增 ToolCallRequest.thoughtSignature 字段                                |
+| `src/agent/types.ts`                  | 修改 | 新增 ToolCallRequest.thoughtSignature 字段（Gemini 3 Thought Signature）                                                                               |
+| `src/context/GlobalStateContext.tsx`  | 修改 | 添加模型配置列表状态、Token存储方法、货币设置、会话Token统计                                                                                                              |
+| `src/services/tokenStorage.ts`        | 新建 | IndexedDB存储服务                                                                                                                                    |
+| `src/services/tauriTokenStorage.ts`   | 新建 | Tauri文件系统存储服务                                                                                                                                    |
+| `src/services/modelHealthCheck.ts`    | 修改 | 修复 Google 健康检查认证方式（使用 ?key= 参数）                                                                                                                  |
+| `src/services/pricingService.ts`      | 新建 | 价格获取服务、模型列表获取（含Google/Anthropic专用函数）                                                                                                             |
+| `src/hooks/useTokenStorage.ts`        | 新建 | Token存储Hook                                                                                                                                      |
+| `src/hooks/useAgentExecution.ts`      | 修改 | 添加Token使用量追踪、费用计算、累积统计；修复 modelProvider 硬编码问题；扩展 DefaultAgentConfig 接口支持 apiModelName/modelProvider/onlineProvider/apiKey                        |
+| `src/components/SettingsView.tsx`     | 重构 | 重写 AI 模型设置部分，集成图表组件                                                                                                                              |
+| `src/components/ModelConfigCard.tsx`  | 新建 | 模型配置卡片组件（使用ModelLogo品牌图标）                                                                                                                        |
+| `src/components/ModelConfigForm.tsx`  | 修改 | 修复 API Key 在编辑模式下被清空的问题（添加 isInitialized 和 prevOnlineProvider 状态跟踪）                                                                              |
+| `src/components/ModelLogo.tsx`        | 新建 | 品牌图标组件（基于@lobehub/icons，ProviderLogo+ModelLogo）                                                                                                  |
+| `src/components/TokenUsageChart.tsx`  | 新建 | Token 使用统计图表组件（含货币切换、实时汇率）                                                                                                                       |
+| `src/components/ToolPanel.tsx`        | 修改 | 监视器面板显示实际会话Token消耗                                                                                                                               |
+| `src/agent/llm/functionCalling.ts`    | 修改 | 新增 Gemini 兼容模式（isGeminiModel 配置、参数过滤）；实现 transformMessagesForGemini() 消息转换函数；流式响应解析时提取 thought\_signature；发送请求时保留签名                              |
+| `src/agent/runtime/ReActEngine.ts`    | 修改 | 自动检测 Gemini 模型并设置 isGeminiModel 标志                                                                                                               |
+| `src/data/modelPricing.ts`            | 新建 | 预定义模型定价配置（含缓存价格、聚合平台价格）                                                                                                                          |
+| `src/utils/pricing.ts`                | 新建 | 定价计算工具函数（支持缓存定价计算）                                                                                                                               |
+| `src/config/aggregatorProviders.ts`   | 修改 | 导出 ONLINE\_PROVIDERS 配置供 App.tsx 使用                                                                                                              |
+| `src/App.tsx`                         | 修改 | 重构 defaultConfig 构建逻辑：使用 effectiveModelId 查找模型配置；根据 provider 类型动态构建 apiUrl/modelProvider/onlineProvider/apiKey/apiModelName；导入 ONLINE\_PROVIDERS |
+| `src-tauri/capabilities/default.json` | 修改 | 添加文件系统写入权限                                                                                                                                       |
 
 ***
 
 ## 后续工作
 
 **已完成：**
+
 - ✅ 实现 Token 使用记录
 - ✅ 在每次 API 调用时记录 token 使用量
 - ✅ 图表组件从存储中读取实际数据
@@ -627,7 +636,7 @@ interface GoogleModelsResponse {
 - ✅ 支持不同模型的定价策略（预定义常见模型定价）
 - ✅ 恢复 Agent 模式下的 Token 显示功能
 - ✅ 修复监视器面板的 Token 消耗显示（显示实际值）
-- ✅ 流式 API 准确 token 统计（stream_options）
+- ✅ 流式 API 准确 token 统计（stream\_options）
 - ✅ Token 累积统计（支持多次 LLM 调用和工具调用）
 - ✅ 预估费用货币切换功能（美元/人民币）
 - ✅ 实时汇率获取和显示
@@ -648,6 +657,7 @@ interface GoogleModelsResponse {
 - ✅ **修复模型健康检查认证错误**（Google 使用 ?key= 参数）
 
 **待优化：**
+
 - 更多聚合平台的 API 价格获取支持
 - 模型定价数据的在线更新
 - 更多模型的定价配置支持
@@ -789,12 +799,12 @@ Header: Authorization: Bearer {apiKey}
 
 聚合平台的模型 ID 通常包含提供商前缀：
 
-| 平台 | 模型 ID 格式示例 |
-|------|-----------------|
-| OpenRouter | `openai/gpt-4o`, `anthropic/claude-3.5-sonnet` |
-| 硅基流动 | `Qwen/Qwen2.5-72B-Instruct`, `deepseek-ai/DeepSeek-V3` |
-| DMXAPI | `gpt-4o`, `claude-3-5-sonnet-20241022` |
-| 阿里云百炼 | `qwen-max`, `qwq-plus` |
+| 平台         | 模型 ID 格式示例                                             |
+| ---------- | ------------------------------------------------------ |
+| OpenRouter | `openai/gpt-4o`, `anthropic/claude-3.5-sonnet`         |
+| 硅基流动       | `Qwen/Qwen2.5-72B-Instruct`, `deepseek-ai/DeepSeek-V3` |
+| DMXAPI     | `gpt-4o`, `claude-3-5-sonnet-20241022`                 |
+| 阿里云百炼      | `qwen-max`, `qwq-plus`                                 |
 
 ### OpenRouter 价格 API
 
@@ -813,13 +823,13 @@ const outputPrice = parseFloat(model.pricing.completion) * 1000000;
 
 ### 各厂商缓存定价对比
 
-| 厂商 | 缓存命中折扣 | 缓存写入价格 |
-|------|-------------|-------------|
-| OpenAI | 50%-90% | 无额外费用 |
+| 厂商        | 缓存命中折扣     | 缓存写入价格     |
+| --------- | ---------- | ---------- |
+| OpenAI    | 50%-90%    | 无额外费用      |
 | Anthropic | 90% (0.1x) | 1.25x 或 2x |
-| DeepSeek | 75%-87.5% | 无额外费用 |
-| Kimi | 75% | 无额外费用 |
-| 阿里云百炼 | 90% | 无额外费用 |
+| DeepSeek  | 75%-87.5%  | 无额外费用      |
+| Kimi      | 75%        | 无额外费用      |
+| 阿里云百炼     | 90%        | 无额外费用      |
 
 ### @lobehub/icons 图标映射
 
@@ -841,8 +851,8 @@ import { Bot } from 'lucide-react';
 
 原实现在配置在线模型（如 Google Gemini）后，实际调用时仍会使用本地 LM Studio 模型。问题出在模型配置传递链路的多个环节：
 
-1. **`modelProvider` 硬编码**：`useAgentExecution.ts` 中 `modelProvider: 'lmstudio'` 被硬编码，无论选择什么模型都强制设为 LM Studio
-2. **`activeModelId` 为 null 时的回退逻辑错误**：当用户未手动激活模型时，`activeModelId` 为 null，导致代码错误地回退到 LM Studio 地址
+1. **`modelProvider`** **硬编码**：`useAgentExecution.ts` 中 `modelProvider: 'lmstudio'` 被硬编码，无论选择什么模型都强制设为 LM Studio
+2. **`activeModelId`** **为 null 时的回退逻辑错误**：当用户未手动激活模型时，`activeModelId` 为 null，导致代码错误地回退到 LM Studio 地址
 3. **配置 ID 与 API 模型名混淆**：`ModelConfig.id`（内部 ID 如 `1775415795139xha4ddo`）被当作 API 的 `model` 参数发送
 
 #### 修复方案
@@ -904,13 +914,13 @@ const newAgent: Agent = {
 
 Google Gemini 的 OpenAI 兼容端点与标准 OpenAI API 有以下差异：
 
-| 参数 | 标准 OpenAI | Google Gemini | 处理方式 |
-|------|------------|--------------|---------|
-| `max_tokens` | ✅ 支持 | ❌ 不支持 | Gemini 模式移除 |
-| `tool_choice` | ✅ 支持 | ❌ 不支持 | Gemini 模式移除 |
-| `stream_options` | ✅ 支持 | ❌ 不支持 | 根据 `supportsStreamOptions` 判断 |
-| Tool content 格式 | 纯文本/JSON | **必须是 JSON 对象** | 自动转换 |
-| Thought Signature | 不需要 | **Gemini 3 强制要求** | 提取并保留 |
+| 参数                | 标准 OpenAI | Google Gemini     | 处理方式                          |
+| ----------------- | --------- | ----------------- | ----------------------------- |
+| `max_tokens`      | ✅ 支持      | ❌ 不支持             | Gemini 模式移除                   |
+| `tool_choice`     | ✅ 支持      | ❌ 不支持             | Gemini 模式移除                   |
+| `stream_options`  | ✅ 支持      | ❌ 不支持             | 根据 `supportsStreamOptions` 判断 |
+| Tool content 格式   | 纯文本/JSON  | **必须是 JSON 对象**   | 自动转换                          |
+| Thought Signature | 不需要       | **Gemini 3 强制要求** | 提取并保留                         |
 
 #### Gemini 兼容模式实现
 
@@ -966,12 +976,13 @@ function transformMessagesForGemini(messages): Record<string, unknown>[] {
 
 Thought Signature 是 Google Gemini 3 模型的内部推理过程的加密表示，用于在多轮对话中保持推理上下文。
 
-> **官方文档**：https://ai.google.dev/gemini-api/docs/thought-signatures
+> **官方文档**：<https://ai.google.dev/gemini-api/docs/thought-signatures>
 >
 > **关键规则**：
-> - Gemini 3 模型在 Function Calling 响应中**必须包含** thought_signature
+>
+> - Gemini 3 模型在 Function Calling 响应中**必须包含** thought\_signature
 > - 后续请求中**必须原样返回**该签名
-> - 缺失签名会导致 **400 INVALID_ARGUMENT** 错误
+> - 缺失签名会导致 **400 INVALID\_ARGUMENT** 错误
 
 #### OpenAI 兼容格式中的签名位置
 
@@ -1083,10 +1094,10 @@ fetch(`${apiUrl}/models`, { headers });
 
 #### 各厂商认证方式
 
-| 提供商 | 认证方式 | 示例 |
-|-------|---------|------|
-| **Google** | URL Query Parameter | `?key=API_KEY` |
-| **Anthropic** | Header: `x-api-key` | `x-api-key: API_KEY` |
+| 提供商                       | 认证方式                 | 示例                              |
+| ------------------------- | -------------------- | ------------------------------- |
+| **Google**                | URL Query Parameter  | `?key=API_KEY`                  |
+| **Anthropic**             | Header: `x-api-key`  | `x-api-key: API_KEY`            |
 | **其他** (OpenAI/DeepSeek等) | Header: Bearer Token | `Authorization: Bearer API_KEY` |
 
 #### 修复后的代码
@@ -1110,3 +1121,4 @@ if (config.onlineProvider === 'google') {
 - 计划文档：`.trae/documents/cache-pricing-integration-plan.md`
 - 后续开发计划：`.trae/documents/ai-model-settings-follow-up-plan.md`
 - 原有重构文档：`docs/REMOVE_LLM_CHAT_MODE.md`
+

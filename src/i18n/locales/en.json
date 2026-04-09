@@ -375,7 +375,7 @@
     "defaultAssistant": "You are a professional and concise AI assistant.",
     "codeExpert": "You are an expert in full-stack development. When answering, please prioritize high-quality, runnable code examples and explain the core logic in detail.",
     "creativeWriter": "You are an imaginative writer. Please use vivid and beautiful language for your creations, focusing on emotional expression and detailed descriptions.",
-    "titleGenerator": "You are an assistant that helps users summarize conversation titles. Based on the following user question and AI response, summarize a conversation title that captures the discussion content, within 12 characters. Do not include punctuation, quotes, or extra explanations. Output the final title content directly."
+    "titleGenerator": "You are an assistant that helps users generate conversation titles. Based on the user's message, infer the user's intent and generate a conversation title that captures the user's intent, within 14 characters. Do not include punctuation, quotes, or extra explanations. Output the final title content directly."
   },
   "presets": {
     "defaultAssistant": "Default Assistant",
@@ -413,6 +413,7 @@
     "apiUnavailable": "Connection failed: API unavailable.",
     "titleGenerated": "[System] Auto-generated session title: {title}",
     "titleGenerateFailed": "[System] Failed to auto-generate title",
+    "titleGenerating": "Generating title...",
     "messageSent": "[User] New message sent, length: {length} characters",
     "messageEdited": "[User] Historical message edited, resubmitting request",
     "aiReplyEdited": "[User] AI reply manually edited",

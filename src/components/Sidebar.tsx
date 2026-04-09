@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { motion } from 'motion/react';
 import { 
   MessageSquare, 
   Terminal, 
@@ -75,7 +76,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     agents,
     exportSessionToFile,
     importSessionFromFile,
-    batchExportSessionsToFile
+    batchExportSessionsToFile,
+    generatingTitleSessionId
   } = useGlobalState();
 
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
@@ -257,6 +259,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleEditStart = (id: string, currentTitle: string, isFolder: boolean = false) => {
+    if (!isFolder && generatingTitleSessionId === id) return;
     setDragState({ isDragging: false, sessionId: null, startX: 0, startY: 0, currentX: 0, currentY: 0, overFolderId: null });
     if (isFolder) {
       setEditingFolderId(id);
@@ -505,7 +508,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           ) : (
             <span className={cn("truncate flex-1", currentSessionId === session.id ? "text-blue-700 dark:text-blue-300 font-medium" : "")}>
-              {debouncedQuery ? highlightText(stripAgentName(session.title)) : stripAgentName(session.title)}
+              {generatingTitleSessionId === session.id ? (
+                <span className="inline-flex items-center gap-1.5 animate-pulse">
+                  <span className="inline-flex gap-0.5">
+                    <motion.span
+                      animate={{ scale: [1, 1.3, 1] }}
+                      transition={{ repeat: Infinity, duration: 1 }}
+                      className="inline-block w-1 h-1 bg-indigo-500 rounded-full"
+                    />
+                    <motion.span
+                      animate={{ scale: [1, 1.3, 1] }}
+                      transition={{ repeat: Infinity, duration: 1, delay: 0.2 }}
+                      className="inline-block w-1 h-1 bg-indigo-500 rounded-full"
+                    />
+                    <motion.span
+                      animate={{ scale: [1, 1.3, 1] }}
+                      transition={{ repeat: Infinity, duration: 1, delay: 0.4 }}
+                      className="inline-block w-1 h-1 bg-indigo-500 rounded-full"
+                    />
+                  </span>
+                  <span className="text-[10px] opacity-50">{t('logs.titleGenerating')}</span>
+                </span>
+              ) : (
+                <motion.span
+                  key={session.title}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="inline-block"
+                >
+                  {debouncedQuery ? highlightText(stripAgentName(session.title)) : stripAgentName(session.title)}
+                </motion.span>
+              )}
             </span>
           )}
         </div>
@@ -526,8 +560,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center gap-3 px-3 mb-8">
             <NexusLogo size={32} />
             <div className="flex flex-col">
-              <span className="font-bold text-sm tracking-tight bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">NEXUS AI</span>
-              <span className="text-[10px] text-zinc-500 font-medium uppercase tracking-widest opacity-60">Local Intelligence</span>
+              <span className="font-bold text-sm tracking-tight bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">I.R.I.S.</span>
+              <span className="text-[10px] text-zinc-500 font-medium uppercase tracking-widest opacity-60">Intelligent Reactive Interface System</span>
             </div>
           </div>
         )}
@@ -536,10 +570,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div key={item.id} className="flex flex-col gap-1">
               {item.id === 'chat' && isExpanded && activeTab === 'chat' ? (
                 <>
-                  <button 
+                  <div 
                     onClick={() => setIsChatCollapsed(!isChatCollapsed)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setIsChatCollapsed(!isChatCollapsed); }}
                     className={cn(
-                      "w-full p-2.5 rounded-xl transition-all flex items-center gap-3",
+                      "w-full p-2.5 rounded-xl transition-all flex items-center gap-3 cursor-pointer",
                       activeTab === item.id 
                         ? "bg-blue-600 text-white shadow-md shadow-blue-900/20" 
                         : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
@@ -606,7 +643,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           <Plus size={14} />
                         </button>
                       </div>
-                  </button>
+                  </div>
 
                   <div className={cn(
                     "grid transition-all duration-300 ease-in-out",
@@ -919,7 +956,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }
                 setContextMenu(null);
               }}
-              className="w-full px-3 py-2 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-left flex items-center gap-2.5 transition-colors"
+              disabled={contextMenu.targetType === 'session' && generatingTitleSessionId === contextMenu.targetId}
+              className={cn(
+                "w-full px-3 py-2 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-left flex items-center gap-2.5 transition-colors",
+                contextMenu.targetType === 'session' && generatingTitleSessionId === contextMenu.targetId && "opacity-40 cursor-not-allowed"
+              )}
             >
               <Edit2 size={13} className="text-blue-500 dark:text-blue-400" />
               <span>{t('sidebar.rename')}</span>

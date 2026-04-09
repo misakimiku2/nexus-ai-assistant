@@ -26,8 +26,11 @@ export const Header: React.FC<HeaderProps> = ({
   isSidebarExpanded,
   setIsSidebarExpanded
 }) => {
-  const { currentTokenCount, clearHistory, simulateTest, simulateClusterTest, maxContextLength } = useGlobalState();
+  const { currentTokenCount, clearHistory, simulateTest, simulateClusterTest, maxContextLength, activeModel } = useGlobalState();
   const { t } = useTranslation();
+  
+  // 判断是否为本地模型 (LM Studio 或 Ollama)
+  const isLocalModel = !activeModel || activeModel.provider === 'lm-studio' || activeModel.provider === 'ollama';
 
   return (
     <header 
@@ -47,8 +50,15 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
         <div className="flex items-center gap-3">
           <NexusLogo size={32} />
-          <h1 className="font-bold text-base tracking-tight bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">NEXUS AI</h1>
-          <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold uppercase tracking-wider">{t.common.local}</span>
+          <h1 className="font-bold text-base tracking-tight bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">I.R.I.S.</h1>
+          <span className={cn(
+            "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
+            isLocalModel 
+              ? "bg-emerald-500/10 text-emerald-500" 
+              : "bg-blue-500/10 text-blue-500"
+          )}>
+            {isLocalModel ? t.common.local : "在线"}
+          </span>
         </div>
       </div>
       

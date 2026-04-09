@@ -114,6 +114,8 @@ interface GlobalState {
   activeModel: ModelConfig | null;
   modelName: string;
   maxContextLength: number;
+  generatingTitleSessionId: string | null;
+  setGeneratingTitleSessionId: (id: string | null) => void;
   addModelConfig: (config: ModelConfig) => void;
   updateModelConfig: (id: string, config: Partial<ModelConfig>) => void;
   deleteModelConfig: (id: string) => void;
@@ -218,8 +220,8 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
   ]);
 
   // User Settings State
-  const [userName, setUserName] = useState<string>(() => localStorage.getItem('nexus_user_name') || 'Nexus User');
-  const [aiName, setAiName] = useState<string>(() => localStorage.getItem('nexus_ai_name') || 'Nexus AI');
+  const [userName, setUserName] = useState<string>(() => localStorage.getItem('nexus_user_name') || 'User');
+  const [aiName, setAiName] = useState<string>(() => localStorage.getItem('nexus_ai_name') || 'I.R.I.S.');
   const [userAvatar, setUserAvatar] = useState<string>(() => localStorage.getItem('nexus_user_avatar') || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix');
   const [aiAvatar, setAiAvatar] = useState<string>(() => localStorage.getItem('nexus_ai_avatar') || 'https://api.dicebear.com/7.x/bottts/svg?seed=Aneka');
   const [language, setLanguage] = useState<string>(() => localStorage.getItem('nexus_language') || 'zh');
@@ -292,6 +294,7 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
   
   const modelName = activeModel?.name || '';
   const maxContextLength = activeModel?.maxContextLength || 4096;
+  const [generatingTitleSessionId, setGeneratingTitleSessionId] = useState<string | null>(null);
 
   const {
     records: tokenUsageRecords,
@@ -752,15 +755,11 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
   useEffect(() => {
     setSessions(prev => prev.map(session => {
       if (session.id === currentSessionId) {
-        let newTitle = session.title;
-        if (session.title === (t?.session?.newChat || '新对话') && messages.length > 0 && messages[0].role === 'user') {
-          newTitle = messages[0].content.slice(0, 15) + (messages[0].content.length > 15 ? '...' : '');
-        }
-        return { ...session, messages, updatedAt: Date.now(), title: newTitle };
+        return { ...session, messages, updatedAt: Date.now() };
       }
       return session;
     }));
-  }, [messages, currentSessionId, t?.session?.newChat]);
+  }, [messages, currentSessionId]);
 
   useEffect(() => {
     if (!currentSessionId) return;
@@ -1294,6 +1293,8 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
       activeModel,
       modelName,
       maxContextLength,
+      generatingTitleSessionId,
+      setGeneratingTitleSessionId,
       addModelConfig,
       updateModelConfig,
       deleteModelConfig,

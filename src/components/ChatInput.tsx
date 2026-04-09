@@ -82,8 +82,6 @@ interface ChatInputProps {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   handleFileUpload: (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'document') => void;
   removeAttachment: (id: string) => void;
-  isWebSearchEnabled: boolean;
-  setIsWebSearchEnabled: (enabled: boolean) => void;
 }
 
 const MAX_ATTACHMENTS = 10;
@@ -100,9 +98,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   handleStopAI,
   fileInputRef,
   handleFileUpload,
-  removeAttachment,
-  isWebSearchEnabled,
-  setIsWebSearchEnabled
+  removeAttachment
 }) => {
   const { isStreaming, simulateSmbCheck, sessions, currentSessionId, currentTokenCount, compressMessages, fontFamily, agents, updateSessionAgents, maxContextLength } = useGlobalState();
   const [showTokenCount, setShowTokenCount] = React.useState(false);
@@ -414,7 +410,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       ref={containerRef}
       layout
       transition={{ duration: 0.3, ease: "easeInOut" }}
-      className={cn("pt-0 relative z-20", appMode === 'command' ? "p-4" : "p-6")}
+      className={cn("pt-0 relative z-20", appMode === 'command' ? "p-2" : "p-3")}
     >
       <AnimatePresence>
         {isDragOver && (
@@ -604,20 +600,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 )}
               </div>
 
-              <div className="h-4 w-[1px] bg-zinc-500/20 mx-1"></div>
-              
-              <button 
-                onClick={() => setIsWebSearchEnabled(!isWebSearchEnabled)}
-                className={cn(
-                  "flex items-center justify-center w-8 h-8 rounded-md transition-all hover:opacity-100 shrink-0",
-                  isWebSearchEnabled 
-                    ? "text-emerald-500" 
-                    : "text-zinc-500 opacity-60"
-                )}
-                title={isWebSearchEnabled ? "关闭联网搜索" : "开启联网搜索"}
-              >
-                <Globe size={16} />
-              </button>
             </div>
             
             {/* Middle Bar: Full-width Textarea */}

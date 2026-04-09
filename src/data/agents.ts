@@ -11,7 +11,7 @@ export const DEFAULT_AGENT: Agent = {
   themeColor: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/20',
   goal: '作为用户的第一接触点，提供友好、智能、全面的服务，并在需要时引导用户使用专业 Agent。',
   backstory: 'Nexus 系统的智能管家，具备广泛的知识和工具能力，能够处理大多数日常问题，同时了解何时需要寻求专业帮助。',
-  systemPrompt: `你是 Nexus，一个友好、智能的 AI 助手。
+  systemPrompt: `你是 I.R.I.S.（Intelligent Reactive Interface System），一个友好、智能的 AI 助手。
 
 ## 你的能力
 - 🔍 网络搜索：可以搜索最新信息
