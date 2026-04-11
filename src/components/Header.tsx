@@ -26,11 +26,13 @@ export const Header: React.FC<HeaderProps> = ({
   isSidebarExpanded,
   setIsSidebarExpanded
 }) => {
-  const { currentTokenCount, clearHistory, simulateTest, simulateClusterTest, maxContextLength, activeModel } = useGlobalState();
+  const { currentTokenCount, clearHistory, simulateTest, simulateClusterTest, maxContextLength, activeModel, modelConfigs } = useGlobalState();
   const { t } = useTranslation();
   
   // 判断是否为本地模型 (LM Studio 或 Ollama)
-  const isLocalModel = !activeModel || activeModel.provider === 'lm-studio' || activeModel.provider === 'ollama';
+  // 优先使用启用的模型，如果没有启用则按顺位取第一个模型
+  const modelToCheck = activeModel || (modelConfigs.length > 0 ? modelConfigs[0] : null);
+  const isLocalModel = !modelToCheck || modelToCheck.provider === 'lm-studio' || modelToCheck.provider === 'ollama';
 
   return (
     <header 

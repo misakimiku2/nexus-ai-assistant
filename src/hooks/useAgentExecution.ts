@@ -39,6 +39,7 @@ interface UseAgentExecutionResult {
   lastTokenUsage: TokenUsage | null;
   resetTokenUsage: () => void;
   getTokenUsage: () => TokenUsage | null;
+  refreshTools: () => Promise<void>;
 }
 
 interface DefaultAgentConfig {
@@ -376,6 +377,12 @@ export function useAgentExecution(
     setLastTokenUsage(null);
   }, []);
 
+  const refreshTools = useCallback(async () => {
+    if (runtimeRef.current) {
+      await runtimeRef.current.refreshTools();
+    }
+  }, []);
+
   return {
     status,
     reasoningSteps,
@@ -394,5 +401,6 @@ export function useAgentExecution(
     lastTokenUsage,
     resetTokenUsage,
     getTokenUsage: () => tokenUsageRef.current,
+    refreshTools,
   };
 }

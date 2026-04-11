@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Plus, Command, Bot } from 'lucide-react';
 import { cn } from './lib/utils';
-import { Message, SearchResult, AppMode, McpServer, PendingAction, TabType, SearchGroup, ModelProvider, Attachment, MessageRole } from './types';
+import { Message, SearchResult, AppMode, McpServer, McpServerConfig, PendingAction, TabType, SearchGroup, ModelProvider, Attachment, MessageRole } from './types';
+import { McpService } from './agent/mcp/McpService';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { ChatView } from './components/ChatView';
@@ -118,9 +119,15 @@ export default function App() {
 
   // Add MCP Modal State
   const [isAddMcpModalOpen, setIsAddMcpModalOpen] = useState(false);
+  const [isMcpConnecting, setIsMcpConnecting] = useState(false);
   const [newMcpName, setNewMcpName] = useState('');
   const [newMcpCommand, setNewMcpCommand] = useState('');
   const [newMcpArgs, setNewMcpArgs] = useState('');
+  const [envVars, setEnvVars] = useState<{ key: string; value: string }[]>([]);
+  const [toolTimeout, setToolTimeout] = useState(60);
+  const [connectTimeout, setConnectTimeout] = useState(30);
+  const [editingServerId, setEditingServerId] = useState<string | null>(null);
+  const [mcpAddError, setMcpAddError] = useState<string | null>(null);
 
   // Close Confirm Modal State
   const [isCloseConfirmModalOpen, setIsCloseConfirmModalOpen] = useState(false);
@@ -319,6 +326,61 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const loadMcpConfigs = async () => {
+      try {
+        const servers = await McpService.loadConfigs();
+
+        if (servers.length === 0) {
+          setMcpServers([]);
+          return;
+        }
+
+        const connectingServers = servers.map(s =>
+          s.enabled && s.status !== 'connected' ? { ...s, status: 'connecting' as const } : s
+        );
+        setMcpServers(connectingServers);
+
+        const enabledServerIds = servers.filter(s => s.enabled && s.status !== 'connected').map(s => s.id);
+
+        if (enabledServerIds.length > 0) {
+          const connectPromises = enabledServerIds.map(async (id) => {
+            try {
+              const connected = await McpService.connectServer(id);
+              return { id, server: connected, error: null };
+            } catch (error) {
+              return { 
+                id, 
+                server: { 
+                  ...servers.find(s => s.id === id)!, 
+                  status: 'error' as const, 
+                  error: error instanceof Error ? error.message : 'Connection failed' 
+                }, 
+                error 
+              };
+            }
+          });
+
+          const results = await Promise.all(connectPromises);
+
+          setMcpServers(prev => prev.map(s => {
+            const result = results.find(r => r.id === s.id);
+            return result ? result.server : s;
+          }));
+
+          if (results.some(r => r.server.status === 'connected')) {
+            await agentExecution.refreshTools();
+          }
+        } else if (servers.some(s => s.status === 'connected')) {
+          await agentExecution.refreshTools();
+        }
+      } catch (error) {
+        console.log('MCP config load skipped:', error);
+      }
+    };
+    loadMcpConfigs();
+  }, []);
+
+  useEffect(() => {
     let unlisten: (() => void) | null = null;
 
     const setupCloseListener = async () => {
@@ -413,23 +475,81 @@ export default function App() {
     setPendingAction(null);
   };
 
-  const handleAddMcpServer = () => {
-    if (!newMcpName || !newMcpCommand) return;
+  const handleAddMcpServer = async () => {
+    if (!newMcpName || !newMcpCommand || isMcpConnecting) return;
+    setIsMcpConnecting(true);
+    setMcpAddError(null);
     
-    const newServer: McpServer = {
-      id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+    const parsedArgs = newMcpArgs
+      ? newMcpArgs.match(/(?:[^\s"]+|"[^"]*")+/g)?.map(arg => arg.replace(/^"|"$/g, '')) || []
+      : [];
+
+    if (editingServerId) {
+      try {
+        await McpService.removeServer(editingServerId);
+        setMcpServers(prev => prev.filter(s => s.id !== editingServerId));
+      } catch {}
+    }
+
+    const config: McpServerConfig = {
+      id: editingServerId || Date.now().toString() + Math.random().toString(36).substring(2, 9),
       name: newMcpName,
-      status: 'disconnected',
-      tools: [] 
+      command: newMcpCommand,
+      args: parsedArgs,
+      env: envVars.reduce((acc, v) => { if (v.key) acc[v.key] = v.value; return acc; }, {} as Record<string, string>),
+      enabled: true,
+      toolTimeoutSecs: toolTimeout,
+      connectTimeoutSecs: connectTimeout,
     };
+
+    try {
+      const dupError = await McpService.checkDuplicate(config);
+      if (dupError) {
+        setMcpAddError(dupError);
+        addLog(dupError, 'error');
+        setIsMcpConnecting(false);
+        return;
+      }
+
+      const server = await McpService.addServer(config);
+      setMcpServers(prev => {
+        const existing = prev.findIndex(s => s.id === server.id);
+        if (existing >= 0) {
+          const updated = [...prev];
+          updated[existing] = server;
+          return updated;
+        }
+        return [...prev, server];
+      });
+      addLog(t.logs.mcpServerAdded.replace('{name}', newMcpName).replace('{command}', `${newMcpCommand} ${newMcpArgs}`), 'info');
+      await agentExecution.refreshTools();
+      await McpService.saveConfigs();
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      setMcpAddError(`添加失败: ${errorMsg}`);
+      addLog(`MCP server add failed: ${errorMsg}`, 'error');
+    }
     
-    setMcpServers(prev => [...prev, newServer]);
-    addLog(t.logs.mcpServerAdded.replace('{name}', newMcpName).replace('{command}', `${newMcpCommand} ${newMcpArgs}`), 'info');
-    
+    setIsMcpConnecting(false);
     setIsAddMcpModalOpen(false);
     setNewMcpName('');
     setNewMcpCommand('');
     setNewMcpArgs('');
+    setEnvVars([]);
+    setToolTimeout(60);
+    setConnectTimeout(30);
+    setEditingServerId(null);
+  };
+
+  const handleEditMcpServer = (server: McpServer) => {
+    setEditingServerId(server.id);
+    setNewMcpName(server.name);
+    setNewMcpCommand(server.command);
+    setNewMcpArgs(server.args?.join(' ') || '');
+    setEnvVars(server.env ? Object.entries(server.env).map(([key, value]) => ({ key, value })) : []);
+    setToolTimeout(server.toolTimeoutSecs || 60);
+    setConnectTimeout(server.connectTimeoutSecs || 30);
+    setIsAddMcpModalOpen(true);
   };
 
 
@@ -1062,8 +1182,45 @@ export default function App() {
               >
                 <McpControlCenter 
                   mcpServers={mcpServers}
+                  setMcpServers={setMcpServers}
                   setIsAddMcpModalOpen={setIsAddMcpModalOpen}
                   isDarkMode={isDarkMode}
+                  onDisconnect={async (id) => {
+                    try {
+                      const server = await McpService.disconnectServer(id);
+                      setMcpServers(prev => prev.map(s => s.id === id ? server : s));
+                      await agentExecution.refreshTools();
+                    } catch (error) {
+                      addLog(`Disconnect failed: ${error instanceof Error ? error.message : 'Unknown'}`, 'error');
+                    }
+                  }}
+                  onReconnect={async (id) => {
+                    try {
+                      const server = await McpService.connectServer(id);
+                      setMcpServers(prev => prev.map(s => s.id === id ? server : s));
+                      await agentExecution.refreshTools();
+                    } catch (error) {
+                      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+                      addLog(`Reconnect failed: ${errorMsg}`, 'error');
+                      setMcpServers(prev => prev.map(s => 
+                        s.id === id ? { ...s, status: 'error' as const, error: errorMsg } : s
+                      ));
+                    }
+                  }}
+                  onRemove={async (id) => {
+                    try {
+                      await McpService.removeServer(id);
+                      setMcpServers(prev => prev.filter(s => s.id !== id));
+                      await agentExecution.refreshTools();
+                      await McpService.saveConfigs();
+                    } catch (error) {
+                      addLog(`Remove failed: ${error instanceof Error ? error.message : 'Unknown'}`, 'error');
+                    }
+                  }}
+                  onRefreshTools={async () => {
+                    await agentExecution.refreshTools();
+                  }}
+                  onEditServer={handleEditMcpServer}
                 />
               </motion.div>
             )}
@@ -1108,13 +1265,22 @@ export default function App() {
 
       <AddMcpModal 
         isOpen={isAddMcpModalOpen}
-        onClose={() => setIsAddMcpModalOpen(false)}
+        onClose={() => { setIsAddMcpModalOpen(false); setEditingServerId(null); setMcpAddError(null); }}
         newMcpName={newMcpName}
         setNewMcpName={setNewMcpName}
         newMcpCommand={newMcpCommand}
         setNewMcpCommand={setNewMcpCommand}
         newMcpArgs={newMcpArgs}
         setNewMcpArgs={setNewMcpArgs}
+        envVars={envVars}
+        setEnvVars={setEnvVars}
+        toolTimeout={toolTimeout}
+        setToolTimeout={setToolTimeout}
+        connectTimeout={connectTimeout}
+        setConnectTimeout={setConnectTimeout}
+        isConnecting={isMcpConnecting}
+        isEditing={!!editingServerId}
+        error={mcpAddError}
         onAdd={handleAddMcpServer}
         isDarkMode={isDarkMode}
       />

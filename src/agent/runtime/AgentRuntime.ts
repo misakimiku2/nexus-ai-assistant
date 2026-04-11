@@ -14,6 +14,8 @@ import { agentStateManager } from './AgentState';
 import { initializeBuiltinTools } from '../tools/builtin';
 import { ToolRegistry } from '../tools/ToolRegistry';
 import { preprocessConversation, resetUrlPlaceholderCounter, PreprocessedConversation } from '../preprocess/urlDetector';
+import { McpService } from '../mcp/McpService';
+import { adaptMcpTool } from '../mcp/McpToolAdapter';
 
 export interface AgentRuntimeOptions {
   agent: Agent;
@@ -52,19 +54,73 @@ export class AgentRuntime {
     } else {
       const allTools = ToolRegistry.getAllEntries();
       for (const entry of allTools) {
-        if (!entry.enabled) {
+        if (!entry.enabled && entry.source === 'builtin') {
           ToolRegistry.enable(entry.definition.name);
         }
       }
     }
 
+    for (const entry of ToolRegistry.getAllEntries()) {
+      if (entry.source === 'mcp') {
+        ToolRegistry.unregister(entry.definition.name);
+      }
+    }
+
+    await this.registerMcpToolsForAgent();
+
     if (this.agent.tools) {
       const allTools = ToolRegistry.getAll();
       for (const tool of allTools) {
-        if (!this.agent.tools.includes(tool.name)) {
+        if (tool.source !== 'mcp' && !this.agent.tools.includes(tool.name)) {
           ToolRegistry.disable(tool.name);
         }
       }
+    }
+  }
+
+  async refreshTools(): Promise<void> {
+    for (const entry of ToolRegistry.getAllEntries()) {
+      if (entry.source === 'mcp') {
+        ToolRegistry.unregister(entry.definition.name);
+      }
+    }
+
+    await this.registerMcpToolsForAgent();
+
+    if (this.agent.tools) {
+      const allTools = ToolRegistry.getAll();
+      for (const tool of allTools) {
+        if (tool.source !== 'mcp' && !this.agent.tools.includes(tool.name)) {
+          ToolRegistry.disable(tool.name);
+        }
+      }
+    }
+
+    console.log('[AgentRuntime] Tools refreshed, enabled tools:', ToolRegistry.getEnabledToolNames());
+  }
+
+  private async registerMcpToolsForAgent(): Promise<void> {
+    const servers = McpService.getServers();
+    const connectedServers = servers.filter(s => s.status === 'connected');
+
+    if (connectedServers.length === 0) return;
+
+    const mcpServerIds = this.agent.mcpServers;
+    const serversToRegister = mcpServerIds
+      ? connectedServers.filter(s => mcpServerIds.includes(s.id))
+      : connectedServers;
+
+    for (const server of serversToRegister) {
+      const toolDefinitions = server.tools.map(tool =>
+        adaptMcpTool(server.id, {
+          name: tool.name,
+          description: tool.description,
+          inputSchema: tool.inputSchema,
+        }, server.name)
+      );
+
+      ToolRegistry.registerMcpTools(server.id, toolDefinitions);
+      console.log(`[AgentRuntime] Registered ${toolDefinitions.length} MCP tools from server '${server.name}'`);
     }
   }
 

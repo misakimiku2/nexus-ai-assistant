@@ -126,13 +126,37 @@ export interface McpTool {
   name: string;
   description: string;
   requiresAuth: boolean;
+  inputSchema?: Record<string, unknown>;
 }
 
 export interface McpServer {
   id: string;
   name: string;
-  status: 'connected' | 'disconnected' | 'error';
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  status: 'connecting' | 'connected' | 'disconnected' | 'error';
   tools: McpTool[];
+  error?: string;
+  enabled: boolean;
+  toolTimeoutSecs?: number;
+  connectTimeoutSecs?: number;
+}
+
+export interface McpServerConfig {
+  id: string;
+  name: string;
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  enabled: boolean;
+  toolTimeoutSecs?: number;
+  connectTimeoutSecs?: number;
+}
+
+export interface McpCallToolResult {
+  content: string;
+  isError: boolean;
 }
 
 export interface PendingAction {

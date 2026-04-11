@@ -13,10 +13,10 @@
     "windows": [
       {
         "title": "I.R.I.S.",
-        "width": 1200,
+        "width": 1280,
         "height": 800,
-        "minWidth": 800,
-        "minHeight": 600,
+        "minWidth": 1280,
+        "minHeight": 800,
         "resizable": true,
         "fullscreen": false,
         "center": true,

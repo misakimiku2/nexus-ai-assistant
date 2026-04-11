@@ -109,6 +109,7 @@ export const ModelConfigForm: React.FC<ModelConfigFormProps> = ({
 
   const [isInitialized, setIsInitialized] = useState(false);
   const [prevOnlineProvider, setPrevOnlineProvider] = useState<string | undefined>(undefined);
+  const [prevProvider, setPrevProvider] = useState<Provider | undefined>(undefined);
 
   useEffect(() => {
     if (provider === 'online') {
@@ -132,14 +133,16 @@ export const ModelConfigForm: React.FC<ModelConfigFormProps> = ({
   }, [provider, onlineProvider, editingConfig?.maxContextLength, editingConfig?.apiKey, editingConfig?.modelId]);
 
   useEffect(() => {
+    const isProviderSwitching = prevProvider !== undefined && prevProvider !== provider;
+    
     if (provider === 'lm-studio') {
       setApiUrl('http://localhost:1234/v1/chat/completions');
-      if (!editingConfig) {
+      if (isProviderSwitching && !editingConfig) {
         setModelId('');
       }
     } else if (provider === 'ollama') {
       setApiUrl('http://localhost:11434/api/chat');
-      if (!editingConfig) {
+      if (isProviderSwitching && !editingConfig) {
         setModelId('');
       }
     }
@@ -148,7 +151,8 @@ export const ModelConfigForm: React.FC<ModelConfigFormProps> = ({
     } else {
       setMaxContextLength(getDefaultContextLength(provider, onlineProvider, modelId));
     }
-  }, [provider, onlineProvider, modelId]);
+    setPrevProvider(provider);
+  }, [provider, onlineProvider]);
 
   useEffect(() => {
     if (modelId && !isNameManuallyEdited && !editingConfig) {
@@ -404,15 +408,10 @@ export const ModelConfigForm: React.FC<ModelConfigFormProps> = ({
 
   return (
     <motion.div
-      initial={{ opacity: 0, maxHeight: 0 }}
-      animate={{ opacity: 1, maxHeight: '85vh' }}
-      exit={{ opacity: 0, maxHeight: 0 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
-      style={{
-        overflowY: 'auto',
-        scrollbarWidth: 'thin',
-        scrollbarColor: isDarkMode ? '#52525b transparent' : '#a1a1aa transparent'
-      }}
       className={cn(
         "rounded-xl border",
         isDarkMode ? "border-zinc-700" : "border-zinc-200"

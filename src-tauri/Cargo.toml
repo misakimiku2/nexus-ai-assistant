@@ -28,6 +28,7 @@ tauri-plugin-log = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
+tauri-plugin-store = "2"
 reqwest = { version = "0.12", features = ["blocking", "gzip", "json"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 scraper = "0.22"
@@ -36,5 +37,6 @@ urlencoding = "2.1"
 base64 = "0.22"
 whoami = "1.5"
 dirs = "5.0"
+sysinfo = "0.33"
 pdf-extract = "0.7"
 headless_chrome = { version = "1.0", optional = true }

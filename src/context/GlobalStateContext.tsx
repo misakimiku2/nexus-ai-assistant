@@ -204,20 +204,7 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
   const isInitializedRef = useRef(false);
   
   // MCP State
-  const [mcpServers, setMcpServers] = useState<McpServer[]>([
-    {
-      id: 'google-search',
-      name: 'mcp-server-google-search',
-      status: 'connected',
-      tools: [{ name: 'web_search', description: 'Search the web for current information', requiresAuth: false }]
-    },
-    {
-      id: 'system-ops',
-      name: 'mcp-server-system-ops',
-      status: 'connected',
-      tools: [{ name: 'modify_smb_config', description: 'Modify system SMB configuration', requiresAuth: true }]
-    }
-  ]);
+  const [mcpServers, setMcpServers] = useState<McpServer[]>([]);
 
   // User Settings State
   const [userName, setUserName] = useState<string>(() => localStorage.getItem('nexus_user_name') || 'User');

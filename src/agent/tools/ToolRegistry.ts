@@ -4,6 +4,8 @@ import {
   ChatCompletionTool,
   ToolExecutionResult,
 } from './types';
+import { getOverlappingMcpTools } from '../mcp/toolMapping';
+import { isMcpTool, parseMcpToolName } from '../mcp/McpToolAdapter';
 
 class ToolRegistryImpl {
   private tools: Map<string, ToolRegistryEntry> = new Map();
@@ -14,12 +16,62 @@ class ToolRegistryImpl {
       console.warn(`Tool "${tool.name}" is already registered. Overwriting.`);
     }
 
+    const source = tool.source || 'builtin';
     this.tools.set(tool.name, {
       definition: tool,
       enabled: true,
       useCount: 0,
+      source,
+      mcpServerId: tool.mcpServerId,
+      mcpOriginalName: tool.mcpOriginalName,
     });
     this.enabledTools.add(tool.name);
+  }
+
+  registerMcpTools(serverId: string, tools: ToolDefinition[]): void {
+    for (const tool of tools) {
+      tool.source = 'mcp';
+      tool.mcpServerId = serverId;
+      if (!tool.mcpOriginalName && isMcpTool(tool.name)) {
+        const parsed = parseMcpToolName(tool.name);
+        if (parsed) {
+          tool.mcpOriginalName = parsed.toolName;
+        }
+      }
+      this.register(tool);
+    }
+  }
+
+  unregisterMcpTools(serverId: string): number {
+    let count = 0;
+    const toRemove: string[] = [];
+    for (const [name, entry] of this.tools) {
+      if (entry.source === 'mcp' && entry.mcpServerId === serverId) {
+        toRemove.push(name);
+      }
+    }
+    for (const name of toRemove) {
+      this.tools.delete(name);
+      this.enabledTools.delete(name);
+      count++;
+    }
+    return count;
+  }
+
+  getMcpToolsForServer(serverId: string): ToolDefinition[] {
+    const result: ToolDefinition[] = [];
+    for (const entry of this.tools.values()) {
+      if (entry.source === 'mcp' && entry.mcpServerId === serverId && entry.enabled) {
+        result.push(entry.definition);
+      }
+    }
+    return result;
+  }
+
+  getToolsBySource(source: 'builtin' | 'mcp'): ToolDefinition[] {
+    return Array.from(this.tools.values())
+      .filter((entry) => entry.source === source && entry.enabled)
+      .map((entry) => entry.definition);
   }
 
   unregister(toolName: string): boolean {
@@ -103,7 +155,25 @@ class ToolRegistryImpl {
   }
 
   buildOpenAITools(): ChatCompletionTool[] {
-    return this.getAll().map((tool) => ({
+    const allEnabled = this.getAll();
+    const mcpTools = allEnabled.filter(t => t.source === 'mcp');
+    const builtinTools = allEnabled.filter(t => t.source !== 'mcp');
+
+    const mcpOriginalNames: Array<{ name: string; serverId: string }> = [];
+    for (const tool of mcpTools) {
+      if (tool.mcpOriginalName && tool.mcpServerId) {
+        mcpOriginalNames.push({ name: tool.mcpOriginalName, serverId: tool.mcpServerId });
+      }
+    }
+
+    const overlappingMap = getOverlappingMcpTools(mcpOriginalNames);
+    const excludedBuiltinNames = new Set(overlappingMap.keys());
+
+    const filteredBuiltin = builtinTools.filter(t => !excludedBuiltinNames.has(t.name));
+
+    const result = [...filteredBuiltin, ...mcpTools];
+
+    return result.map((tool) => ({
       type: 'function' as const,
       function: {
         name: tool.name,
@@ -124,6 +194,16 @@ class ToolRegistryImpl {
   requiresAuth(toolName: string): boolean {
     const entry = this.tools.get(toolName);
     return entry?.definition.requiresAuth ?? false;
+  }
+
+  isMcpTool(toolName: string): boolean {
+    const entry = this.tools.get(toolName);
+    return entry?.source === 'mcp';
+  }
+
+  getMcpServerId(toolName: string): string | undefined {
+    const entry = this.tools.get(toolName);
+    return entry?.mcpServerId;
   }
 
   clear(): void {

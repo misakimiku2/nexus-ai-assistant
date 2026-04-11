@@ -517,7 +517,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                   title="选择 Agent"
                 >
                   {activeAgent ? renderAgentAvatar(activeAgent, 14) : <Bot size={14} />}
-                  <span className="max-w-[100px] truncate">{activeAgent ? activeAgent.name : "默认助手"}</span>
+                  <span className="max-w-[100px] truncate">{activeAgent ? activeAgent.name : "I.R.I.S."}</span>
                   <ChevronDown size={12} className={cn("transition-transform opacity-70", isAgentMenuOpen && "rotate-180")} />
                 </button>
 
@@ -533,7 +533,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                     >
                       <div className="flex items-center gap-2">
                         <MessageSquare size={14} className="opacity-70" />
-                        <span>默认助手</span>
+                        <span>I.R.I.S.</span>
                       </div>
                       {!activeAgent && <Check size={14} className="text-indigo-500" />}
                     </button>
@@ -617,7 +617,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                   }
                 }}
                 placeholder={appMode === 'chat' ? (activeAgent ? `向 ${activeAgent.name} 提问...` : "输入您的问题...") : "输入系统命令..."}
-                className="w-full bg-transparent border-none focus:outline-none focus:ring-0 resize-none py-2 text-sm max-h-[250px] min-h-[80px] placeholder-zinc-500 dark:placeholder-zinc-400 caret-zinc-800 dark:caret-zinc-200 scrollbar-hide"
+                className="w-full bg-transparent border-none focus:outline-none focus:ring-0 resize-none py-2 text-sm max-h-[200px] min-h-[54px] placeholder-zinc-500 dark:placeholder-zinc-400 caret-zinc-800 dark:caret-zinc-200 scrollbar-hide"
                 rows={1}
               />
             </div>

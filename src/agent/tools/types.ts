@@ -18,8 +18,11 @@ export interface ToolDefinition {
   parameters: JSONSchema;
   execute: (params: Record<string, unknown>) => Promise<ToolExecutionResult>;
   requiresAuth?: boolean;
-  category?: 'filesystem' | 'network' | 'system' | 'utility';
+  category?: 'filesystem' | 'network' | 'system' | 'utility' | 'mcp';
   examples?: ToolExample[];
+  source?: 'builtin' | 'mcp';
+  mcpServerId?: string;
+  mcpOriginalName?: string;
 }
 
 export interface ToolExample {
@@ -49,6 +52,9 @@ export interface ToolRegistryEntry {
   enabled: boolean;
   lastUsed?: number;
   useCount: number;
+  source: 'builtin' | 'mcp';
+  mcpServerId?: string;
+  mcpOriginalName?: string;
 }
 
 export interface BuiltinToolConfig {
