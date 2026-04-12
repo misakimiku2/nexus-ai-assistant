@@ -25,6 +25,37 @@ export interface Task {
   completedAt?: number;
 }
 
+export interface ToolCallProgress {
+  toolName: string;
+  status: 'pending' | 'executing' | 'completed' | 'failed';
+  summary?: string;
+  result?: string;
+  error?: string;
+  observationData?: Array<{ title: string; url: string; snippet?: string }>;
+}
+
+export interface TaskPlanStep {
+  id: string;
+  title: string;
+  description: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  toolHint?: string;
+  dependsOn?: string[];
+  result?: string;
+  error?: string;
+  toolCalls?: ToolCallProgress[];
+}
+
+export interface TaskPlan {
+  id: string;
+  goal: string;
+  steps: TaskPlanStep[];
+  status: 'planning' | 'executing' | 'completed' | 'failed';
+  currentStepIndex: number;
+  createdAt: number;
+  completedAt?: number;
+}
+
 export interface ToolCallRecord {
   id: string;
   toolName: string;
@@ -45,7 +76,7 @@ export interface ToolCallResult {
 
 export interface ReasoningStep {
   id: string;
-  type: 'thought' | 'action' | 'observation';
+  type: 'thought' | 'action' | 'observation' | 'planning' | 'tool_start' | 'tool_result' | 'error' | 'summary';
   content: string;
   timestamp: number;
   toolCallId?: string;
@@ -78,8 +109,10 @@ export interface AgentExecutionContext {
   availableTools: string[];
   preprocessedUrls?: Map<string, string>;
   imageAttachments?: { data: string; name: string }[];
+  currentTaskPlan?: TaskPlan;
   onStatusChange?: (status: AgentStatus) => void;
   onTaskUpdate?: (task: Task) => void;
+  onTaskPlanUpdate?: (plan: TaskPlan) => void;
   onToolCall?: (record: ToolCallRecord) => void;
   onReasoningStep?: (step: ReasoningStep) => void;
   onReasoningStepUpdate?: (step: ReasoningStep) => void;

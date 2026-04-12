@@ -10,6 +10,12 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronRight,
+  Bot,
+  Database,
+  Globe,
+  Terminal,
+  FileEdit,
+  X,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import {
@@ -197,53 +203,63 @@ export const ToolAuthModal: React.FC<ToolAuthModalProps> = ({
   if (!toolCall) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="bg-[var(--bg-primary)] rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden"
-      >
-        <div className="p-4 border-b border-[var(--border-color)]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-xl shadow-2xl w-full max-w-md mx-4 animate-in fade-in zoom-in duration-200 overflow-hidden">
+        <div className="flex justify-between items-center p-4 pb-3">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-orange-500" />
-            <span className="font-medium">工具授权请求</span>
+            <Wrench size={18} className="text-orange-500" />
+            <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">工具授权请求</h3>
           </div>
+          <button onClick={onReject} className="text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors">
+            <X size={20} />
+          </button>
         </div>
 
-        <div className="p-4">
-          <p className="text-sm text-[var(--text-secondary)] mb-4">
+        <div className="px-4 pb-3">
+          <p className="text-sm text-zinc-600 dark:text-zinc-300 mb-3">
             Agent 请求执行以下工具，需要您的授权：
           </p>
 
-          <div className="bg-[var(--bg-secondary)] rounded-lg p-3 mb-4">
-            <div className="font-mono text-sm font-medium text-orange-500 mb-2">
+          <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-3 mb-3">
+            <div className="font-mono text-sm font-medium text-orange-500 mb-1.5 flex items-center gap-1.5">
+              {toolCall.toolName.includes('search') || toolCall.toolName.includes('fetch') ? (
+                <Globe size={14} />
+              ) : toolCall.toolName.includes('write') || toolCall.toolName.includes('edit') ? (
+                <FileEdit size={14} />
+              ) : toolCall.toolName.includes('shell') || toolCall.toolName.includes('exec') ? (
+                <Terminal size={14} />
+              ) : (
+                <Wrench size={14} />
+              )}
               {toolCall.toolName}
             </div>
-            <pre className="text-xs text-[var(--text-secondary)] overflow-x-auto">
+            <pre className="text-xs text-zinc-500 dark:text-zinc-400 overflow-x-auto whitespace-pre-wrap break-all max-h-32 overflow-y-auto leading-relaxed">
               {JSON.stringify(toolCall.parameters, null, 2)}
             </pre>
           </div>
 
-          <p className="text-xs text-[var(--text-secondary)]">
+          <p className="text-xs text-zinc-400 dark:text-zinc-500">
             请确认是否允许执行此操作。此操作可能会修改您的文件系统或执行系统命令。
           </p>
         </div>
 
-        <div className="flex gap-2 p-4 border-t border-[var(--border-color)]">
+        <div className="flex justify-end gap-3 p-4 pt-0">
           <button
             onClick={onReject}
-            className="flex-1 px-4 py-2 rounded-lg border border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors"
+            className="px-4 py-2 rounded-lg bg-zinc-100 dark:bg-zinc-600 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-500 transition-colors"
           >
             拒绝
           </button>
           <button
-            onClick={onApprove}
-            className="flex-1 px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition-colors"
+            onClick={() => {
+              onApprove();
+            }}
+            className="px-4 py-2 rounded-lg bg-orange-500/10 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400 hover:bg-orange-500/20 dark:hover:bg-orange-500/30 transition-colors font-medium"
           >
             授权执行
           </button>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 };

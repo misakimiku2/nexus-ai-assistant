@@ -7,15 +7,16 @@ import {
   AgentConfig,
   DEFAULT_AGENT_CONFIG,
   ToolCallRecord,
-  ContentPart,
+  TaskPlan,
 } from '../types';
 import { ReActEngine } from './ReActEngine';
 import { agentStateManager } from './AgentState';
 import { initializeBuiltinTools } from '../tools/builtin';
 import { ToolRegistry } from '../tools/ToolRegistry';
-import { preprocessConversation, resetUrlPlaceholderCounter, PreprocessedConversation } from '../preprocess/urlDetector';
+import { preprocessConversation, resetUrlPlaceholderCounter } from '../preprocess/urlDetector';
 import { McpService } from '../mcp/McpService';
 import { adaptMcpTool } from '../mcp/McpToolAdapter';
+import { TaskPlanner } from '../planner/TaskPlanner';
 
 export interface AgentRuntimeOptions {
   agent: Agent;
@@ -28,6 +29,7 @@ export interface AgentRuntimeOptions {
   onContentChunk?: (chunk: string) => void;
   onIterationCountChange?: (count: number) => void;
   onTokenUsage?: (usage: { inputTokens: number; outputTokens: number }) => void;
+  onTaskPlanUpdate?: (plan: TaskPlan) => void;
 }
 
 let toolsInitialized = false;
@@ -37,6 +39,8 @@ export class AgentRuntime {
   private config: AgentConfig;
   private engine: ReActEngine | null = null;
   private callbacks: AgentRuntimeOptions;
+  private currentPlan: TaskPlan | null = null;
+  private aborted: boolean = false;
 
   constructor(options: AgentRuntimeOptions) {
     this.agent = options.agent;
@@ -130,20 +134,191 @@ export class AgentRuntime {
     imageAttachments?: { data: string; name: string }[]
   ): Promise<string> {
     resetUrlPlaceholderCounter();
+    this.aborted = false;
     const preprocessed = preprocessConversation(userInput, conversationHistory);
     
-    const hasUrls = preprocessed.urlMap.size > 0;
-    
     console.log('[AgentRuntime] Preprocessed conversation:', {
-      hasUrls,
+      hasUrls: preprocessed.urlMap.size > 0,
       urlCount: preprocessed.urlMap.size,
-      urls: Object.fromEntries(preprocessed.urlMap),
     });
-    
-    const context: AgentExecutionContext = {
+
+    const planner = new TaskPlanner({
+      apiUrl: this.agent.apiUrl || 'http://localhost:1234/v1/chat/completions',
+      modelName: this.agent.modelId || 'local-model',
+      apiKey: this.agent.apiKey,
+      temperature: 0.3,
+      isGeminiModel: this.agent.onlineProvider === 'google' ||
+                     this.agent.modelId?.toLowerCase().includes('gemini'),
+      availableTools: ToolRegistry.getEnabledToolNames(),
+    });
+
+    this.callbacks.onStatusChange?.('thinking');
+    const plan = await planner.plan(userInput, preprocessed.messages as ConversationMessage[]);
+    this.currentPlan = plan;
+
+    this.callbacks.onTaskPlanUpdate?.(plan);
+
+    const preprocessedData = {
+      processedUserInput: preprocessed.processedUserInput,
+      messages: preprocessed.messages as ConversationMessage[],
+      urlMap: preprocessed.urlMap,
+    };
+
+    if (plan.steps.length <= 1) {
+      return this.executeSingleTask(preprocessedData, imageAttachments);
+    }
+
+    return this.executePlannedTasks(plan, planner, preprocessedData, imageAttachments);
+  }
+
+  private async executeSingleTask(
+    preprocessed: { processedUserInput: string; messages: ConversationMessage[]; urlMap: Map<string, string> },
+    imageAttachments?: { data: string; name: string }[]
+  ): Promise<string> {
+    const context = this.buildExecutionContext(preprocessed, imageAttachments);
+    this.engine = new ReActEngine(context);
+    return this.engine.run(preprocessed.processedUserInput);
+  }
+
+  private async executePlannedTasks(
+    plan: TaskPlan,
+    planner: TaskPlanner,
+    preprocessed: { processedUserInput: string; messages: ConversationMessage[]; urlMap: Map<string, string> },
+    imageAttachments?: { data: string; name: string }[]
+  ): Promise<string> {
+    const results: string[] = [];
+    let currentMessages = [...preprocessed.messages] as ConversationMessage[];
+
+    for (let i = 0; i < plan.steps.length; i++) {
+      if (this.aborted) {
+        plan = planner.updateStepStatus(plan, plan.steps[i].id, 'failed', undefined, 'Execution aborted by user');
+        this.currentPlan = plan;
+        this.callbacks.onTaskPlanUpdate?.(plan);
+        break;
+      }
+
+      const step = plan.steps[i];
+
+      const deps = step.dependsOn || [];
+      const depsMet = deps.every(depId => {
+        const depStep = plan.steps.find(s => s.id === depId);
+        return depStep && depStep.status === 'completed';
+      });
+
+      if (!depsMet) {
+        plan = planner.updateStepStatus(plan, step.id, 'failed', undefined, 'Dependency not met');
+        this.currentPlan = plan;
+        this.callbacks.onTaskPlanUpdate?.(plan);
+        continue;
+      }
+
+      plan = planner.updateStepStatus(plan, step.id, 'in_progress');
+      this.currentPlan = plan;
+      this.callbacks.onTaskPlanUpdate?.(plan);
+
+      const stepContext = this.buildStepContext(step, plan, preprocessed, currentMessages, imageAttachments);
+      this.engine = new ReActEngine(stepContext);
+
+      try {
+        const stepInput = this.buildStepInput(step, plan, results);
+        const stepResult = await this.engine.run(stepInput);
+
+        plan = planner.updateStepStatus(plan, step.id, 'completed', stepResult);
+        this.currentPlan = plan;
+        this.callbacks.onTaskPlanUpdate?.(plan);
+
+        results.push(`## ${step.title}\n${stepResult}`);
+
+        currentMessages.push({
+          role: 'assistant',
+          content: stepResult,
+        });
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        plan = planner.updateStepStatus(plan, step.id, 'failed', undefined, errorMsg);
+        this.currentPlan = plan;
+        this.callbacks.onTaskPlanUpdate?.(plan);
+
+        results.push(`## ${step.title}\n❌ Failed: ${errorMsg}`);
+
+        currentMessages.push({
+          role: 'assistant',
+          content: `Step "${step.title}" failed: ${errorMsg}`,
+        });
+      }
+    }
+
+    return this.aggregateResults(plan, results);
+  }
+
+  private buildStepInput(
+    step: { id: string; title: string; description: string; toolHint?: string },
+    plan: TaskPlan,
+    previousResults: string[]
+  ): string {
+    const completedSteps = plan.steps.filter(s => s.status === 'completed');
+    const contextParts: string[] = [];
+
+    if (completedSteps.length > 0) {
+      contextParts.push('[INSTRUCTION: Below is context from previously completed steps. Do NOT repeat or echo this information in your response. Use it only as background knowledge.]');
+      for (const cs of completedSteps) {
+        contextParts.push(`Completed: ${cs.title}`);
+        if (cs.result) {
+          const truncated = cs.result.length > 2000
+            ? cs.result.substring(0, 2000) + '\n...[truncated]'
+            : cs.result;
+          contextParts.push(truncated);
+        }
+      }
+    }
+
+    contextParts.push('[INSTRUCTION: Your current task is below. Focus ONLY on completing this specific task. Do NOT echo the task description back. Just do the work and report results.]');
+    contextParts.push(step.description);
+
+    if (step.toolHint) {
+      contextParts.push(`Suggested tool: ${step.toolHint}`);
+    }
+
+    const remainingSteps = plan.steps.filter(
+      s => s.status === 'pending' || s.status === 'in_progress'
+    );
+    if (remainingSteps.length > 0) {
+      contextParts.push('[Context: Other remaining steps in the overall plan]');
+      for (const rs of remainingSteps) {
+        if (rs.id !== step.id) {
+          contextParts.push(`- ${rs.title}: ${rs.description}`);
+        }
+      }
+    }
+
+    return contextParts.join('\n');
+  }
+
+  private buildStepContext(
+    step: { id: string; title: string; description: string; toolHint?: string },
+    plan: TaskPlan,
+    preprocessed: { processedUserInput: string; messages: ConversationMessage[]; urlMap: Map<string, string> },
+    currentMessages: ConversationMessage[],
+    imageAttachments?: { data: string; name: string }[]
+  ): AgentExecutionContext {
+    const context = this.buildExecutionContext(
+      { processedUserInput: preprocessed.processedUserInput, messages: currentMessages, urlMap: preprocessed.urlMap },
+      imageAttachments
+    );
+
+    context.currentTaskPlan = plan;
+
+    return context;
+  }
+
+  private buildExecutionContext(
+    preprocessed: { processedUserInput: string; messages: ConversationMessage[]; urlMap: Map<string, string> },
+    imageAttachments?: { data: string; name: string }[]
+  ): AgentExecutionContext {
+    return {
       agent: this.agent,
       userInput: preprocessed.processedUserInput,
-      originalUserInput: userInput,
+      originalUserInput: preprocessed.processedUserInput,
       conversationHistory: preprocessed.messages as ConversationMessage[],
       availableTools: ToolRegistry.getEnabledToolNames(),
       preprocessedUrls: preprocessed.urlMap,
@@ -190,13 +365,42 @@ export class AgentRuntime {
       onTokenUsage: (usage) => {
         this.callbacks.onTokenUsage?.(usage);
       },
+      onTaskPlanUpdate: (plan) => {
+        this.currentPlan = plan;
+        this.callbacks.onTaskPlanUpdate?.(plan);
+      },
     };
+  }
 
-    this.engine = new ReActEngine(context);
-    return this.engine.run(preprocessed.processedUserInput);
+  private aggregateResults(plan: TaskPlan, results: string[]): string {
+    if (results.length === 0) {
+      return 'No tasks were completed.';
+    }
+
+    if (results.length === 1) {
+      return results[0];
+    }
+
+    const completedSteps = plan.steps.filter(s => s.status === 'completed');
+    const failedSteps = plan.steps.filter(s => s.status === 'failed');
+
+    let summary = `## 任务执行总结\n\n`;
+    summary += `✅ 已完成: ${completedSteps.length}/${plan.steps.length} 个步骤\n`;
+    if (failedSteps.length > 0) {
+      summary += `❌ 失败: ${failedSteps.length} 个步骤\n`;
+    }
+    summary += '\n---\n\n';
+    summary += results.join('\n\n---\n\n');
+
+    return summary;
+  }
+
+  getCurrentPlan(): TaskPlan | null {
+    return this.currentPlan;
   }
 
   abort(): void {
+    this.aborted = true;
     this.engine?.abort();
     agentStateManager.updateStatus(this.agent.id, 'failed');
   }
@@ -210,7 +414,9 @@ export class AgentRuntime {
   }
 
   reset(): void {
-    this.abort();
+    this.aborted = false;
+    this.engine?.abort();
+    this.currentPlan = null;
     agentStateManager.resetAgent(this.agent.id);
     this.engine = null;
   }

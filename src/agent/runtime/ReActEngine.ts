@@ -22,6 +22,27 @@ import {
 import { isUrlPlaceholder, getOriginalUrl } from '../preprocess/urlDetector';
 import { fetchMemoryManager } from '../memory';
 
+const MAX_CONSECUTIVE_IDENTICAL_CALLS = 3;
+const MAX_CONSECUTIVE_EMPTY_ACTIONS = 3;
+const MAX_CONSECUTIVE_SIMILAR_ACTIONS = 5;
+const MAX_STEP_ITERATIONS = 10;
+const REASONING_UPDATE_THROTTLE_MS = 100;
+
+const INFO_RETRIEVAL_TOOLS = new Set([
+  'web_search', 'fetch_url', 'http_request',
+  'brave_search', 'google_search', 'brave_web_search',
+  'scrape', 'scrape_webpage', 'web_extract', 'web_crawl', 'web_map',
+]);
+
+function getToolCategory(toolName: string): string {
+  if (INFO_RETRIEVAL_TOOLS.has(toolName)) return 'info_retrieval';
+  if (toolName.includes('search') || toolName.includes('fetch') || toolName.includes('scrape')) return 'info_retrieval';
+  if (toolName === 'read_file' || toolName === 'list_directory') return 'filesystem';
+  if (toolName === 'write_file' || toolName === 'create_file' || toolName === 'edit_file') return 'file_write';
+  if (toolName === 'execute_shell' || toolName === 'run_command') return 'shell';
+  return toolName;
+}
+
 const REACT_SYSTEM_PROMPT = `You are an intelligent agent that uses the ReAct (Reasoning + Acting) framework to solve problems.
 
 ## Current Date
@@ -44,6 +65,8 @@ Important rules:
 - If a tool call fails, try a different approach
 - Be concise in your thoughts
 - When you have the answer, respond directly to the user
+- NEVER repeat the same action if it has already been attempted. If a tool call failed or returned no useful results, try a completely different approach instead of retrying the same thing.
+- If you find yourself unable to make progress after 2-3 attempts, summarize what you have found and provide the best answer you can.
 
 ## 工具使用规则（非常重要）
 
@@ -65,6 +88,13 @@ export class ReActEngine {
   private state: AgentExecutionState;
   private abortController: AbortController | null = null;
   private stepCounter: number = 0;
+  private lastReasoningUpdateTime: number = 0;
+  private pendingReasoningUpdate: ReasoningStep | null = null;
+  private reasoningUpdateTimer: ReturnType<typeof setTimeout> | null = null;
+  private consecutiveIdenticalCalls: Map<string, number> = new Map();
+  private consecutiveEmptyActions: number = 0;
+  private consecutiveSimilarActions: number = 0;
+  private lastToolCategory: string | null = null;
 
   constructor(context: AgentExecutionContext) {
     this.context = context;
@@ -86,18 +116,28 @@ export class ReActEngine {
     };
   }
 
+  private isAborted(): boolean {
+    return this.abortController?.signal.aborted === true;
+  }
+
   async run(userInput: string): Promise<string> {
     this.abortController = new AbortController();
     this.updateStatus('thinking');
     this.state.startTime = Date.now();
+    this.consecutiveIdenticalCalls.clear();
+    this.consecutiveEmptyActions = 0;
+    this.consecutiveSimilarActions = 0;
+    this.lastToolCategory = null;
 
     const messages: ConversationMessage[] = this.buildInitialMessages(userInput);
+    let allContent = '';
 
     try {
       while (this.state.iterationCount < this.state.maxIterations) {
-        if (this.abortController.signal.aborted) {
+        if (this.isAborted()) {
+          this.flushReasoningUpdate();
           this.updateStatus('failed');
-          return 'Execution was cancelled by user.';
+          return allContent || 'Execution was cancelled by user.';
         }
 
         this.state.iterationCount++;
@@ -106,19 +146,103 @@ export class ReActEngine {
 
         const response = await this.callLLMStream(messages);
 
+        if (this.isAborted()) {
+          this.flushReasoningUpdate();
+          this.updateStatus('failed');
+          return allContent || 'Execution was cancelled by user.';
+        }
+
         if (response.finishReason === 'error') {
+          this.flushReasoningUpdate();
           this.updateStatus('failed');
           throw new Error(response.error || response.content || '模型请求失败');
         }
 
+        if (response.content) {
+          allContent += response.content;
+        }
+
         if (!response.toolCalls || response.toolCalls.length === 0) {
+          this.flushReasoningUpdate();
           this.updateStatus('completed');
-          return response.content || 'Task completed.';
+          return allContent || 'Task completed.';
         }
 
         for (const toolCall of response.toolCalls) {
+          if (this.isAborted()) {
+            this.flushReasoningUpdate();
+            this.updateStatus('failed');
+            return allContent || 'Execution was cancelled by user.';
+          }
+
+          const callKey = `${toolCall.function.name}:${toolCall.function.arguments}`;
+          const callCount = (this.consecutiveIdenticalCalls.get(callKey) || 0) + 1;
+          this.consecutiveIdenticalCalls.set(callKey, callCount);
+
+          if (callCount >= MAX_CONSECUTIVE_IDENTICAL_CALLS) {
+            this.flushReasoningUpdate();
+            this.finalizeExecutingToolCalls();
+            this.addReasoningStep('error', `检测到重复调用 ${toolCall.function.name} 已达 ${callCount} 次，自动终止循环。`);
+            this.updateStatus('completed');
+            return allContent || `任务执行因检测到重复操作而终止。已尝试 ${this.state.iterationCount} 轮迭代。`;
+          }
+
           const result = await this.handleToolCall(toolCall);
-          
+
+          if (this.isAborted()) {
+            this.flushReasoningUpdate();
+            this.updateStatus('failed');
+            return allContent || 'Execution was cancelled by user.';
+          }
+
+          const isUnproductiveResult = !result.output || 
+            result.output.trim().length === 0 ||
+            result.output.includes("doesn't work properly") ||
+            result.output.includes('Please enable JavaScript') ||
+            result.output.includes('Access denied') ||
+            result.output.includes('path outside allowed directories') ||
+            result.error;
+
+          if (isUnproductiveResult) {
+            this.consecutiveEmptyActions++;
+          } else {
+            this.consecutiveEmptyActions = 0;
+          }
+
+          if (this.consecutiveEmptyActions >= MAX_CONSECUTIVE_EMPTY_ACTIONS) {
+            this.flushReasoningUpdate();
+            this.finalizeExecutingToolCalls();
+            this.addReasoningStep('error', `连续 ${this.consecutiveEmptyActions} 次工具调用无有效结果，自动终止循环。`);
+            this.updateStatus('completed');
+            return allContent || `任务执行因连续空结果而终止。已尝试 ${this.state.iterationCount} 轮迭代。`;
+          }
+
+          const toolCategory = getToolCategory(toolCall.function.name);
+          if (toolCategory === this.lastToolCategory) {
+            this.consecutiveSimilarActions++;
+          } else {
+            this.consecutiveSimilarActions = 0;
+          }
+          this.lastToolCategory = toolCategory;
+
+          if (this.consecutiveSimilarActions >= MAX_CONSECUTIVE_SIMILAR_ACTIONS) {
+            this.flushReasoningUpdate();
+            this.finalizeExecutingToolCalls();
+            this.addReasoningStep('error', `连续 ${this.consecutiveSimilarActions} 次使用同类工具 (${toolCategory})，可能陷入循环，自动终止。`);
+            this.updateStatus('completed');
+            return allContent || `任务执行因检测到重复操作模式而终止。已尝试 ${this.state.iterationCount} 轮迭代。`;
+          }
+
+          if (this.context.currentTaskPlan && this.state.iterationCount >= MAX_STEP_ITERATIONS) {
+            this.flushReasoningUpdate();
+            this.finalizeExecutingToolCalls();
+            this.addReasoningStep('error', `当前步骤已执行 ${this.state.iterationCount} 轮迭代，超过单步骤最大限制 ${MAX_STEP_ITERATIONS}，自动终止。`);
+            this.updateStatus('completed');
+            return allContent || `当前步骤执行超过最大迭代限制。已尝试 ${this.state.iterationCount} 轮迭代。`;
+          }
+
+          this.emitToolProgress(toolCall.function.name, result, result.observationData);
+
           messages.push({
             role: 'assistant',
             content: response.content || '',
@@ -133,12 +257,15 @@ export class ReActEngine {
           });
         }
 
+        this.flushReasoningUpdate();
         this.updateStatus('thinking');
       }
 
+      this.flushReasoningUpdate();
       this.updateStatus('completed');
-      return 'Maximum iterations reached. Task may not be fully completed.';
+      return allContent || 'Maximum iterations reached. Task may not be fully completed.';
     } catch (error) {
+      this.flushReasoningUpdate();
       this.updateStatus('failed');
       throw error;
     }
@@ -157,6 +284,27 @@ export class ReActEngine {
     let systemPrompt = `${REACT_SYSTEM_PROMPT}\n\n${basePrompt}`;
     systemPrompt = systemPrompt.replace(/\{\{CURRENT_DATE\}\}/g, currentDate);
     systemPrompt = systemPrompt.replace(/\{\{CURRENT_YEAR\}\}/g, String(currentYear));
+
+    if (this.context.currentTaskPlan) {
+      const plan = this.context.currentTaskPlan;
+      const currentStep = plan.steps.find(s => s.status === 'in_progress');
+      if (currentStep) {
+        systemPrompt += `\n\n[TASK PLAN CONTEXT - This is internal context, do NOT echo or repeat these headings in your response]\n`;
+        systemPrompt += `You are executing a multi-step task plan. Current step: "${currentStep.title}".\n`;
+        systemPrompt += `Focus ONLY on completing this step. Do not deviate to other steps.\n`;
+        if (currentStep.toolHint) {
+          systemPrompt += `Suggested tool: ${currentStep.toolHint}\n`;
+        }
+        systemPrompt += `\nPlan overview:\n`;
+        for (const step of plan.steps) {
+          const statusIcon = step.status === 'completed' ? '✅' :
+                             step.status === 'in_progress' ? '🔄' :
+                             step.status === 'failed' ? '❌' : '⏳';
+          systemPrompt += `- ${statusIcon} ${step.title}${step.id === currentStep.id ? ' (current step)' : ''}\n`;
+        }
+      }
+    }
+
     systemPrompt = createSystemPromptForTools(systemPrompt);
 
     const memoryContext = fetchMemoryManager.generateContextPrompt();
@@ -200,14 +348,37 @@ export class ReActEngine {
     return messages;
   }
 
+  private throttledReasoningStepUpdate(step: ReasoningStep): void {
+    const now = Date.now();
+    this.pendingReasoningUpdate = step;
+
+    if (now - this.lastReasoningUpdateTime >= REASONING_UPDATE_THROTTLE_MS) {
+      this.flushReasoningUpdate();
+    } else if (!this.reasoningUpdateTimer) {
+      this.reasoningUpdateTimer = setTimeout(() => {
+        this.flushReasoningUpdate();
+      }, REASONING_UPDATE_THROTTLE_MS);
+    }
+  }
+
+  private flushReasoningUpdate(): void {
+    if (this.reasoningUpdateTimer) {
+      clearTimeout(this.reasoningUpdateTimer);
+      this.reasoningUpdateTimer = null;
+    }
+    if (this.pendingReasoningUpdate) {
+      this.context.onReasoningStepUpdate?.(this.pendingReasoningUpdate);
+      this.pendingReasoningUpdate = null;
+      this.lastReasoningUpdateTime = Date.now();
+    }
+  }
+
   private async callLLMStream(messages: ConversationMessage[]): Promise<LLMResponse> {
-    // 判断是否支持 stream_options (目前只有原生 OpenAI 支持)
     const isOpenAICompatible = this.context.agent.onlineProvider === 'openai' ||
                                this.context.agent.modelProvider === 'lmstudio' ||
                                this.context.agent.modelProvider === 'ollama' ||
                                !this.context.agent.onlineProvider;
     
-    // 判断是否为 Google Gemini 模型（需要特殊兼容性处理）
     const isGeminiModel = this.context.agent.onlineProvider === 'google' ||
                            this.context.agent.modelId?.toLowerCase().includes('gemini');
     
@@ -218,7 +389,7 @@ export class ReActEngine {
       temperature: this.context.agent.temperature ?? 0.7,
       supportsStreamOptions: isOpenAICompatible,
       isGeminiModel,
-      includeThoughts: isGeminiModel,  // Gemini 模型启用思考内容
+      includeThoughts: isGeminiModel,
     };
 
     let accumulatedContent = '';
@@ -234,7 +405,7 @@ export class ReActEngine {
       });
 
       for await (const chunk of stream) {
-        if (this.abortController?.signal.aborted) {
+        if (this.isAborted()) {
           break;
         }
 
@@ -243,7 +414,7 @@ export class ReActEngine {
           if (!currentThoughtStepId) {
             currentThoughtStepId = this.addReasoningStep('thought', accumulatedReasoningContent, { isStreaming: true });
           } else {
-            this.updateReasoningStep(currentThoughtStepId, accumulatedReasoningContent, true);
+            this.updateReasoningStepThrottled(currentThoughtStepId, accumulatedReasoningContent, true);
           }
         } else if (chunk.type === 'content' && typeof chunk.data === 'string') {
           accumulatedContent += chunk.data;
@@ -292,13 +463,11 @@ export class ReActEngine {
   }
 
   private async callLLM(messages: ConversationMessage[]): Promise<LLMResponse> {
-    // 判断是否支持 stream_options (目前只有原生 OpenAI 支持)
     const isOpenAICompatible = this.context.agent.onlineProvider === 'openai' ||
                                this.context.agent.modelProvider === 'lmstudio' ||
                                this.context.agent.modelProvider === 'ollama' ||
                                !this.context.agent.onlineProvider;
     
-    // 判断是否为 Google Gemini 模型（需要特殊兼容性处理）
     const isGeminiModel = this.context.agent.onlineProvider === 'google' ||
                            this.context.agent.modelId?.toLowerCase().includes('gemini');
     
@@ -314,21 +483,15 @@ export class ReActEngine {
     return callLLMWithTools(config, messages);
   }
 
-  private async handleToolCall(toolCall: ToolCallRequest): Promise<{ output: string; error?: string }> {
+  private async handleToolCall(toolCall: ToolCallRequest): Promise<{ output: string; error?: string; observationData?: Array<{ title: string; url: string; snippet?: string }> }> {
     const toolName = toolCall.function.name;
     let params = parseToolCallArguments(toolCall.function.arguments);
     const requiresAuth = ToolRegistry.requiresAuth(toolName);
 
-    console.log('[ReActEngine] Tool call:', toolName, 'params:', params);
-    console.log('[ReActEngine] preprocessedUrls:', this.context.preprocessedUrls ? Object.fromEntries(this.context.preprocessedUrls) : 'undefined');
-
     if (this.context.preprocessedUrls && params.url && typeof params.url === 'string') {
-      console.log('[ReActEngine] Checking if URL is placeholder:', params.url, 'isPlaceholder:', isUrlPlaceholder(params.url));
       if (isUrlPlaceholder(params.url)) {
         const originalUrl = getOriginalUrl(params.url, this.context.preprocessedUrls);
-        console.log('[ReActEngine] Original URL from map:', originalUrl);
         if (originalUrl) {
-          console.log(`[ReActEngine] Replacing URL placeholder: ${params.url} -> ${originalUrl}`);
           params = { ...params, url: originalUrl };
         }
       }
@@ -338,7 +501,6 @@ export class ReActEngine {
       if (isUrlPlaceholder(params.query)) {
         const originalUrl = getOriginalUrl(params.query, this.context.preprocessedUrls);
         if (originalUrl) {
-          console.log(`[ReActEngine] Detected URL placeholder in query, redirecting to fetch_url: ${originalUrl}`);
           return { 
             output: '', 
             error: `检测到 URL 占位符 "${params.query}"，请使用 fetch_url 工具获取网页内容，而不是 web_search。正确的调用方式：fetch_url(url: "${params.query}")` 
@@ -352,11 +514,10 @@ export class ReActEngine {
       if (!forceRefresh && fetchMemoryManager.has(params.url)) {
         const cached = fetchMemoryManager.get(params.url);
         if (cached) {
-          console.log(`[ReActEngine] Returning cached content for: ${params.url}`);
           const output = `## ${cached.title}\n来源: ${cached.url}\n类型: ${cached.contentType}\n\n---\n\n${cached.content}\n\n(来自内存缓存)`;
-          this.addReasoningStep('action', '', { toolName, toolParams: params, executionStatus: 'completed' });
-          this.addReasoningStep('observation', '从内存缓存返回内容');
-          return { output };
+          this.addReasoningStep('tool_result', '', { toolName, toolParams: params, executionStatus: 'completed' });
+          this.addReasoningStep('tool_result', '从内存缓存返回内容');
+          return { output, observationData: undefined };
         }
       }
     }
@@ -388,11 +549,21 @@ export class ReActEngine {
       }
     }
 
+    if (this.isAborted()) {
+      return { output: '', error: 'Execution was cancelled by user.' };
+    }
+
     record.status = 'executing';
-    const actionStepId = this.addReasoningStep('action', '', { toolName, toolParams: params, executionStatus: 'executing' });
+    const displayParams = this.truncateToolParams(toolName, params);
+    const actionStepId = this.addReasoningStep('tool_start', '', { toolName, toolParams: displayParams, executionStatus: 'executing' });
+    this.emitToolStart(toolName, params);
 
     try {
       const result = await ToolRegistry.execute(toolName, params);
+
+      if (this.isAborted()) {
+        return { output: result.output || '', error: 'Execution was cancelled by user.' };
+      }
 
       record.result = {
         success: result.success,
@@ -443,22 +614,22 @@ export class ReActEngine {
         });
       }
 
-      this.addReasoningStep('observation', result.success ? '' : `Error: ${result.error}`, { observationData });
+      this.addReasoningStep(result.success ? 'tool_result' : 'error', result.success ? '' : `Error: ${result.error}`, { observationData });
 
       this.context.onToolCall?.(record);
 
-      return { output: result.output, error: result.error };
+      return { output: result.output, error: result.error, observationData };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       record.status = 'error';
       record.result = { success: false, output: '', error: errorMessage };
       
       this.updateActionStepStatus(actionStepId, 'completed');
-      this.addReasoningStep('observation', `Error: ${errorMessage}`);
+      this.addReasoningStep('error', `Error: ${errorMessage}`);
       
       this.context.onToolCall?.(record);
       
-      return { output: '', error: errorMessage };
+      return { output: '', error: errorMessage, observationData: undefined };
     }
   }
 
@@ -495,7 +666,7 @@ export class ReActEngine {
 
   private updateActionStepStatus(stepId: string, status: 'executing' | 'completed'): void {
     const step = this.state.reasoningSteps.find(s => s.id === stepId);
-    if (step && step.type === 'action') {
+    if (step && (step.type === 'action' || step.type === 'tool_start')) {
       step.executionStatus = status;
       this.context.onReasoningStepUpdate?.(step);
     }
@@ -510,7 +681,17 @@ export class ReActEngine {
     }
   }
 
+  private updateReasoningStepThrottled(stepId: string, content: string, isStreaming: boolean = true): void {
+    const step = this.state.reasoningSteps.find(s => s.id === stepId);
+    if (step) {
+      step.content = content;
+      step.isStreaming = isStreaming;
+      this.throttledReasoningStepUpdate(step);
+    }
+  }
+
   private finalizeReasoningStep(stepId: string): void {
+    this.flushReasoningUpdate();
     const step = this.state.reasoningSteps.find(s => s.id === stepId);
     if (step) {
       step.isStreaming = false;
@@ -524,11 +705,174 @@ export class ReActEngine {
     this.context.onStatusChange?.(status);
   }
 
+  private emitToolProgress(
+    toolName: string,
+    result: { output: string; error?: string },
+    observationData?: Array<{ title: string; url: string; snippet?: string }>
+  ): void {
+    if (!this.context.currentTaskPlan) return;
+
+    const plan = this.context.currentTaskPlan;
+    const currentStep = plan.steps.find(s => s.status === 'in_progress');
+    if (!currentStep) return;
+
+    const summary = this.formatToolSummary(toolName, result);
+    const toolStatus = result.error ? 'failed' : 'completed';
+
+    const truncatedResult = result.output && result.output.length > 500
+      ? result.output.substring(0, 500) + '...'
+      : result.output;
+
+    const existingCalls = currentStep.toolCalls || [];
+    const updatedCalls = [
+      ...existingCalls.filter(tc => tc.toolName !== toolName || tc.status !== 'executing'),
+      {
+        toolName,
+        status: toolStatus as 'completed' | 'failed',
+        summary,
+        result: truncatedResult || undefined,
+        error: result.error || undefined,
+        observationData: observationData && observationData.length > 0 ? observationData : undefined,
+      },
+    ];
+
+    currentStep.toolCalls = updatedCalls;
+
+    this.context.onTaskPlanUpdate?.({
+      ...plan,
+      steps: plan.steps.map(s =>
+        s.id === currentStep.id ? { ...s, toolCalls: updatedCalls } : s
+      ),
+    });
+  }
+
+  private emitToolStart(toolName: string, params: Record<string, unknown>): void {
+    if (!this.context.currentTaskPlan) return;
+
+    const plan = this.context.currentTaskPlan;
+    const currentStep = plan.steps.find(s => s.status === 'in_progress');
+    if (!currentStep) return;
+
+    const summary = this.formatToolStartSummary(toolName, params);
+    const existingCalls = currentStep.toolCalls || [];
+    const updatedCalls = [
+      ...existingCalls,
+      { toolName, status: 'executing' as const, summary },
+    ];
+
+    currentStep.toolCalls = updatedCalls;
+
+    this.context.onTaskPlanUpdate?.({
+      ...plan,
+      steps: plan.steps.map(s =>
+        s.id === currentStep.id ? { ...s, toolCalls: updatedCalls } : s
+      ),
+    });
+  }
+
+  private formatToolSummary(
+    toolName: string,
+    result: { output: string; error?: string }
+  ): string {
+    if (result.error) {
+      return `${toolName} 失败: ${result.error.substring(0, 80)}`;
+    }
+
+    switch (toolName) {
+      case 'web_search': {
+        const queryMatch = result.output.match(/"query":\s*"([^"]+)"/);
+        const query = queryMatch ? queryMatch[1] : '';
+        return query ? `搜索完成: ${query}` : '搜索完成';
+      }
+      case 'fetch_url':
+        return '网页内容已获取';
+      case 'read_file':
+        return '文件已读取';
+      case 'write_file':
+        return '文件已写入';
+      case 'list_directory':
+        return '目录列表已获取';
+      case 'execute_shell':
+        return '命令已执行';
+      case 'calculate':
+        return '计算完成';
+      default:
+        return `${toolName} 完成`;
+    }
+  }
+
+  private formatToolStartSummary(toolName: string, params: Record<string, unknown>): string {
+    switch (toolName) {
+      case 'web_search':
+        return params.query ? `搜索: ${String(params.query).substring(0, 50)}` : '正在搜索...';
+      case 'fetch_url':
+        return params.url ? `获取: ${String(params.url).substring(0, 50)}` : '正在获取网页...';
+      case 'read_file':
+        return params.path ? `读取: ${String(params.path).substring(0, 50)}` : '正在读取文件...';
+      case 'write_file':
+        return params.path ? `写入: ${String(params.path).substring(0, 50)}` : '正在写入文件...';
+      case 'list_directory':
+        return params.path ? `列出: ${String(params.path).substring(0, 50)}` : '正在列出目录...';
+      case 'execute_shell':
+        return params.command ? `执行: ${String(params.command).substring(0, 50)}` : '正在执行命令...';
+      default:
+        return `正在执行 ${toolName}...`;
+    }
+  }
+
+  private truncateToolParams(toolName: string, params: Record<string, unknown>): Record<string, unknown> {
+    const LARGE_PARAM_TOOLS = new Set(['write_file', 'create_file', 'edit_file']);
+    if (LARGE_PARAM_TOOLS.has(toolName) && params.content && typeof params.content === 'string') {
+      const content = params.content as string;
+      if (content.length > 100) {
+        return {
+          ...params,
+          content: content.substring(0, 100) + `... [${content.length} 字符已省略]`,
+        };
+      }
+    }
+    if (params.query && typeof params.query === 'string' && (params.query as string).length > 80) {
+      return { ...params, query: (params.query as string).substring(0, 80) + '...' };
+    }
+    if (params.url && typeof params.url === 'string' && (params.url as string).length > 80) {
+      return { ...params, url: (params.url as string).substring(0, 80) + '...' };
+    }
+    return params;
+  }
+
+  private finalizeExecutingToolCalls(): void {
+    if (!this.context.currentTaskPlan) return;
+
+    const plan = this.context.currentTaskPlan;
+    const currentStep = plan.steps.find(s => s.status === 'in_progress');
+    if (!currentStep || !currentStep.toolCalls) return;
+
+    const hasExecuting = currentStep.toolCalls.some(tc => tc.status === 'executing');
+    if (!hasExecuting) return;
+
+    const updatedCalls = currentStep.toolCalls.map(tc =>
+      tc.status === 'executing'
+        ? { ...tc, status: 'failed' as const, error: '任务被终止' }
+        : tc
+    );
+
+    currentStep.toolCalls = updatedCalls;
+
+    this.context.onTaskPlanUpdate?.({
+      ...plan,
+      steps: plan.steps.map(s =>
+        s.id === currentStep.id ? { ...s, toolCalls: updatedCalls } : s
+      ),
+    });
+  }
+
   getState(): AgentExecutionState {
     return { ...this.state };
   }
 
   abort(): void {
+    this.flushReasoningUpdate();
+    this.finalizeExecutingToolCalls();
     this.abortController?.abort();
     this.updateStatus('failed');
   }

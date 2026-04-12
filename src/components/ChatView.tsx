@@ -2,8 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import { 
-  Cpu, ShieldAlert, CheckCircle, XCircle, Wrench, Bot, Database, Globe, Shield, Layout, Terminal, Brain, FileEdit, AlertTriangle, ChevronDown, ChevronUp, User, Edit2,
-  Copy, RotateCcw, ChevronLeft, ChevronRight, Check, FileText, PanelLeftOpen, PanelLeftClose, ArrowUp, ArrowDown, Loader2, Eye
+  Cpu, ShieldAlert, CheckCircle, CheckCircle2, XCircle, Wrench, Bot, Database, Globe, Shield, Layout, Terminal, Brain, FileEdit, AlertTriangle, AlertCircle, ChevronDown, ChevronUp, User, Edit2,
+  Copy, RotateCcw, ChevronLeft, ChevronRight, Check, FileText, ListTodo, PanelLeftOpen, PanelLeftClose, ArrowUp, ArrowDown, Loader2, Eye
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { McpTool, PendingAction, Message, TodoItem, AppMode } from '../types';
@@ -506,8 +506,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 <div className={cn(
                   "flex flex-col gap-1",
                   appMode === 'command' 
-                    ? (isUser ? "max-w-[85%] self-end text-left" : "w-full text-left") 
-                    : (isUser ? "max-w-[85%] items-start" : "max-w-[85%] items-start")
+                    ? (isUser ? "max-w-[85%] self-end text-left" : "w-full text-left min-w-0") 
+                    : (isUser ? "max-w-[85%] items-start" : (msg.todos && msg.todos.length > 0 ? "max-w-[85%] w-full items-start" : "max-w-[85%] items-start"))
                 )}>
                   {appMode !== 'command' && (
                     <span className="text-[13px] font-medium text-zinc-600 dark:text-zinc-300 leading-none pt-1 pb-1">
@@ -592,6 +592,42 @@ export const ChatView: React.FC<ChatViewProps> = ({
                                 return <Wrench className="w-3.5 h-3.5 text-amber-500" />;
                               case 'observation':
                                 return <Eye className="w-3.5 h-3.5 text-purple-500" />;
+                              case 'planning':
+                                return <ListTodo className="w-3.5 h-3.5 text-indigo-500" />;
+                              case 'tool_start':
+                                return <Wrench className="w-3.5 h-3.5 text-cyan-500" />;
+                              case 'tool_result':
+                                return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />;
+                              case 'error':
+                                return <AlertCircle className="w-3.5 h-3.5 text-red-500" />;
+                              case 'summary':
+                                return <FileText className="w-3.5 h-3.5 text-teal-500" />;
+                            }
+                          };
+
+                          const getStepLabel = (type: ReasoningStep['type']) => {
+                            switch (type) {
+                              case 'thought': return '思考';
+                              case 'action': return '行动';
+                              case 'observation': return '观察';
+                              case 'planning': return '规划';
+                              case 'tool_start': return '调用工具';
+                              case 'tool_result': return '工具结果';
+                              case 'error': return '错误';
+                              case 'summary': return '总结';
+                            }
+                          };
+
+                          const getStepColor = (type: ReasoningStep['type']) => {
+                            switch (type) {
+                              case 'thought': return 'text-blue-500';
+                              case 'action': return 'text-amber-500';
+                              case 'observation': return 'text-purple-500';
+                              case 'planning': return 'text-indigo-500';
+                              case 'tool_start': return 'text-cyan-500';
+                              case 'tool_result': return 'text-emerald-500';
+                              case 'error': return 'text-red-500';
+                              case 'summary': return 'text-teal-500';
                             }
                           };
 
@@ -611,17 +647,22 @@ export const ChatView: React.FC<ChatViewProps> = ({
                               <div className="flex-1 min-w-0">
                                 <span className={cn(
                                   "text-[10px] uppercase font-medium",
-                                  step.type === 'thought' ? 'text-blue-500' :
-                                  step.type === 'action' ? 'text-amber-500' : 'text-purple-500'
+                                  getStepColor(step.type)
                                 )}>
-                                  {step.type === 'thought' ? '思考' : 
-                                   step.type === 'action' ? '行动' : '观察'}
+                                  {getStepLabel(step.type)}
                                 </span>
-                                {step.type === 'action' && step.toolName && (
+                                {(step.type === 'action' || step.type === 'tool_start') && step.toolName && (
                                   <div className="mt-1 flex items-center gap-2">
                                     <span>
                                       使用<span className="text-blue-500 font-medium mx-1">{getToolDisplayName(step.toolName)}</span>：
-                                      <span className="opacity-80">{(step.toolParams?.query || step.toolParams?.url || JSON.stringify(step.toolParams)) as string}</span>
+                                      <span className="opacity-80">
+                                        {step.toolParams?.query ? String(step.toolParams.query) :
+                                         step.toolParams?.url ? String(step.toolParams.url) :
+                                         step.toolParams?.path ? String(step.toolParams.path) :
+                                         step.toolParams?.command ? String(step.toolParams.command) :
+                                         step.toolParams?.content ? String(step.toolParams.content).substring(0, 80) + (String(step.toolParams.content).length > 80 ? '...' : '') :
+                                         ''}
+                                      </span>
                                     </span>
                                     {step.executionStatus && (
                                       <span className={cn(
@@ -635,7 +676,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                                     )}
                                   </div>
                                 )}
-                                {step.type === 'observation' && step.observationData && step.observationData.length > 0 && (
+                                {(step.type === 'observation' || step.type === 'tool_result') && step.observationData && step.observationData.length > 0 && !msg.todos && (
                                   <div className="mt-1 space-y-1">
                                     {step.observationData.map((item, idx) => (
                                       <div 
@@ -651,11 +692,18 @@ export const ChatView: React.FC<ChatViewProps> = ({
                                     ))}
                                   </div>
                                 )}
+                                {(step.type === 'observation' || step.type === 'tool_result') && step.observationData && step.observationData.length > 0 && msg.todos && (
+                                  <p className="opacity-50 mt-0.5 text-[10px]">结果已记录到任务看板</p>
+                                )}
                                 {step.type === 'thought' && step.content && (
                                   <p className="opacity-80 mt-0.5">{step.content}</p>
                                 )}
-                                {step.type === 'observation' && step.content && !step.observationData && (
-                                  <p className="opacity-80 mt-0.5">{step.content}</p>
+                                {(step.type === 'observation' || step.type === 'tool_result' || step.type === 'error' || step.type === 'summary' || step.type === 'planning') && step.content && !step.observationData && (
+                                  <p className={cn("mt-0.5", step.type === 'error' ? "text-red-400 opacity-90" : "opacity-80")}>
+                                    {msg.todos && (step.type === 'tool_result' || step.type === 'error') 
+                                      ? (step.type === 'error' ? `错误: ${step.content.substring(0, 60)}${step.content.length > 60 ? '...' : ''}` : '结果已记录到任务看板')
+                                      : step.content}
+                                  </p>
                                 )}
                               </div>
                             </div>
@@ -695,10 +743,12 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   )}
 
                   {msg.todos && msg.todos.length > 0 && (
-                    <TodoContainer todos={msg.todos} />
+                    <div className="w-full">
+                      <TodoContainer todos={msg.todos} />
+                    </div>
                   )}
 
-                  {((msg.content && (msg.agentExecution?.status === 'responding' || msg.agentExecution?.status === 'completed')) || (msg.content && !msg.agentExecution) || (msg.role === 'assistant' && !msg.content && (isWaitingForResponse || isSearching) && msg.id === messages[messages.length - 1]?.id)) && (
+                  {(msg.content || (msg.role === 'assistant' && !msg.content && (isWaitingForResponse || isSearching) && msg.id === messages[messages.length - 1]?.id)) && (
                     <div className={cn(
                       "inline-block break-words",
                       msg.role === 'user' 

@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Agent, SearchResult, Attachment } from '../types';
+import { Agent, SearchResult, TodoItem, TodoStep } from '../types';
 import {
   AgentRuntime,
   initializeDefaultRuntime,
@@ -10,7 +10,7 @@ import {
   ReasoningStep,
   ToolCallRecord,
   ConversationMessage,
-  ContentPart,
+  TaskPlan,
 } from '../agent/types';
 import { DEFAULT_AGENT } from '../data/agents';
 import { useGlobalState } from '../context/GlobalStateContext';
@@ -28,6 +28,7 @@ interface UseAgentExecutionResult {
   iterationCount: number;
   pendingAuthToolCall: ToolCallRecord | null;
   isAgentMode: boolean;
+  currentTaskPlan: TaskPlan | null;
   execute: (input: string, conversationHistory: ConversationMessage[], imageAttachments?: { data: string; name: string }[]) => Promise<string>;
   approveToolCall: () => void;
   rejectToolCall: () => void;
@@ -61,6 +62,7 @@ interface AgentExecutionCallbacks {
     status: AgentStatus;
   }) => void;
   onContentChunk?: (chunk: string) => void;
+  onTaskPlanUpdate?: (plan: TaskPlan) => void;
 }
 
 function parseWebSearchResults(output: string): SearchResult[] {
@@ -95,6 +97,53 @@ function parseWebSearchResults(output: string): SearchResult[] {
   return [];
 }
 
+export function taskPlanToTodoItems(plan: TaskPlan): TodoItem[] {
+  return plan.steps.map((step) => {
+    const todoStatus: TodoItem['status'] =
+      step.status === 'completed' ? 'completed' :
+      step.status === 'in_progress' ? 'working' :
+      step.status === 'failed' ? 'failed' : 'pending';
+
+    const totalSteps = plan.steps.length;
+    const stepIndex = plan.steps.indexOf(step);
+
+    let progress = 0;
+    if (step.status === 'completed') {
+      progress = 100;
+    } else if (step.status === 'in_progress') {
+      progress = 50;
+    } else {
+      const completedBefore = plan.steps.slice(0, stepIndex).filter(s => s.status === 'completed').length;
+      progress = Math.round((completedBefore / totalSteps) * 100);
+    }
+
+    const steps: TodoStep[] = [];
+
+    if (step.toolCalls && step.toolCalls.length > 0) {
+      for (const tc of step.toolCalls) {
+        steps.push({
+          label: tc.summary || tc.toolName,
+          status: tc.status === 'executing' ? 'working' :
+                  tc.status === 'completed' ? 'completed' :
+                  tc.status === 'failed' ? 'failed' : 'pending',
+          result: tc.result || undefined,
+          error: tc.error || undefined,
+          observationData: tc.observationData || undefined,
+        });
+      }
+    }
+
+    return {
+      id: step.id,
+      title: step.title,
+      status: todoStatus,
+      progress,
+      description: step.description,
+      steps: steps.length > 0 ? steps : undefined,
+    };
+  });
+}
+
 export function useAgentExecution(
   defaultConfig?: DefaultAgentConfig,
   callbacks?: AgentExecutionCallbacks
@@ -108,6 +157,7 @@ export function useAgentExecution(
   const [isAgentMode, setIsAgentMode] = useState(true);
   const [currentAgent, setCurrentAgent] = useState<Agent | null>(null);
   const [lastTokenUsage, setLastTokenUsage] = useState<TokenUsage | null>(null);
+  const [currentTaskPlan, setCurrentTaskPlan] = useState<TaskPlan | null>(null);
 
   const runtimeRef = useRef<AgentRuntime | null>(null);
   const authResolveRef = useRef<((approved: boolean) => void) | null>(null);
@@ -116,6 +166,9 @@ export function useAgentExecution(
   const callbacksRef = useRef(callbacks);
   const currentAgentRef = useRef<Agent | null>(null);
   const tokenUsageRef = useRef<TokenUsage | null>(null);
+  const reasoningStepsRef = useRef<ReasoningStep[]>([]);
+  const reasoningUpdateTimerRef = useRef<ReturnType<typeof requestAnimationFrame> | null>(null);
+  const reasoningUpdatePendingRef = useRef(false);
   callbacksRef.current = callbacks;
   
   const activeModelIdRef = useRef(activeModelId);
@@ -143,6 +196,17 @@ export function useAgentExecution(
     notifyExecutionUpdate();
   }, [reasoningSteps, toolCalls, iterationCount, status, notifyExecutionUpdate]);
 
+  const scheduleReasoningUpdate = useCallback(() => {
+    if (reasoningUpdatePendingRef.current) return;
+    reasoningUpdatePendingRef.current = true;
+
+    reasoningUpdateTimerRef.current = requestAnimationFrame(() => {
+      reasoningUpdatePendingRef.current = false;
+      reasoningUpdateTimerRef.current = null;
+      setReasoningSteps([...reasoningStepsRef.current]);
+    });
+  }, []);
+
   const initializeRuntime = useCallback((agent: Agent) => {
     const runtime = initializeDefaultRuntime(agent, {
       onStatusChange: (newStatus) => {
@@ -161,12 +225,13 @@ export function useAgentExecution(
         }
       },
       onReasoningStep: (step) => {
-        setReasoningSteps((prev) => [...prev, step as ReasoningStep]);
+        reasoningStepsRef.current = [...reasoningStepsRef.current, step as ReasoningStep];
+        scheduleReasoningUpdate();
       },
       onReasoningStepUpdate: (step) => {
-        setReasoningSteps((prev) =>
-          prev.map(s => s.id === step.id ? step as ReasoningStep : s)
-        );
+        reasoningStepsRef.current =
+          reasoningStepsRef.current.map(s => s.id === step.id ? step as ReasoningStep : s);
+        scheduleReasoningUpdate();
       },
       onRequestAuth: async (toolCall) => {
         return new Promise((resolve) => {
@@ -204,19 +269,10 @@ export function useAgentExecution(
         const firstModelConfigId = currentModelConfigs.length > 0 ? currentModelConfigs[0].id : undefined;
         const modelIdToUse = currentActiveModelId || currentDefaultConfig?.modelId || firstModelConfigId;
         
-        console.log('[useAgentExecution] onTokenUsage called:', { 
-          activeModelId: currentActiveModelId, 
-          defaultConfigModelId: currentDefaultConfig?.modelId,
-          firstModelConfigId,
-          modelIdToUse,
-          usage,
-          cumulative: tokenUsageRef.current,
-        });
         if (modelIdToUse) {
           const modelConfig = currentModelConfigs.find(m => m.id === modelIdToUse);
           const cost = calculateCost(usage.inputTokens, usage.outputTokens, modelConfig?.pricing);
           
-          console.log('[useAgentExecution] Calling addTokenUsageRecord with modelId:', modelIdToUse, 'cost:', cost);
           addTokenUsageRecordRef.current({
             modelId: modelIdToUse,
             timestamp: Date.now(),
@@ -224,10 +280,11 @@ export function useAgentExecution(
             outputTokens: usage.outputTokens,
             cost,
           });
-          console.log('[useAgentExecution] addTokenUsageRecord called successfully');
-        } else {
-          console.warn('[useAgentExecution] No modelId available, skipping token usage record');
         }
+      },
+      onTaskPlanUpdate: (plan: TaskPlan) => {
+        setCurrentTaskPlan(plan);
+        callbacksRef.current?.onTaskPlanUpdate?.(plan);
       },
     });
 
@@ -248,14 +305,6 @@ export function useAgentExecution(
       apiKey: defaultConfig.apiKey,
       temperature: defaultConfig.temperature ?? 0.7,
     };
-
-    console.log('[useAgentExecution] Updating agent with new config:', {
-      configId: defaultConfig.modelId,
-      apiModelName: defaultConfig.apiModelName,
-      modelProvider: defaultConfig.modelProvider,
-      onlineProvider: defaultConfig.onlineProvider,
-      apiUrl: defaultConfig.apiUrl,
-    });
 
     setCurrentAgent(newAgent);
     currentAgentRef.current = newAgent;
@@ -278,14 +327,6 @@ export function useAgentExecution(
       apiKey: defaultConfig?.apiKey,
       temperature: defaultConfig?.temperature ?? 0.7,
     };
-
-    console.log('[useAgentExecution] Initializing with config:', {
-      configId: defaultConfig?.modelId,
-      apiModelName: defaultConfig?.apiModelName,
-      modelProvider: defaultConfig?.modelProvider,
-      onlineProvider: defaultConfig?.onlineProvider,
-      apiUrl: defaultConfig?.apiUrl,
-    });
 
     setCurrentAgent(defaultAgentWithSettings);
     currentAgentRef.current = defaultAgentWithSettings;
@@ -326,8 +367,10 @@ export function useAgentExecution(
 
     lastQueryRef.current = input;
     setReasoningSteps([]);
+    reasoningStepsRef.current = [];
     setToolCalls([]);
     setIterationCount(0);
+    setCurrentTaskPlan(null);
 
     try {
       const result = await runtimeRef.current!.execute(input, conversationHistory, imageAttachments);
@@ -363,9 +406,11 @@ export function useAgentExecution(
     runtimeRef.current?.reset();
     setStatus('idle');
     setReasoningSteps([]);
+    reasoningStepsRef.current = [];
     setToolCalls([]);
     setIterationCount(0);
     setPendingAuthToolCall(null);
+    setCurrentTaskPlan(null);
   }, []);
 
   const toggleAgentMode = useCallback(() => {
@@ -390,6 +435,7 @@ export function useAgentExecution(
     iterationCount,
     pendingAuthToolCall,
     isAgentMode,
+    currentTaskPlan,
     execute,
     approveToolCall,
     rejectToolCall,

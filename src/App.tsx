@@ -19,13 +19,13 @@ import { CloseConfirmModal } from './components/CloseConfirmModal';
 import { WindowControls } from './components/WindowControls';
 import { ToolAuthModal } from './components/AgentExecutionView';
 import { useGlobalState } from './context/GlobalStateContext';
-import { useAgentExecution } from './hooks/useAgentExecution';
+import { useAgentExecution, taskPlanToTodoItems } from './hooks/useAgentExecution';
 import { motion, AnimatePresence } from 'motion/react';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from './hooks/useTranslation';
-import { ConversationMessage, ReasoningStep, ToolCallRecord, AgentStatus, ContentPart } from './agent/types';
+import { ConversationMessage, ReasoningStep, ToolCallRecord, AgentStatus, ContentPart, TaskPlan } from './agent/types';
 import { DEFAULT_AGENT } from './data/agents';
 import { ONLINE_PROVIDERS } from './config/aggregatorProviders';
 import { supportsVision, getVisionUnsupportedMessage } from './config/visionModels';
@@ -187,6 +187,23 @@ export default function App() {
     }
   }, [setMessages]);
 
+  const handleTaskPlanUpdate = useCallback((plan: TaskPlan) => {
+    const messageId = currentExecutionMessageIdRef.current;
+    if (!messageId) return;
+
+    const todoItems = taskPlanToTodoItems(plan);
+
+    setMessages(prev => prev.map(m => {
+      if (m.id === messageId) {
+        return {
+          ...m,
+          todos: todoItems,
+        };
+      }
+      return m;
+    }));
+  }, [setMessages]);
+
   const handleContentChunk = useCallback((chunk: string) => {
     const messageId = currentExecutionMessageIdRef.current;
     if (!messageId) return;
@@ -291,7 +308,8 @@ export default function App() {
       onWebSearchResult: handleWebSearchResult,
       onExecutionUpdate: handleExecutionUpdate,
       onContentChunk: handleContentChunk,
-    }), [handleWebSearchResult, handleExecutionUpdate, handleContentChunk])
+      onTaskPlanUpdate: handleTaskPlanUpdate,
+    }), [handleWebSearchResult, handleExecutionUpdate, handleContentChunk, handleTaskPlanUpdate])
   );
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -443,12 +461,46 @@ export default function App() {
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
 
   const handleStopAI = () => {
+    agentExecution.abort();
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
-      setIsStreaming(false);
-      addLog(t.logs.userStoppedAI, 'info');
     }
+
+    const stoppedMsgId = currentExecutionMessageIdRef.current;
+    if (stoppedMsgId) {
+      setMessages(prev => prev.map(m => {
+        if (m.id === stoppedMsgId) {
+          const updatedTodos = m.todos?.map(todo => {
+            if (todo.status === 'working') {
+              return {
+                ...todo,
+                status: 'failed' as const,
+                steps: todo.steps?.map(s =>
+                  s.status === 'working' ? { ...s, status: 'completed' as const } : s
+                ),
+              };
+            }
+            return todo;
+          });
+          return {
+            ...m,
+            todos: updatedTodos,
+            agentExecution: m.agentExecution ? {
+              ...m.agentExecution,
+              status: 'failed' as const,
+            } : undefined,
+          };
+        }
+        return m;
+      }));
+    }
+
+    setIsStreaming(false);
+    setIsWaitingForResponse(false);
+    setCurrentExecutionMessageId(null);
+    streamingContentRef.current = '';
+    addLog(t.logs.userStoppedAI, 'info');
   };
 
   const handleApproveAction = () => {
@@ -802,9 +854,13 @@ export default function App() {
 
       setMessages(prev => prev.map(m => {
         if (m.id === assistantMessageId) {
+          const streamedContent = m.content || '';
+          const finalContent = streamedContent.length >= result.length
+            ? streamedContent
+            : result;
           return {
             ...m,
-            content: result,
+            content: finalContent,
             timestamp: Date.now(),
             tokenCount,
             tokenSpeed,
@@ -836,6 +892,20 @@ export default function App() {
       }));
       addLog(`Agent execution failed: ${errorMessage}`, 'error');
     } finally {
+      if (streamingContentRef.current) {
+        const remaining = streamingContentRef.current;
+        const msgId = currentExecutionMessageIdRef.current;
+        streamingContentRef.current = '';
+        streamingUpdateScheduledRef.current = false;
+        if (msgId && remaining) {
+          setMessages(prev => prev.map(m => {
+            if (m.id === msgId) {
+              return { ...m, content: m.content + remaining };
+            }
+            return m;
+          }));
+        }
+      }
       setCurrentExecutionMessageId(null);
       setIsStreaming(false);
       setIsWaitingForResponse(false);
@@ -1087,7 +1157,7 @@ export default function App() {
                 }}
                 transition={isResizing ? { duration: 0 } : { duration: 0.3, ease: "easeInOut" }}
                 className={cn(
-                  "flex flex-col h-full shrink-0 relative",
+                  "flex flex-col h-full shrink-0 relative overflow-hidden",
                   appMode === 'command' && "border-r",
                   isDarkMode ? "border-zinc-700" : "border-zinc-200"
                 )}
@@ -1096,7 +1166,7 @@ export default function App() {
                   <div 
                     onMouseDown={startResizing}
                     className={cn(
-                      "absolute top-0 right-0 w-1.5 h-full cursor-col-resize z-10 hover:bg-indigo-500/50 transition-colors",
+                      "absolute top-0 right-0 w-1.5 h-full cursor-col-resize z-30 hover:bg-indigo-500/50 transition-colors",
                       isResizing && "bg-indigo-500/50"
                     )}
                     style={{ transform: 'translateX(50%)' }}

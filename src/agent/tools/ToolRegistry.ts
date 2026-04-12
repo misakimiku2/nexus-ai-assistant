@@ -167,7 +167,14 @@ class ToolRegistryImpl {
     }
 
     const overlappingMap = getOverlappingMcpTools(mcpOriginalNames);
-    const excludedBuiltinNames = new Set(overlappingMap.keys());
+
+    const filesystemBuiltinNames = new Set(['write_file', 'read_file', 'list_directory']);
+    const excludedBuiltinNames = new Set<string>();
+    for (const [builtinName] of overlappingMap) {
+      if (!filesystemBuiltinNames.has(builtinName)) {
+        excludedBuiltinNames.add(builtinName);
+      }
+    }
 
     const filteredBuiltin = builtinTools.filter(t => !excludedBuiltinNames.has(t.name));
 

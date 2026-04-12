@@ -36,6 +36,14 @@ export interface AgentExecutionData {
   status: AgentStatus;
 }
 
+export interface TodoStep {
+  label: string;
+  status: 'pending' | 'working' | 'completed' | 'failed';
+  result?: string;
+  error?: string;
+  observationData?: Array<{ title: string; url: string; snippet?: string }>;
+}
+
 export interface TodoItem {
   id: string;
   title: string;
@@ -44,7 +52,7 @@ export interface TodoItem {
   description?: string;
   subAgentId?: string;
   targetSessionId?: string;
-  steps?: { label: string; status: 'pending' | 'working' | 'completed' }[];
+  steps?: TodoStep[];
 }
 
 export interface MessageVersion {

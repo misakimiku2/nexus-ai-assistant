@@ -8,16 +8,129 @@ import {
   ChevronUp, 
   ExternalLink,
   ArrowRight,
-  ListTodo
+  ListTodo,
+  Search,
+  FileText,
+  Globe,
+  Wrench,
+  XCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import { TodoItem } from '../types';
+import { TodoItem, TodoStep } from '../types';
 import { useGlobalState } from '../context/GlobalStateContext';
+
+const openExternalLink = async (url: string) => {
+  try {
+    const { open } = await import('@tauri-apps/plugin-shell');
+    await open(url);
+  } catch {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+};
 
 interface TodoContainerProps {
   todos: TodoItem[];
 }
+
+const StepDetail: React.FC<{ step: TodoStep; stepIdx: number; todoId: string }> = ({ step, stepIdx, todoId }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const hasDetail = (step.result && step.result.length > 0) || 
+                    (step.observationData && step.observationData.length > 0) || 
+                    (step.error && step.error.length > 0);
+
+  return (
+    <div className="flex flex-col">
+      <div 
+        className={cn(
+          "flex items-center gap-2 text-[11px]",
+          hasDetail && "cursor-pointer hover:bg-zinc-500/10 dark:hover:bg-white/5 rounded px-1 -mx-1"
+        )}
+        onClick={() => hasDetail && setIsExpanded(!isExpanded)}
+      >
+        <div className={cn(
+          "w-1.5 h-1.5 rounded-full shrink-0",
+          step.status === 'completed' ? "bg-emerald-500" :
+          step.status === 'working' ? "bg-blue-500 animate-pulse" :
+          step.status === 'failed' ? "bg-red-500" : "bg-zinc-300 dark:bg-zinc-600"
+        )} />
+        <span className={cn(
+          "flex-1 truncate",
+          step.status === 'completed' ? "text-zinc-400" :
+          step.status === 'failed' ? "text-red-400" : "text-zinc-600 dark:text-zinc-300"
+        )}>
+          {step.label}
+        </span>
+        {step.status === 'working' && (
+          <span className="text-[9px] text-blue-500 font-medium shrink-0">进行中</span>
+        )}
+        {step.status === 'failed' && (
+          <XCircle size={10} className="text-red-500 shrink-0" />
+        )}
+        {hasDetail && (
+          <span className="shrink-0 text-zinc-400">
+            {isExpanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+          </span>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {isExpanded && hasDetail && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden ml-3.5"
+          >
+            <div className="pl-3 border-l border-zinc-500/20 dark:border-white/10 py-1.5 space-y-1.5">
+              {step.error && (
+                <div className="flex items-start gap-1.5 text-[10px] text-red-400">
+                  <AlertCircle size={10} className="shrink-0 mt-0.5" />
+                  <span className="break-all">{step.error}</span>
+                </div>
+              )}
+              {step.observationData && step.observationData.length > 0 && (
+                <div className="space-y-1">
+                  {step.observationData.map((item, idx) => (
+                    <div 
+                      key={idx}
+                      className="flex items-start gap-1.5 text-[10px]"
+                    >
+                      <Globe size={9} className="shrink-0 mt-0.5 text-blue-400" />
+                      <div className="min-w-0">
+                        {item.url ? (
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openExternalLink(item.url);
+                            }}
+                            className="truncate text-blue-500 hover:underline cursor-pointer"
+                          >
+                            {item.title}
+                          </div>
+                        ) : (
+                          <div className="truncate text-zinc-500 dark:text-zinc-400">{item.title}</div>
+                        )}
+                        {item.snippet && (
+                          <div className="text-[9px] opacity-60 line-clamp-2 mt-0.5 text-zinc-500 dark:text-zinc-400">{item.snippet}</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {step.result && !step.observationData && (
+                <div className="text-[10px] text-zinc-500 dark:text-zinc-400 max-h-32 overflow-y-auto whitespace-pre-wrap break-all">
+                  {step.result.length > 300 ? step.result.substring(0, 300) + '...' : step.result}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 export const TodoCard: React.FC<TodoItem & { onNavigateToSubAgent?: (id: string) => void }> = ({ 
   title, 
@@ -92,9 +205,13 @@ export const TodoContainer: React.FC<TodoContainerProps> = ({ todos }) => {
     }
   };
 
+  const hasStepErrors = (steps?: TodoStep[]) => {
+    if (!steps) return false;
+    return steps.some(s => s.status === 'failed' || s.error);
+  };
+
   return (
     <div className="glass rounded-2xl overflow-hidden shadow-sm my-2">
-      {/* Header with Overall Progress */}
       <div className="p-4 border-b border-zinc-200/50 dark:border-white/5 bg-zinc-500/5 dark:bg-white/5">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -114,7 +231,6 @@ export const TodoContainer: React.FC<TodoContainerProps> = ({ todos }) => {
         </div>
       </div>
 
-      {/* Todo List */}
       <div className="divide-y divide-zinc-200/50 dark:divide-white/5">
         {todos.map((todo) => (
           <div key={todo.id} className="group">
@@ -153,7 +269,22 @@ export const TodoContainer: React.FC<TodoContainerProps> = ({ todos }) => {
                         />
                       ))}
                     </div>
-                    <span className="text-[10px] text-blue-500 font-medium uppercase tracking-tighter">Processing...</span>
+                    <span className="text-[10px] text-blue-500 font-medium uppercase tracking-tighter">
+                      {todo.steps?.some(s => s.status === 'working') 
+                        ? todo.steps.find(s => s.status === 'working')?.label || 'Processing...'
+                        : 'Processing...'}
+                    </span>
+                  </div>
+                )}
+                {todo.status === 'failed' && (
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className="text-[10px] text-red-500 font-medium uppercase tracking-tighter">已停止</span>
+                  </div>
+                )}
+                {todo.status === 'completed' && hasStepErrors(todo.steps) && (
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <AlertCircle size={10} className="text-amber-500" />
+                    <span className="text-[10px] text-amber-500 font-medium">部分工具调用失败</span>
                   </div>
                 )}
               </div>
@@ -180,21 +311,14 @@ export const TodoContainer: React.FC<TodoContainerProps> = ({ todos }) => {
                     )}
 
                     {todo.steps && todo.steps.length > 0 && (
-                      <div className="space-y-2 py-2">
-                        {todo.steps.map((step) => (
-                          <div key={step.label} className="flex items-center gap-2 text-[11px]">
-                            <div className={cn(
-                              "w-1 h-1 rounded-full",
-                              step.status === 'completed' ? "bg-emerald-500" :
-                              step.status === 'working' ? "bg-blue-500 animate-pulse" : "bg-zinc-300 dark:bg-zinc-600"
-                            )} />
-                            <span className={cn(
-                              "flex-1",
-                              step.status === 'completed' ? "text-zinc-400 line-through" : "text-zinc-600 dark:text-zinc-300"
-                            )}>
-                              {step.label}
-                            </span>
-                          </div>
+                      <div className="space-y-1.5 py-1">
+                        {todo.steps.map((step, stepIdx) => (
+                          <StepDetail 
+                            key={`${todo.id}-step-${stepIdx}`}
+                            step={step}
+                            stepIdx={stepIdx}
+                            todoId={todo.id}
+                          />
                         ))}
                       </div>
                     )}
