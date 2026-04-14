@@ -19,6 +19,42 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { TodoItem, TodoStep } from '../types';
 import { useGlobalState } from '../context/GlobalStateContext';
+import { useFileViewer } from '../context/FileViewerContext';
+
+const FILE_PATH_REGEX = /[A-Za-z]:\\(?:[^\s<>|*?\]"'。，！？；：（）、\]]| (?=[^\s<>|*?\]"'。，！？；：（）、\]]))+|\/(?:home|Users|usr|tmp|var|etc|opt)\/(?:[^\s<>|*?\]"'。，！？；：（）、\]]| (?=[^\s<>|*?\]"'。，！？；：（）、\]]))+/g;
+
+function linkifyFilePaths(text: string, onFileClick: (path: string) => void): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  FILE_PATH_REGEX.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+
+  while ((match = FILE_PATH_REGEX.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.substring(lastIndex, match.index));
+    }
+    let filePath = match[0];
+    filePath = filePath.replace(/[\s]+$/, '');
+    parts.push(
+      <span
+        key={`fp-${key++}`}
+        onClick={(e) => { e.stopPropagation(); onFileClick(filePath); }}
+        className="text-blue-500 hover:text-blue-600 hover:underline cursor-pointer break-all"
+        title="点击在工作区查看"
+      >
+        {filePath}
+      </span>
+    );
+    lastIndex = match.index + filePath.length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.substring(lastIndex));
+  }
+
+  return parts.length > 0 ? parts : [text];
+}
 
 const openExternalLink = async (url: string) => {
   try {
@@ -35,9 +71,11 @@ interface TodoContainerProps {
 
 const StepDetail: React.FC<{ step: TodoStep; stepIdx: number; todoId: string }> = ({ step, stepIdx, todoId }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const { openFile } = useFileViewer();
   const hasDetail = (step.result && step.result.length > 0) || 
                     (step.observationData && step.observationData.length > 0) || 
-                    (step.error && step.error.length > 0);
+                    (step.error && step.error.length > 0) ||
+                    !!step.filePath;
 
   return (
     <div className="flex flex-col">
@@ -59,7 +97,7 @@ const StepDetail: React.FC<{ step: TodoStep; stepIdx: number; todoId: string }> 
           step.status === 'completed' ? "text-zinc-400" :
           step.status === 'failed' ? "text-red-400" : "text-zinc-600 dark:text-zinc-300"
         )}>
-          {step.label}
+          {linkifyFilePaths(step.label, openFile)}
         </span>
         {step.status === 'working' && (
           <span className="text-[9px] text-blue-500 font-medium shrink-0">进行中</span>
@@ -80,13 +118,28 @@ const StepDetail: React.FC<{ step: TodoStep; stepIdx: number; todoId: string }> 
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden ml-3.5"
+            className="overflow-hidden ml-2"
           >
-            <div className="pl-3 border-l border-zinc-500/20 dark:border-white/10 py-1.5 space-y-1.5">
+            <div className="pl-2 border-l border-zinc-500/20 dark:border-white/10 py-1.5 space-y-1.5 min-w-0 overflow-x-hidden">
+              {step.filePath && (
+                <div className="flex items-start gap-1.5 text-[10px]">
+                  <FileText size={9} className="shrink-0 mt-0.5 text-blue-400" />
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openFile(step.filePath!);
+                    }}
+                    className="text-blue-500 hover:text-blue-600 hover:underline cursor-pointer break-all"
+                    title="点击在工作区查看"
+                  >
+                    {step.filePath}
+                  </span>
+                </div>
+              )}
               {step.error && (
                 <div className="flex items-start gap-1.5 text-[10px] text-red-400">
                   <AlertCircle size={10} className="shrink-0 mt-0.5" />
-                  <span className="break-all">{step.error}</span>
+                  <span className="break-all">{linkifyFilePaths(step.error, openFile)}</span>
                 </div>
               )}
               {step.observationData && step.observationData.length > 0 && (
@@ -121,7 +174,7 @@ const StepDetail: React.FC<{ step: TodoStep; stepIdx: number; todoId: string }> 
               )}
               {step.result && !step.observationData && (
                 <div className="text-[10px] text-zinc-500 dark:text-zinc-400 max-h-32 overflow-y-auto whitespace-pre-wrap break-all">
-                  {step.result.length > 300 ? step.result.substring(0, 300) + '...' : step.result}
+                  {linkifyFilePaths(step.result.length > 300 ? step.result.substring(0, 300) + '...' : step.result, openFile)}
                 </div>
               )}
             </div>
@@ -211,7 +264,7 @@ export const TodoContainer: React.FC<TodoContainerProps> = ({ todos }) => {
   };
 
   return (
-    <div className="glass rounded-2xl overflow-hidden shadow-sm my-2">
+    <div className="glass rounded-2xl overflow-hidden shadow-sm my-2 min-w-0 max-w-full">
       <div className="p-4 border-b border-zinc-200/50 dark:border-white/5 bg-zinc-500/5 dark:bg-white/5">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -231,9 +284,9 @@ export const TodoContainer: React.FC<TodoContainerProps> = ({ todos }) => {
         </div>
       </div>
 
-      <div className="divide-y divide-zinc-200/50 dark:divide-white/5">
+      <div className="divide-y divide-zinc-200/50 dark:divide-white/5 min-w-0">
         {todos.map((todo) => (
-          <div key={todo.id} className="group">
+          <div key={todo.id} className="group min-w-0">
             <div 
               className={cn(
                 "p-4 flex items-center gap-3 cursor-pointer transition-colors",
@@ -303,7 +356,7 @@ export const TodoContainer: React.FC<TodoContainerProps> = ({ todos }) => {
                   exit={{ height: 0, opacity: 0 }}
                   className="overflow-hidden bg-zinc-500/5 dark:bg-white/5"
                 >
-                  <div className="px-11 pb-4 space-y-3">
+                  <div className="px-4 pb-4 space-y-3 min-w-0 overflow-x-hidden">
                     {todo.description && (
                       <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
                         {todo.description}

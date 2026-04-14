@@ -19,6 +19,7 @@ import { CloseConfirmModal } from './components/CloseConfirmModal';
 import { WindowControls } from './components/WindowControls';
 import { ToolAuthModal } from './components/AgentExecutionView';
 import { useGlobalState } from './context/GlobalStateContext';
+import { FileViewerProvider } from './context/FileViewerContext';
 import { useAgentExecution, taskPlanToTodoItems } from './hooks/useAgentExecution';
 import { motion, AnimatePresence } from 'motion/react';
 import { listen } from '@tauri-apps/api/event';
@@ -70,7 +71,17 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('chat');
   const [input, setInput] = useState('');
   const [isToolPanelOpen, setIsToolPanelOpen] = useState(true);
-  const [appMode, setAppMode] = useState<AppMode>('chat');
+  const [appMode, setAppModeState] = useState<AppMode>(() => {
+    const stored = localStorage.getItem('nexus_app_mode');
+    return (stored === 'chat' || stored === 'command') ? stored : 'chat';
+  });
+  const setAppMode = React.useCallback((mode: AppMode | ((prev: AppMode) => AppMode)) => {
+    setAppModeState(prev => {
+      const newMode = typeof mode === 'function' ? mode(prev) : mode;
+      localStorage.setItem('nexus_app_mode', newMode);
+      return newMode;
+    });
+  }, []);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -80,17 +91,29 @@ export default function App() {
   const [isResizing, setIsResizing] = useState(false);
   const isResizingRef = useRef(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number>(0);
+  const pendingWidthRef = useRef(350);
 
   const handleMouseMove = React.useCallback((e: MouseEvent) => {
     if (!isResizingRef.current || !chatContainerRef.current) return;
     const rect = chatContainerRef.current.getBoundingClientRect();
     const newWidth = e.clientX - rect.left;
-    setCommandChatWidth(Math.min(Math.max(newWidth, 350), 580));
+    pendingWidthRef.current = Math.min(Math.max(newWidth, 350), 580);
+    if (!rafRef.current) {
+      rafRef.current = requestAnimationFrame(() => {
+        setCommandChatWidth(pendingWidthRef.current);
+        rafRef.current = 0;
+      });
+    }
   }, []);
 
   const handleMouseUp = React.useCallback(() => {
     isResizingRef.current = false;
     setIsResizing(false);
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+    }
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
     document.body.style.cursor = '';
@@ -190,6 +213,10 @@ export default function App() {
   const handleTaskPlanUpdate = useCallback((plan: TaskPlan) => {
     const messageId = currentExecutionMessageIdRef.current;
     if (!messageId) return;
+
+    if (plan.steps.length > 1 && plan.status === 'planning') {
+      setAppMode('command');
+    }
 
     const todoItems = taskPlanToTodoItems(plan);
 
@@ -316,8 +343,12 @@ export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Token estimation (1 token ≈ 3 characters)
-  const estimateTokens = (text: string) => Math.ceil((text || '').length / 3);
+  const estimateTokens = (text: string) => {
+    if (!text) return 0;
+    const cjkCount = (text.match(/[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/g) || []).length;
+    const nonCjkLength = text.length - cjkCount;
+    return Math.ceil(cjkCount / 1.5 + nonCjkLength / 4);
+  };
 
   // Clean content by removing <think> tags for API payload
   const cleanContentForApi = (text: string) => {
@@ -1095,7 +1126,12 @@ export default function App() {
     setAttachments(prev => prev.filter(a => a.id !== id));
   };
 
+  const handleFileOpenSwitchMode = useCallback(() => {
+    setAppMode('command');
+  }, [setAppMode]);
+
   return (
+    <FileViewerProvider onFileOpen={handleFileOpenSwitchMode}>
     <div className={cn(
       "flex h-screen w-full overflow-hidden transition-colors duration-300",
       isDarkMode ? "dark bg-zinc-900 text-zinc-200" : "bg-[#f5f5f5] text-zinc-800"
@@ -1148,19 +1184,18 @@ export default function App() {
         <div className={cn("flex-1 flex flex-col overflow-hidden relative", isDarkMode ? "bg-zinc-800" : "bg-zinc-50")}>
           {activeTab === 'chat' && (
             <div className="h-full flex flex-row w-full overflow-hidden relative">
-              <motion.div 
+              <div 
                 ref={chatContainerRef}
-                layout
-                initial={false}
-                animate={{ 
-                  width: appMode === 'command' ? commandChatWidth : '100%'
-                }}
-                transition={isResizing ? { duration: 0 } : { duration: 0.3, ease: "easeInOut" }}
                 className={cn(
                   "flex flex-col h-full shrink-0 relative overflow-hidden",
                   appMode === 'command' && "border-r",
                   isDarkMode ? "border-zinc-700" : "border-zinc-200"
                 )}
+                style={{
+                  width: appMode === 'command' ? commandChatWidth : '100%',
+                  transition: isResizing ? 'none' : 'width 0.3s ease-in-out',
+                  willChange: isResizing ? 'width' : undefined,
+                }}
               >
                 {appMode === 'command' && (
                   <div 
@@ -1202,7 +1237,7 @@ export default function App() {
                   handleFileUpload={handleFileUpload}
                   removeAttachment={removeAttachment}
                 />
-              </motion.div>
+              </div>
 
               <AnimatePresence>
                 {appMode === 'command' && (
@@ -1371,6 +1406,7 @@ export default function App() {
         onReject={agentExecution.rejectToolCall}
       />
     </div>
+    </FileViewerProvider>
   );
 }
 

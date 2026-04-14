@@ -205,16 +205,17 @@ export class TaskPlanner {
       // JSON parse failed
     }
 
+    const fallbackSteps = this.heuristicDecompose(content);
     return {
-      needsPlanning: false,
-      reasoning: 'Failed to parse planning response, using fallback',
-      steps: [
-        {
-          id: 'step_1',
-          title: 'Execute task',
-          description: content.substring(0, 200),
-        },
-      ],
+      needsPlanning: fallbackSteps.length > 1,
+      reasoning: 'Failed to parse planning response, using heuristic fallback',
+      steps: fallbackSteps.map((s, i) => ({
+        id: s.id || `step_${i + 1}`,
+        title: s.title,
+        description: s.description,
+        toolHint: s.toolHint,
+        dependsOn: s.dependsOn,
+      })),
     };
   }
 
@@ -223,21 +224,118 @@ export class TaskPlanner {
     userInput: string,
     error: string
   ): TaskPlan {
+    const steps = this.heuristicDecompose(userInput);
     return {
       id: planId,
       goal: userInput,
-      steps: [
-        {
-          id: 'step_1',
-          title: 'Execute task',
-          description: userInput,
-          status: 'pending',
-        },
-      ],
-      status: 'executing',
+      steps,
+      status: steps.length > 1 ? 'planning' : 'executing',
       currentStepIndex: 0,
       createdAt: Date.now(),
     };
+  }
+
+  private heuristicDecompose(userInput: string): TaskPlanStep[] {
+    const patterns: Array<{
+      regex: RegExp;
+      steps: Array<{ title: string; description: string; toolHint?: string }>;
+    }> = [
+      {
+        regex: /(?:搜索|查找|查询|search|find|look up)(.+?)(?:然后|接着|之后|再|and then|then|after that|,)(?:搜索|查找|查询|对比|比较|search|find|compare)/i,
+        steps: [
+          { title: '搜索第一项', description: '', toolHint: 'web_search' },
+          { title: '搜索第二项', description: '', toolHint: 'web_search' },
+          { title: '对比分析', description: '对比两次搜索的结果，给出分析总结', toolHint: '' },
+        ],
+      },
+      {
+        regex: /(?:搜索|查找|查询|search|find)(.+?)(?:然后|接着|之后|再|and then|then|after that|,)(?:写|创建|生成|保存|write|create|generate|save)/i,
+        steps: [
+          { title: '搜索信息', description: '', toolHint: 'web_search' },
+          { title: '整理并写入', description: '', toolHint: 'write_file' },
+        ],
+      },
+      {
+        regex: /(?:分析|读取|查看|analyze|read|review)(.+?)(?:然后|接着|之后|再|and then|then|after that|,)(?:修改|修复|更新|编辑|modify|fix|update|edit)/i,
+        steps: [
+          { title: '分析现有内容', description: '', toolHint: 'read_file' },
+          { title: '实施修改', description: '', toolHint: 'write_file' },
+        ],
+      },
+      {
+        regex: /(?:搜索|查找|查询|search|find)(.+?)(?:然后|接着|之后|再|and then|then|after that|,)(?:翻译|translate)/i,
+        steps: [
+          { title: '搜索信息', description: '', toolHint: 'web_search' },
+          { title: '翻译内容', description: '', toolHint: '' },
+        ],
+      },
+    ];
+
+    for (const pattern of patterns) {
+      const match = userInput.match(pattern.regex);
+      if (match) {
+        return pattern.steps.map((s, i) => ({
+          id: `step_${i + 1}`,
+          title: s.title,
+          description: s.description || userInput,
+          status: 'pending' as const,
+          toolHint: s.toolHint || undefined,
+          dependsOn: i > 0 ? [`step_${i}`] : [],
+        }));
+      }
+    }
+
+    const multiTaskPatterns = [
+      { regex: /(?:搜索|查找|查询|search|find|look up)\s+(.+)/gi, toolHint: 'web_search', label: '搜索' },
+      { regex: /(?:读取|查看|分析|read|analyze|review)\s+(.+)/gi, toolHint: 'read_file', label: '读取' },
+      { regex: /(?:写|创建|生成|修改|编辑|write|create|modify|edit)\s+(.+)/gi, toolHint: 'write_file', label: '操作' },
+      { regex: /(?:执行|运行|run|execute)\s+(.+)/gi, toolHint: 'execute_shell', label: '执行' },
+    ];
+
+    const detectedTasks: Array<{ title: string; description: string; toolHint: string }> = [];
+    for (const mp of multiTaskPatterns) {
+      let m;
+      const regex = new RegExp(mp.regex.source, mp.regex.flags);
+      while ((m = regex.exec(userInput)) !== null) {
+        detectedTasks.push({
+          title: `${mp.label}: ${m[1].substring(0, 50)}`,
+          description: m[0],
+          toolHint: mp.toolHint,
+        });
+      }
+    }
+
+    if (detectedTasks.length >= 2) {
+      return detectedTasks.slice(0, 5).map((t, i) => ({
+        id: `step_${i + 1}`,
+        title: t.title,
+        description: t.description,
+        status: 'pending' as const,
+        toolHint: t.toolHint || undefined,
+        dependsOn: i > 0 ? [`step_${i}`] : [],
+      }));
+    }
+
+    const connectors = /[,，;；\n]|(?:然后|接着|之后|再|并且|同时|and then|then|after that)/gi;
+    const parts = userInput.split(connectors).map(s => s.trim()).filter(s => s.length > 5);
+    if (parts.length >= 2) {
+      return parts.slice(0, 5).map((part, i) => ({
+        id: `step_${i + 1}`,
+        title: part.substring(0, 50),
+        description: part,
+        status: 'pending' as const,
+        dependsOn: i > 0 ? [`step_${i}`] : [],
+      }));
+    }
+
+    return [
+      {
+        id: 'step_1',
+        title: 'Execute task',
+        description: userInput,
+        status: 'pending',
+      },
+    ];
   }
 
   updateStepStatus(

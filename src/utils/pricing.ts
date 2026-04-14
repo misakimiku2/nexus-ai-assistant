@@ -97,5 +97,8 @@ export function formatTokenCount(tokens: number): string {
 }
 
 export function estimateTokensFromText(text: string): number {
-  return Math.ceil(text.length / 4);
+  if (!text) return 0;
+  const cjkCount = (text.match(/[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/g) || []).length;
+  const nonCjkLength = text.length - cjkCount;
+  return Math.ceil(cjkCount / 1.5 + nonCjkLength / 4);
 }

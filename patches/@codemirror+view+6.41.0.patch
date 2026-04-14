@@ -1,0 +1,47 @@
+diff --git a/node_modules/@codemirror/view/dist/index.js b/node_modules/@codemirror/view/dist/index.js
+index 05b89f2..bd1df50 100644
+--- a/node_modules/@codemirror/view/dist/index.js
++++ b/node_modules/@codemirror/view/dist/index.js
+@@ -6372,10 +6372,10 @@ class ViewState {
+         // This will divide VP.Margin between the top and the
+         // bottom, depending on the bias (the change in viewport position
+         // since the last update). It'll hold a number between 0 and 1
+-        let marginTop = 0.5 - Math.max(-0.5, Math.min(0.5, bias / 1000 /* VP.Margin */ / 2));
++        let marginTop = 0.5 - Math.max(-0.5, Math.min(0.5, bias / 5000 /* VP.Margin */ / 2));
+         let map = this.heightMap, oracle = this.heightOracle;
+         let { visibleTop, visibleBottom } = this;
+-        let viewport = new Viewport(map.lineAt(visibleTop - marginTop * 1000 /* VP.Margin */, QueryType.ByHeight, oracle, 0, 0).from, map.lineAt(visibleBottom + (1 - marginTop) * 1000 /* VP.Margin */, QueryType.ByHeight, oracle, 0, 0).to);
++        let viewport = new Viewport(map.lineAt(visibleTop - marginTop * 5000 /* VP.Margin */, QueryType.ByHeight, oracle, 0, 0).from, map.lineAt(visibleBottom + (1 - marginTop) * 5000 /* VP.Margin */, QueryType.ByHeight, oracle, 0, 0).to);
+         // If scrollTarget is given, make sure the viewport includes that position
+         if (scrollTarget) {
+             let { head } = scrollTarget.range;
+@@ -6388,7 +6388,7 @@ class ViewState {
+                     topPos = block.top;
+                 else
+                     topPos = block.bottom - viewHeight;
+-                viewport = new Viewport(map.lineAt(topPos - 1000 /* VP.Margin */ / 2, QueryType.ByHeight, oracle, 0, 0).from, map.lineAt(topPos + viewHeight + 1000 /* VP.Margin */ / 2, QueryType.ByHeight, oracle, 0, 0).to);
++                viewport = new Viewport(map.lineAt(topPos - 5000 /* VP.Margin */ / 2, QueryType.ByHeight, oracle, 0, 0).from, map.lineAt(topPos + viewHeight + 5000 /* VP.Margin */ / 2, QueryType.ByHeight, oracle, 0, 0).to);
+             }
+         }
+         return viewport;
+@@ -6408,7 +6408,7 @@ class ViewState {
+         return (from == 0 || top <= visibleTop - Math.max(10 /* VP.MinCoverMargin */, Math.min(-bias, 250 /* VP.MaxCoverMargin */))) &&
+             (to == this.state.doc.length ||
+                 bottom >= visibleBottom + Math.max(10 /* VP.MinCoverMargin */, Math.min(bias, 250 /* VP.MaxCoverMargin */))) &&
+-            (top > visibleTop - 2 * 1000 /* VP.Margin */ && bottom < visibleBottom + 2 * 1000 /* VP.Margin */);
++            (top > visibleTop - 2 * 5000 /* VP.Margin */ && bottom < visibleBottom + 2 * 5000 /* VP.Margin */);
+     }
+     mapLineGaps(gaps, changes) {
+         if (!gaps.length || changes.empty)
+@@ -7736,9 +7736,8 @@ class EditContextManager {
+ 
+ // The editor's update state machine looks something like this:
+ //
+-//     Idle â†’ Updating â‡† Idle (unchecked) â†’ Measuring â†’ Idle
+-//                                         â†‘      â†“
+-//                                         Updating (measure)
++//     Idle â†?Updating â‡?Idle (unchecked) â†?Measuring â†?Idle
++//                                         â†?     â†?//                                         Updating (measure)
+ //
+ // The difference between 'Idle' and 'Idle (unchecked)' lies in
+ // whether a layout check has been scheduled. A regular update through

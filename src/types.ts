@@ -42,6 +42,7 @@ export interface TodoStep {
   result?: string;
   error?: string;
   observationData?: Array<{ title: string; url: string; snippet?: string }>;
+  filePath?: string;
 }
 
 export interface TodoItem {

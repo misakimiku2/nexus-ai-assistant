@@ -406,10 +406,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   return (
-    <motion.div 
+    <div 
       ref={containerRef}
-      layout
-      transition={{ duration: 0.3, ease: "easeInOut" }}
       className={cn("pt-0 relative z-20", appMode === 'command' ? "p-2" : "p-3")}
     >
       <AnimatePresence>
@@ -802,6 +800,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             />
           </div>
       </div>
-    </motion.div>
+    </div>
   );
 };

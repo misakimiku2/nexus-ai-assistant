@@ -34,7 +34,9 @@ export function adaptMcpTool(
 
   const restrictedTools = ['write_file', 'create_file', 'edit_file', 'read_file', 'list_directory'];
   if (restrictedTools.includes(tool.name)) {
-    description += ' Note: This tool is restricted to allowed directories configured for the MCP server. If it fails with "Access denied" or "path outside allowed directories", use the builtin write_file tool instead which has no directory restrictions.';
+    const builtinFallback = tool.name === 'read_file' ? 'read_file' :
+                            tool.name === 'list_directory' ? 'list_directory' : 'write_file';
+    description += ` Note: This tool is restricted to allowed directories configured for the MCP server. If it fails with "Access denied" or "path outside allowed directories", use the builtin ${builtinFallback} tool instead which has no directory restrictions.`;
   }
 
   return {

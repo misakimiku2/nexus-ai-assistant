@@ -754,10 +754,11 @@ export class ReActEngine {
     if (!currentStep) return;
 
     const summary = this.formatToolStartSummary(toolName, params);
+    const filePath = this.extractFilePath(toolName, params);
     const existingCalls = currentStep.toolCalls || [];
     const updatedCalls = [
       ...existingCalls,
-      { toolName, status: 'executing' as const, summary },
+      { toolName, status: 'executing' as const, summary, filePath },
     ];
 
     currentStep.toolCalls = updatedCalls;
@@ -768,6 +769,23 @@ export class ReActEngine {
         s.id === currentStep.id ? { ...s, toolCalls: updatedCalls } : s
       ),
     });
+  }
+
+  private extractFilePath(toolName: string, params: Record<string, unknown>): string | undefined {
+    const builtinFileTools = ['write_file', 'read_file', 'list_directory', 'create_file', 'edit_file', 'delete_file'];
+    if (builtinFileTools.includes(toolName) && params.path && typeof params.path === 'string') {
+      return params.path;
+    }
+    if (params.path && typeof params.path === 'string' && /^[A-Za-z]:\\|^\//.test(params.path as string)) {
+      return params.path as string;
+    }
+    if (params.file_path && typeof params.file_path === 'string') {
+      return params.file_path;
+    }
+    if (params.destination && typeof params.destination === 'string') {
+      return params.destination;
+    }
+    return undefined;
   }
 
   private formatToolSummary(

@@ -352,7 +352,15 @@
     "createWorkspace": "创建工作区",
     "closeToolbar": "关闭工具栏",
     "openToolbar": "打开工具栏",
-    "placeholder": "在此处开始输入..."
+    "placeholder": "点击文件链接或打开文件以在此处查看和编辑",
+    "openFile": "打开文件",
+    "fileSaved": "文件已保存",
+    "saveFailed": "保存失败",
+    "editFile": "编辑",
+    "saveFile": "保存",
+    "revertFile": "还原",
+    "modified": "已修改",
+    "readOnly": "只读"
   },
   "search": {
     "unknownSession": "未知会话",

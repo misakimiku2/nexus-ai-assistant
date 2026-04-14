@@ -352,7 +352,15 @@
     "createWorkspace": "Create Workspace",
     "closeToolbar": "Close Toolbar",
     "openToolbar": "Open Toolbar",
-    "placeholder": "Start typing here..."
+    "placeholder": "Click a file link or open a file to view and edit here",
+    "openFile": "Open File",
+    "fileSaved": "File saved",
+    "saveFailed": "Save failed",
+    "editFile": "Edit",
+    "saveFile": "Save",
+    "revertFile": "Revert",
+    "modified": "Modified",
+    "readOnly": "Read Only"
   },
   "search": {
     "unknownSession": "Unknown Session",

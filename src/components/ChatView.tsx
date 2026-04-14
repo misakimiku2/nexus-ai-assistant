@@ -9,10 +9,37 @@ import { cn } from '../lib/utils';
 import { McpTool, PendingAction, Message, TodoItem, AppMode } from '../types';
 import { AgentStatus, ReasoningStep, ToolCallRecord } from '../agent/types';
 import { useGlobalState } from '../context/GlobalStateContext';
+import { useFileViewer } from '../context/FileViewerContext';
 import { TodoContainer } from './TodoCard';
 
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus, vs, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { oneDark, ghcolors, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
+
+const githubLightTheme: Record<string, React.CSSProperties> = {
+  ...ghcolors,
+  '.language-markdown .token.title.important': { color: '#0550ae', fontWeight: 'bold' },
+  '.language-markdown .token.title.important > .token.content': { color: '#0550ae' },
+  '.language-markdown .token.title.important > .token.punctuation': { color: '#8b949e' },
+  '.language-markdown .token.list.punctuation': { color: '#e16f24' },
+  '.language-markdown .token.code-snippet': { color: '#cf222e' },
+  '.language-markdown .token.bold .token.content': { color: '#24292f', fontWeight: 'bold' },
+  '.language-markdown .token.italic .token.content': { color: '#24292f', fontStyle: 'italic' },
+  '.language-markdown .token.url > .token.content': { color: '#0969da' },
+  '.language-markdown .token.url > .token.url': { color: '#0969da' },
+};
+
+const githubDarkTheme: Record<string, React.CSSProperties> = {
+  ...oneDark,
+  '.language-markdown .token.title.important': { color: '#79c0ff', fontWeight: 'bold' },
+  '.language-markdown .token.title.important > .token.content': { color: '#79c0ff' },
+  '.language-markdown .token.title.important > .token.punctuation': { color: '#8b949e' },
+  '.language-markdown .token.list.punctuation': { color: '#f0883e' },
+  '.language-markdown .token.code-snippet': { color: '#ff7b72' },
+  '.language-markdown .token.bold .token.content': { color: '#f0f6fc', fontWeight: 'bold' },
+  '.language-markdown .token.italic .token.content': { color: '#f0f6fc', fontStyle: 'italic' },
+  '.language-markdown .token.url > .token.content': { color: '#58a6ff' },
+  '.language-markdown .token.url > .token.url': { color: '#58a6ff' },
+};
 
 import { formatExecutionTime } from '../utils/format';
 
@@ -26,6 +53,41 @@ const openExternalLink = async (url: string) => {
 };
 
 const MAX_IMAGE_WIDTH = 330;
+
+const FILE_PATH_REGEX = /[A-Za-z]:\\(?:[^\s<>|*?\]"'。，！？；：（）、\]]| (?=[^\s<>|*?\]"'。，！？；：（）、\]]))+|\/(?:home|Users|usr|tmp|var|etc|opt)\/(?:[^\s<>|*?\]"'。，！？；：（）、\]]| (?=[^\s<>|*?\]"'。，！？；：（）、\]]))+/g;
+
+function linkifyFilePaths(text: string, onFileClick: (path: string) => void): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  FILE_PATH_REGEX.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+
+  while ((match = FILE_PATH_REGEX.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.substring(lastIndex, match.index));
+    }
+    let filePath = match[0];
+    filePath = filePath.replace(/[\s]+$/, '');
+    parts.push(
+      <span
+        key={`fp-${key++}`}
+        onClick={(e) => { e.stopPropagation(); onFileClick(filePath); }}
+        className="text-blue-500 hover:text-blue-600 hover:underline cursor-pointer break-all text-xs"
+        title="点击在工作区查看"
+      >
+        {filePath}
+      </span>
+    );
+    lastIndex = match.index + filePath.length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.substring(lastIndex));
+  }
+
+  return parts.length > 0 ? parts : [text];
+}
 
 interface MessageImageProps {
   src: string;
@@ -150,6 +212,38 @@ const CollapsibleSection: React.FC<{ title: string | React.ReactNode; icon: Reac
   );
 };
 
+const THOUGHT_COLLAPSE_THRESHOLD = 200;
+
+const ThoughtContent: React.FC<{ content: string; isDarkMode: boolean }> = ({ content, isDarkMode }) => {
+  const [expanded, setExpanded] = useState(false);
+  const needsCollapse = content.length > THOUGHT_COLLAPSE_THRESHOLD;
+
+  if (!needsCollapse) {
+    return <p className="opacity-80 mt-0.5">{content}</p>;
+  }
+
+  return (
+    <div className="mt-0.5">
+      <p className="opacity-80">
+        {expanded ? content : content.substring(0, THOUGHT_COLLAPSE_THRESHOLD) + '...'}
+      </p>
+      <button
+        onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+        className={cn(
+          "text-[10px] mt-0.5 flex items-center gap-0.5 transition-colors",
+          isDarkMode ? "text-blue-400 hover:text-blue-300" : "text-blue-500 hover:text-blue-600"
+        )}
+      >
+        {expanded ? (
+          <><ChevronUp size={10} /> 收起</>
+        ) : (
+          <><ChevronDown size={10} /> 展开全部 ({content.length} 字)</>
+        )}
+      </button>
+    </div>
+  );
+};
+
 export const ChatView: React.FC<ChatViewProps> = ({
   pendingAction,
   handleApproveAction,
@@ -168,6 +262,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   commandChatWidth
 }) => {
   const { messages, isStreaming, sessions, currentSessionId, userName, aiName, userAvatar, aiAvatar, fontFamily, agents, modelName } = useGlobalState();
+  const { openFile } = useFileViewer();
   
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
@@ -393,7 +488,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
       <div 
         ref={scrollRef}
         className={cn(
-          "flex-1 overflow-y-auto space-y-8 scroll-smooth z-10",
+          "flex-1 overflow-y-auto overflow-x-hidden space-y-8 scroll-smooth z-10",
           appMode === 'command' ? "py-4 px-0 no-scrollbar" : "p-6"
         )}
         style={{ fontFamily }}
@@ -464,12 +559,12 @@ export const ChatView: React.FC<ChatViewProps> = ({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className={cn(
-                "flex flex-col gap-1 mx-auto w-full",
-                appMode === 'command' ? "max-w-4xl items-stretch" : (isUser ? "max-w-4xl items-end" : "max-w-4xl items-start")
+                "flex flex-col gap-1 mx-auto w-full min-w-0",
+                appMode === 'command' ? "items-stretch" : (isUser ? "max-w-4xl items-end" : "max-w-4xl items-start")
               )}
             >
               <div className={cn(
-                "flex w-full",
+                "flex w-full min-w-0",
                 appMode === 'command' 
                   ? "flex-col group relative px-[20px]" 
                   : (isUser ? "flex-row-reverse gap-4 items-start" : "flex-row gap-4 items-start")
@@ -515,9 +610,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
                     </span>
                   )}
                   <div className={cn(
-                    "space-y-2 w-full",
+                    "space-y-2 w-full min-w-0",
                     appMode === 'command' 
-                      ? (isUser ? "flex flex-col items-end" : "flex flex-col items-start") 
+                      ? (isUser ? "flex flex-col items-end" : "flex flex-col") 
                       : "text-left"
                   )}>
                   {msg.content === 'SMB_REPAIR_CARD' ? (
@@ -540,7 +635,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   </button>
                 </div>
               ) : (
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2 min-w-0">
                   {(msg.thinking || (msg.agentExecution && msg.agentExecution.reasoningSteps.length > 0)) && (
                     <CollapsibleSection 
                       title={
@@ -658,7 +753,20 @@ export const ChatView: React.FC<ChatViewProps> = ({
                                       <span className="opacity-80">
                                         {step.toolParams?.query ? String(step.toolParams.query) :
                                          step.toolParams?.url ? String(step.toolParams.url) :
-                                         step.toolParams?.path ? String(step.toolParams.path) :
+                                         step.toolParams?.path ? (
+                                          /^[A-Za-z]:\\|^\//.test(String(step.toolParams.path)) ? (
+                                            <span
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                openFile(String(step.toolParams.path));
+                                              }}
+                                              className="text-blue-500 hover:text-blue-600 hover:underline cursor-pointer text-[11px]"
+                                              title="点击在工作区查看"
+                                            >
+                                              {String(step.toolParams.path)}
+                                            </span>
+                                          ) : String(step.toolParams.path)
+                                         ) :
                                          step.toolParams?.command ? String(step.toolParams.command) :
                                          step.toolParams?.content ? String(step.toolParams.content).substring(0, 80) + (String(step.toolParams.content).length > 80 ? '...' : '') :
                                          ''}
@@ -696,13 +804,13 @@ export const ChatView: React.FC<ChatViewProps> = ({
                                   <p className="opacity-50 mt-0.5 text-[10px]">结果已记录到任务看板</p>
                                 )}
                                 {step.type === 'thought' && step.content && (
-                                  <p className="opacity-80 mt-0.5">{step.content}</p>
+                                  <ThoughtContent content={step.content} isDarkMode={isDarkMode} />
                                 )}
                                 {(step.type === 'observation' || step.type === 'tool_result' || step.type === 'error' || step.type === 'summary' || step.type === 'planning') && step.content && !step.observationData && (
                                   <p className={cn("mt-0.5", step.type === 'error' ? "text-red-400 opacity-90" : "opacity-80")}>
                                     {msg.todos && (step.type === 'tool_result' || step.type === 'error') 
-                                      ? (step.type === 'error' ? `错误: ${step.content.substring(0, 60)}${step.content.length > 60 ? '...' : ''}` : '结果已记录到任务看板')
-                                      : step.content}
+                                      ? (step.type === 'error' ? linkifyFilePaths(`错误: ${step.content.substring(0, 60)}${step.content.length > 60 ? '...' : ''}`, openFile) : '结果已记录到任务看板')
+                                      : linkifyFilePaths(step.content, openFile)}
                                   </p>
                                 )}
                               </div>
@@ -718,8 +826,12 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       <div className="space-y-4">
                         {msg.fileEdits.map((edit, idx) => (
                           <div key={`${edit.file}-${idx}`} className="text-sm">
-                            <div className="flex items-center gap-2 mb-2 font-mono text-xs">
-                              <span className="opacity-70">{edit.file}</span>
+                            <div className="flex items-center gap-2 mb-2 text-xs">
+                              <span
+                                onClick={() => openFile(edit.file)}
+                                className="text-blue-500 hover:text-blue-600 hover:underline cursor-pointer"
+                                title="点击在工作区查看"
+                              >{edit.file}</span>
                               {edit.status === 'success' ? (
                                 <span className="text-emerald-500 flex items-center gap-1"><CheckCircle size={12} /> 成功</span>
                               ) : (
@@ -729,7 +841,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                             <div className="rounded-lg overflow-hidden text-xs">
                               <SyntaxHighlighter
                                 language="diff"
-                                style={isDarkMode ? vscDarkPlus : vs}
+                                style={isDarkMode ? githubDarkTheme : githubLightTheme}
                                 wrapLongLines={true}
                                 customStyle={{ margin: 0, padding: '12px', fontSize: '12px' }}
                               >
@@ -743,14 +855,14 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   )}
 
                   {msg.todos && msg.todos.length > 0 && (
-                    <div className="w-full">
+                    <div className="w-full min-w-0 max-w-full overflow-hidden">
                       <TodoContainer todos={msg.todos} />
                     </div>
                   )}
 
                   {(msg.content || (msg.role === 'assistant' && !msg.content && (isWaitingForResponse || isSearching) && msg.id === messages[messages.length - 1]?.id)) && (
                     <div className={cn(
-                      "inline-block break-words",
+                      "inline-block break-words min-w-0 max-w-full overflow-hidden",
                       msg.role === 'user' 
                         ? "bg-indigo-600 text-white rounded-tr-none px-4 py-3 rounded-2xl text-sm leading-relaxed" 
                         : (msg.content || (isWaitingForResponse || isSearching) ? (appMode === 'command' ? "w-full text-sm leading-relaxed" : "glass rounded-tl-none px-4 py-3 rounded-2xl text-sm leading-relaxed") : "")
@@ -791,11 +903,38 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       {msg.role === 'assistant' ? (
                         <div className="flex flex-col gap-2">
                           <div className={cn(
-                            "prose prose-sm max-w-none prose-pre:p-0 prose-pre:m-0 prose-pre:bg-transparent break-words overflow-hidden",
+                            "prose prose-sm max-w-none min-w-0 prose-pre:p-0 prose-pre:m-0 prose-pre:bg-transparent break-words overflow-hidden",
                             isDarkMode ? "prose-invert" : ""
                           )}>
                             <ReactMarkdown
                               components={{
+                                p({node, children, ...props}: any) {
+                                  const processChildren = (childs: React.ReactNode): React.ReactNode => {
+                                    if (typeof childs === 'string') {
+                                      return linkifyFilePaths(childs, openFile);
+                                    }
+                                    if (Array.isArray(childs)) {
+                                      return childs.map((child, i) => {
+                                        if (typeof child === 'string') {
+                                          return <React.Fragment key={`p-${i}`}>{linkifyFilePaths(child, openFile)}</React.Fragment>;
+                                        }
+                                        return child;
+                                      });
+                                    }
+                                    return childs;
+                                  };
+                                  return <p {...props}>{processChildren(children)}</p>;
+                                },
+                                strong({node, children, ...props}: any) {
+                                  const text = typeof children === 'string' ? children : 
+                                    Array.isArray(children) ? children.join('') : '';
+                                  if (FILE_PATH_REGEX.test(text)) {
+                                    FILE_PATH_REGEX.lastIndex = 0;
+                                    return <span {...props}>{linkifyFilePaths(text, openFile)}</span>;
+                                  }
+                                  FILE_PATH_REGEX.lastIndex = 0;
+                                  return <strong {...props}>{children}</strong>;
+                                },
                                 code({node, inline, className, children, ...props}: any) {
                                   const match = /language-(\w+)/.exec(className || '')
                                   const codeContent = String(children).replace(/\n$/, '');
@@ -834,7 +973,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
                                       <SyntaxHighlighter
                                         {...props}
-                                        style={isDarkMode ? vscDarkPlus : oneLight}
+                                        style={isDarkMode ? githubDarkTheme : githubLightTheme}
                                         language={match[1]}
                                         PreTag="div"
                                         wrapLongLines={true}

@@ -129,6 +129,7 @@ export function taskPlanToTodoItems(plan: TaskPlan): TodoItem[] {
           result: tc.result || undefined,
           error: tc.error || undefined,
           observationData: tc.observationData || undefined,
+          filePath: tc.filePath || undefined,
         });
       }
     }

@@ -473,9 +473,14 @@ export async function* streamLLMWithTools(
               outputTokens: usageData.completion_tokens || 0,
             });
           } else if (callbacks?.onTokenUsage) {
-            const estimatedInputTokens = Math.ceil(JSON.stringify(messages).length / 4);
-            const totalOutputLength = accumulatedContent.length + accumulatedReasoningContent.length;
-            const estimatedOutputTokens = Math.ceil(totalOutputLength / 4);
+            const messagesStr = JSON.stringify(messages);
+            const cjkCount = (messagesStr.match(/[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/g) || []).length;
+            const nonCjkLength = messagesStr.length - cjkCount;
+            const estimatedInputTokens = Math.ceil(cjkCount / 1.5 + nonCjkLength / 4);
+            const totalOutput = accumulatedContent + accumulatedReasoningContent;
+            const outCjkCount = (totalOutput.match(/[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/g) || []).length;
+            const outNonCjkLength = totalOutput.length - outCjkCount;
+            const estimatedOutputTokens = Math.ceil(outCjkCount / 1.5 + outNonCjkLength / 4);
             callbacks.onTokenUsage({
               inputTokens: estimatedInputTokens,
               outputTokens: estimatedOutputTokens,

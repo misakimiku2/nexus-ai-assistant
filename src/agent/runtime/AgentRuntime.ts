@@ -188,6 +188,7 @@ export class AgentRuntime {
   ): Promise<string> {
     const results: string[] = [];
     let currentMessages = [...preprocessed.messages] as ConversationMessage[];
+    const MAX_CONTEXT_MESSAGES = 12;
 
     for (let i = 0; i < plan.steps.length; i++) {
       if (this.aborted) {
@@ -233,6 +234,13 @@ export class AgentRuntime {
           role: 'assistant',
           content: stepResult,
         });
+
+        if (currentMessages.length > MAX_CONTEXT_MESSAGES) {
+          const systemMsgs = currentMessages.filter(m => m.role === 'system');
+          const nonSystemMsgs = currentMessages.filter(m => m.role !== 'system');
+          const keptNonSystem = nonSystemMsgs.slice(-(MAX_CONTEXT_MESSAGES - systemMsgs.length));
+          currentMessages = [...systemMsgs, ...keptNonSystem];
+        }
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Unknown error';
         plan = planner.updateStepStatus(plan, step.id, 'failed', undefined, errorMsg);
@@ -245,6 +253,13 @@ export class AgentRuntime {
           role: 'assistant',
           content: `Step "${step.title}" failed: ${errorMsg}`,
         });
+
+        if (currentMessages.length > MAX_CONTEXT_MESSAGES) {
+          const systemMsgs = currentMessages.filter(m => m.role === 'system');
+          const nonSystemMsgs = currentMessages.filter(m => m.role !== 'system');
+          const keptNonSystem = nonSystemMsgs.slice(-(MAX_CONTEXT_MESSAGES - systemMsgs.length));
+          currentMessages = [...systemMsgs, ...keptNonSystem];
+        }
       }
     }
 
@@ -260,15 +275,41 @@ export class AgentRuntime {
     const contextParts: string[] = [];
 
     if (completedSteps.length > 0) {
+      const MAX_CONTEXT_CHARS = 4000;
       contextParts.push('[INSTRUCTION: Below is context from previously completed steps. Do NOT repeat or echo this information in your response. Use it only as background knowledge.]');
-      for (const cs of completedSteps) {
-        contextParts.push(`Completed: ${cs.title}`);
+
+      let usedChars = 0;
+      for (let i = completedSteps.length - 1; i >= 0; i--) {
+        const cs = completedSteps[i];
+        const titleLine = `Completed: ${cs.title}`;
+        let resultLine = '';
+
         if (cs.result) {
-          const truncated = cs.result.length > 2000
-            ? cs.result.substring(0, 2000) + '\n...[truncated]'
-            : cs.result;
-          contextParts.push(truncated);
+          if (completedSteps.length <= 3) {
+            const maxResultLen = Math.min(2000, MAX_CONTEXT_CHARS - usedChars - titleLine.length);
+            const truncated = cs.result.length > maxResultLen
+              ? cs.result.substring(0, maxResultLen) + '\n...[truncated]'
+              : cs.result;
+            resultLine = truncated;
+          } else {
+            const maxSummaryLen = Math.min(500, MAX_CONTEXT_CHARS - usedChars - titleLine.length);
+            const summary = cs.result.length > maxSummaryLen
+              ? cs.result.substring(0, maxSummaryLen) + '\n...[summary truncated]'
+              : cs.result;
+            resultLine = summary;
+          }
         }
+
+        const entryChars = titleLine.length + (resultLine ? resultLine.length + 1 : 0);
+        if (usedChars + entryChars > MAX_CONTEXT_CHARS && i < completedSteps.length - 1) {
+          const omittedCount = i + 1;
+          contextParts.push(`[... ${omittedCount} earlier step(s) omitted for context efficiency ...]`);
+          break;
+        }
+
+        contextParts.push(titleLine);
+        if (resultLine) contextParts.push(resultLine);
+        usedChars += entryChars;
       }
     }
 
