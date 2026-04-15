@@ -21,10 +21,11 @@ import { xml } from '@codemirror/lang-xml';
 import { php } from '@codemirror/lang-php';
 import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection, dropCursor, rectangularSelection, crosshairCursor, highlightActiveLine } from '@codemirror/view';
 import { history, indentWithTab } from '@codemirror/commands';
-import { syntaxTree, indentUnit, foldGutter, bracketMatching, indentOnInput, syntaxHighlighting, defaultHighlightStyle, HighlightStyle, foldKeymap } from '@codemirror/language';
+import { syntaxTree, ensureSyntaxTree, indentUnit, foldGutter, bracketMatching, indentOnInput, syntaxHighlighting, defaultHighlightStyle, HighlightStyle, foldKeymap } from '@codemirror/language';
 import { highlightSelectionMatches } from '@codemirror/search';
 import { autocompletion } from '@codemirror/autocomplete';
 import { Tag, tags as t, highlightTree, type Highlighter } from '@lezer/highlight';
+import type { Tree } from '@lezer/common';
 import { EditorState, Extension, StateEffect } from '@codemirror/state';
 
 interface CanvasWorkspaceProps {
@@ -366,6 +367,9 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
   const rafRef = useRef<number | null>(null);
   const viewReadyRef = useRef<EditorView | null>(null);
   const cleanupFns = useRef<(() => void)[]>([]);
+  const tabScrollPositions = useRef<Map<string, number>>(new Map());
+  const activeTabIdRef = useRef(activeTabId);
+  activeTabIdRef.current = activeTabId;
 
   function getLineIndent(text: string): number {
     let indent = 0;
@@ -665,6 +669,7 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
   }, [isDarkMode]);
 
   const setupMinimap = useCallback((view: EditorView) => {
+    const capturedTabId = activeTabIdRef.current;
     const bgColor = isDarkMode ? '#27272a' : '#fafafa';
     const viewportColor = isDarkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)';
     const viewportBorderColor = isDarkMode ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.18)';
@@ -743,6 +748,8 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
     let dragStartScrollTop = 0;
     let currentMinimapScrollTop = 0;
     let dragRafId = 0;
+    let fullParseScheduled = false;
+    let forcedTree: Tree | null = null;
     const MIN_VP_HEIGHT = 30;
 
     const defaultColor = isDarkMode ? '#3d3d42' : '#d8d8db';
@@ -867,9 +874,11 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
       const minimapScrollTop = maxMinimapScroll > 0
         ? Math.max(0, Math.min(maxMinimapScroll, vpYInContent - vpY))
         : 0;
+      currentMinimapScrollTop = minimapScrollTop;
 
-      let firstLine = 1;
-      let lastLine = lineCount;
+      const BUFFER_LINES = 15;
+      const highlightFirstLine = Math.max(1, Math.floor((minimapScrollTop - PADDING) / LINE_PITCH) + 1 - BUFFER_LINES);
+      const highlightLastLine = Math.min(lineCount, Math.ceil((minimapScrollTop + containerH - PADDING) / LINE_PITCH) + BUFFER_LINES);
 
       contentCanvas.width = displayWidth * dpr;
       contentCanvas.height = contentH * dpr;
@@ -881,9 +890,10 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.fillStyle = bgColor;
       ctx.fillRect(0, 0, displayWidth, contentH);
-      const tree = syntaxTree(view.state);
-      const rangeFrom = doc.line(firstLine).from;
-      const rangeTo = doc.line(lastLine).to;
+
+      const tree = forcedTree || syntaxTree(view.state);
+      const rangeFrom = doc.line(highlightFirstLine).from;
+      const rangeTo = doc.line(highlightLastLine).to;
 
       const colorRanges: { from: number; to: number; color: string }[] = [];
       highlightTree(tree, minimapHighlighter, (from, to, color) => {
@@ -898,7 +908,7 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
         const fromLine = doc.lineAt(range.from).number;
         const toLine = doc.lineAt(Math.max(range.from, range.to - 1)).number;
         for (let ln = fromLine; ln <= toLine; ln++) {
-          if (ln < firstLine || ln > lastLine) continue;
+          if (ln < highlightFirstLine || ln > highlightLastLine) continue;
           if (!lineTokenMap.has(ln)) lineTokenMap.set(ln, []);
           const ls = doc.line(ln).from;
           const le = doc.line(ln).to;
@@ -910,7 +920,7 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
         }
       }
 
-      for (let i = firstLine; i <= lastLine; i++) {
+      for (let i = 1; i <= lineCount; i++) {
         const line = doc.line(i);
         const y = PADDING + (i - 1) * LINE_PITCH;
         const lineLen = line.text.length;
@@ -944,11 +954,61 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
           ctx.fillRect(x, y, len * CHAR_WIDTH, BLOCK_HEIGHT);
         }
       }
+
+      const treeAfterRender = forcedTree || syntaxTree(view.state);
+      if (treeAfterRender.length < doc.length * 0.98 && !fullParseScheduled) {
+        fullParseScheduled = true;
+        const syncTree = ensureSyntaxTree(view.state, doc.length, 100);
+        if (syncTree) {
+          forcedTree = syncTree;
+          renderContent();
+          updateOverlay();
+          fullParseScheduled = false;
+        } else {
+          requestAnimationFrame(() => {
+            scheduleProgressiveParse();
+          });
+        }
+      }
       return contentH;
+
+      function scheduleProgressiveParse() {
+        const TIMEOUTS = [50, 100, 200, 500, 1000, 2000, 5000];
+        let step = 0;
+
+        function parseStep() {
+          if (step >= TIMEOUTS.length) {
+            renderContent();
+            updateOverlay();
+            fullParseScheduled = false;
+            return;
+          }
+
+          const timeout = TIMEOUTS[step++];
+          const forced = ensureSyntaxTree(view.state, doc.length, timeout);
+
+          if (forced) {
+            forcedTree = forced;
+          }
+
+          renderContent();
+          updateOverlay();
+
+          if (forcedTree && forcedTree.length >= doc.length * 0.98) {
+            fullParseScheduled = false;
+            return;
+          }
+
+          requestAnimationFrame(parseStep);
+        }
+        requestAnimationFrame(parseStep);
+      }
     };
 
     const updateOverlay = () => {
-      const contentH = parseFloat(contentCanvas.style.height) || container.clientHeight;
+      const doc = view.state.doc;
+      const lineCount = typeof doc.lines === 'number' ? doc.lines : 1;
+      const contentH = Math.max(lineCount * LINE_PITCH + PADDING * 2, container.clientHeight);
       const containerH = container.clientHeight;
       const scrollerH = view.scrollDOM.clientHeight;
       const scrollH = view.scrollDOM.scrollHeight;
@@ -983,7 +1043,6 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
       innerWrapper.style.transform = `translateY(${-minimapScrollTop}px)`;
       currentMinimapScrollTop = minimapScrollTop;
 
-      const doc = view.state.doc;
       const sel = view.state.selection.main;
       if (!sel.empty) {
         const startLine = doc.lineAt(sel.from).number;
@@ -1000,10 +1059,8 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
       if (minimapRafRef.current !== null) return;
       minimapRafRef.current = requestAnimationFrame(() => {
         minimapRafRef.current = null;
-        const lineCount = typeof view.state.doc.lines === 'number' ? view.state.doc.lines : 1;
-        if (lineCount > 1500) {
-          renderContent();
-        }
+        if (capturedTabId) tabScrollPositions.current.set(capturedTabId, view.scrollDOM.scrollTop);
+        renderContent();
         updateOverlay();
       });
     };
@@ -1165,7 +1222,17 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
     setupLineNumberClick(view);
     setupStickyScroll(view);
     setupMinimap(view);
-  }, [fixSelectionLayer, setupLineNumberClick, setupStickyScroll, setupMinimap]);
+    if (activeTabId) {
+      const savedScrollTop = tabScrollPositions.current.get(activeTabId);
+      if (savedScrollTop && savedScrollTop > 0) {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            view.scrollDOM.scrollTop = savedScrollTop;
+          });
+        });
+      }
+    }
+  }, [fixSelectionLayer, setupLineNumberClick, setupStickyScroll, setupMinimap, activeTabId]);
 
   useEffect(() => {
     const view = viewReadyRef.current;

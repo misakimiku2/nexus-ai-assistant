@@ -390,14 +390,22 @@ const handleGutterClick = (e: MouseEvent) => {
 
 ```
 setupMinimap() 函数（在 onCreateEditor 回调中调用）
+├── capturedTabId：创建时捕获的 tab ID，用于 onScroll 中保存滚动位置
+├── forcedTree：ensureSyntaxTree 返回的完整语法树缓存
 ├── 颜色定义：暗色/亮色两套颜色值，与 HighlightStyle 完全一致
 ├── tagColorMap：Map<string, string>，tag.toString() → 颜色值
 ├── minimapHighlighter：自定义 Highlighter 接口，将语法 tag 映射为颜色字符串
 ├── renderContent()：核心渲染函数
-│   ├── 获取 syntaxTree(view.state)
-│   ├── highlightTree(tree, minimapHighlighter, callback) 获取所有颜色区间
+│   ├── 计算可见区域行范围（highlightFirstLine ~ highlightLastLine）
+│   ├── Canvas 全文档高度，所有行绘制 defaultColor 色块
+│   ├── forcedTree || syntaxTree(view.state) 优先使用强制解析树
+│   ├── highlightTree() 仅处理可见区域（性能优化）
 │   ├── 构建 lineTokenMap（按行分组的 from/to/color 区间）
-│   └── Canvas fillRect 逐行绘制色块
+│   └── 可见区域行叠加语法高亮色块
+├── scheduleProgressiveParse()：大文件异步完整解析
+│   ├── ensureSyntaxTree(view.state, doc.length, timeout) 渐进超时
+│   ├── TIMEOUTS = [50, 100, 200, 500, 1000, 2000, 5000]
+│   └── 解析成功后设置 forcedTree 并重绘
 ├── updateOverlay()：更新视口指示器位置 + innerWrapper 偏移
 ├── scrollToY()：点击跳转（内容坐标映射）
 └── 鼠标事件处理：mousedown/mousemove/mouseup（拖拽 + 点击跳转）
@@ -482,9 +490,48 @@ minimapWidth = clamp(round(view.dom.clientWidth * 0.08), MINIMAP_WIDTH_MIN, MAX)
 
 **已知问题（待解决）**：
 
-1. **大文件性能**：移除了 >1500 行的可见区域优化后，4977 行文件的 highlightTree + Canvas 渲染存在掉帧。需要重新引入可见区域优化或改用增量渲染
-2. **语言特有标签**：部分语言的特殊 Tag（如 Python 的 `moduleKeyword`、`definitionKeyword`）不在标准 `t.*` 集合中，需要手动补充到 `addStrTag()`
-3. **highlightTree 多实例问题**：Vite 预打包可能导致 `@lezer/highlight` 存在多个模块实例，Tag 对象引用和 ID 都不一致，只能用 `toString()` 字符串匹配
+1. **语言特有标签**：部分语言的特殊 Tag（如 Python 的 `moduleKeyword`、`definitionKeyword`）不在标准 `t.*` 集合中，需要手动补充到 `addStrTag()`
+2. **highlightTree 多实例问题**：Vite 预打包可能导致 `@lezer/highlight` 存在多个模块实例，Tag 对象引用和 ID 都不一致，只能用 `toString()` 字符串匹配
+
+**大文件性能优化（已解决）**：
+
+| 优化项 | 方案 |
+|--------|------|
+| highlightTree 范围 | 仅处理可见区域行（±15 行缓冲），非可见区域用 defaultColor 色块 |
+| 语法树完整解析 | `ensureSyntaxTree(view.state, doc.length, timeout)` 渐进超时强制解析 |
+| 语法树缓存 | `forcedTree` 变量存储 ensureSyntaxTree 返回的完整树，优先于 `syntaxTree(view.state)` |
+| 首次渲染 | 先绘制全文档 defaultColor 色块（立即可见），再异步解析语法树并重绘 |
+
+> **关键发现**：CodeMirror 的 Lezer 解析器使用惰性增量解析，打开大文件（如 202K / 4978 行）时仅解析视口附近约 1.5% 的内容。`ensureSyntaxTree()` 是官方的强制解析 API，但返回的树是独立对象，不会自动更新到 `syntaxTree(view.state)` 的缓存中，必须手动存储并在 `renderContent()` 中优先使用。
+
+***
+
+### 3.12 Tab 切换滚动位置保持
+
+**问题描述**：在多个文件标签之间切换时，页面自动滚动到文件顶部，而非停留在之前的位置。
+
+**根因**：CodeMirror 组件使用 `key={activeTabId}`，每次 tab 切换都会销毁旧组件并创建新组件。React 的卸载顺序是先销毁旧 CodeMirror（scrollTop 重置为 0），再创建新 CodeMirror。到 `handleCreateEditor` 回调执行时，旧 view 的 `scrollDOM.scrollTop` 已经是 0，如果此时保存会覆盖 `onScroll` 中持续保存的正确值。
+
+**修复方案**：
+
+```
+tabScrollPositions: Map<string, number>   ← 每个 tab 的滚动位置缓存
+activeTabIdRef: Ref<string>               ← 当前 tab ID 的 ref（供闭包访问）
+capturedTabId: string                     ← setupMinimap 创建时捕获的 tab ID
+```
+
+1. **onScroll 持续保存**：`setupMinimap` 中使用 `capturedTabId`（创建时捕获，不随 tab 切换变化）在每次滚动时保存 `tabScrollPositions[capturedTabId] = scrollTop`
+2. **handleCreateEditor 不保存**：移除了旧 view 的 scrollTop 保存逻辑（避免用 0 覆盖正确值）
+3. **handleCreateEditor 恢复**：从 `tabScrollPositions` 读取新 tab 的保存位置，通过双层 `requestAnimationFrame` 延迟恢复（等待 CodeMirror 完成内部布局后再设置 `scrollTop`）
+
+```typescript
+// 双层 RAF：确保 CodeMirror 完成内部布局后再恢复
+requestAnimationFrame(() => {
+  requestAnimationFrame(() => {
+    view.scrollDOM.scrollTop = savedScrollTop;
+  });
+});
+```
 
 ***
 
@@ -540,4 +587,6 @@ const FILE_PATH_REGEX = /[A-Za-z]:\\(?:[^\s<>|*?"'。，！？；：（）、\]]
 | 迭代 4 | 彻底重构为 CodeMirror 6，解决所有语法覆盖度、编辑高亮、行号选择问题 |
 | 迭代 5 | 自定义 VS Code Dark+/Light+ 主题替代 GitHub 主题，修复深色模式背景色不匹配（zinc-800 #27272a）、添加代码折叠（foldGutter）、添加多层粘性滚动（Sticky Scroll，花括号计数法作用域检测 + highlightTree 语法高亮 + 点击跳转）、行号点击选择（DOM 事件监听）、自动换行（EditorView.lineWrapping） |
 | 迭代 6 | 修复选区高亮不显示问题（进行中）：分析 CodeMirror drawSelection/LayerView/hideNativeSelection 源码，发现选区层 z-index 内联样式无法通过 CSS 覆盖，尝试通过 JavaScript DOM 操作修复 z-index 堆叠顺序，但问题尚未解决 |
-| 迭代 7（当前） | **Minimap 功能开发**：Canvas 渲染代码缩略图，经历多轮迭代：(1) 调整色块颜色与语法高亮一致、增加2px行间距、自适应宽度60-170px；(2) 视口指示器尺寸/位置修复（全宽+最小高度、双坐标系系统）；(3) 点击行为优化（范围框点击不跳转仅拖拽滚动、标点符号近背景色处理）；(4) 点击跳转精度修复（内容坐标映射 contentY=relY+currentMinimapScrollTop）；(5) 空白区域修复（统一 renderContent/updateOverlay 的 vpH 计算）；(6) **着色引擎重构**：从自定义 tokenizeLine() 正则分词器迁移到 highlightTree() + 自定义 minimapHighlighter，复用 CodeMirror Lezer 语法树实现与编辑器完全一致的 token 分类；(7) 解决 Vite 预打包导致的 Tag 多实例引用不一致问题（Map 键从对象引用→tag.id→tag.toString() 三次演进）；(8) 补充语言特有标签（paren/brace/derefOperator 等）。**当前状态：基本功能可用，大文件存在掉帧需优化性能** |
+| 迭代 7 | **Minimap 功能开发**：Canvas 渲染代码缩略图，经历多轮迭代：(1) 调整色块颜色与语法高亮一致、增加2px行间距、自适应宽度60-170px；(2) 视口指示器尺寸/位置修复（全宽+最小高度、双坐标系系统）；(3) 点击行为优化（范围框点击不跳转仅拖拽滚动、标点符号近背景色处理）；(4) 点击跳转精度修复（内容坐标映射 contentY=relY+currentMinimapScrollTop）；(5) 空白区域修复（统一 renderContent/updateOverlay 的 vpH 计算）；(6) **着色引擎重构**：从自定义 tokenizeLine() 正则分词器迁移到 highlightTree() + 自定义 minimapHighlighter，复用 CodeMirror Lezer 语法树实现与编辑器完全一致的 token 分类；(7) 解决 Vite 预打包导致的 Tag 多实例引用不一致问题（Map 键从对象引用→tag.id→tag.toString() 三次演进）；(8) 补充语言特有标签（paren/brace/derefOperator 等） |
+| 迭代 8 | **Minimap 大文件性能优化**：(1) 可见区域语法高亮优化 — highlightTree 仅处理可见区域行（±15行缓冲），非可见区域用 defaultColor 色块，Canvas 保持全文档高度；(2) Lezer 惰性解析问题 — 发现 CodeMirror 打开大文件时仅解析 ~1.5% 内容，`syntaxTree(view.state)` 返回不完整树；(3) ensureSyntaxTree 强制解析 — 使用 `ensureSyntaxTree(view.state, doc.length, timeout)` 渐进超时策略（50ms→100ms→200ms→...→5000ms）强制完整解析；(4) forcedTree 缓存 — 发现 ensureSyntaxTree 返回的树不会自动更新到 syntaxTree(view.state)，需手动存储到 forcedTree 变量并在 renderContent 中优先使用；(5) 首次渲染两阶段 — 先绘制全文档 defaultColor 色块（立即可见），再异步解析语法树并重绘 |
+| 迭代 9（当前） | **Tab 切换滚动位置保持**：修复多文件切换时页面自动滚动到顶部的问题。根因是 `key={activeTabId}` 导致 React 先卸载旧 CodeMirror（scrollTop 重置为 0），再创建新 CodeMirror。修复方案：(1) setupMinimap 中用 capturedTabId 在 onScroll 时持续保存滚动位置；(2) 移除 handleCreateEditor 中的旧 view scrollTop 保存（避免用 0 覆盖正确值）；(3) handleCreateEditor 中通过双层 RAF 延迟恢复保存的滚动位置 |
