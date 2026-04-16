@@ -360,7 +360,16 @@
     "saveFile": "Save",
     "revertFile": "Revert",
     "modified": "Modified",
-    "readOnly": "Read Only"
+    "readOnly": "Read Only",
+    "diff": {
+      "original": "Original",
+      "modified": "Modified",
+      "accept": "Accept",
+      "reject": "Reject",
+      "lines": "{count} lines",
+      "added": "+{count}",
+      "removed": "-{count}"
+    }
   },
   "search": {
     "unknownSession": "Unknown Session",

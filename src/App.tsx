@@ -19,7 +19,8 @@ import { CloseConfirmModal } from './components/CloseConfirmModal';
 import { WindowControls } from './components/WindowControls';
 import { ToolAuthModal } from './components/AgentExecutionView';
 import { useGlobalState } from './context/GlobalStateContext';
-import { FileViewerProvider } from './context/FileViewerContext';
+import { FileViewerProvider, useFileViewer } from './context/FileViewerContext';
+import { TerminalProvider, useTerminal } from './context/TerminalContext';
 import { useAgentExecution, taskPlanToTodoItems } from './hooks/useAgentExecution';
 import { motion, AnimatePresence } from 'motion/react';
 import { listen } from '@tauri-apps/api/event';
@@ -30,6 +31,28 @@ import { ConversationMessage, ReasoningStep, ToolCallRecord, AgentStatus, Conten
 import { DEFAULT_AGENT } from './data/agents';
 import { ONLINE_PROVIDERS } from './config/aggregatorProviders';
 import { supportsVision, getVisionUnsupportedMessage } from './config/visionModels';
+
+interface CanvasBridgeInnerProps {
+  diffOpenRef: React.MutableRefObject<((path: string, original: string, newContent: string) => void) | null>;
+  shellOutputRef: React.MutableRefObject<((command: string, stdout: string, stderr: string, exitCode: number) => void) | null>;
+}
+
+const CanvasBridgeInner: React.FC<CanvasBridgeInnerProps> = ({ diffOpenRef, shellOutputRef }) => {
+  const { openDiffView } = useFileViewer();
+  const { addEntry, setIsOpen } = useTerminal();
+  useEffect(() => {
+    diffOpenRef.current = openDiffView;
+    shellOutputRef.current = (cmd: string, out: string, err: string, code: number) => {
+      addEntry({ command: cmd, stdout: out, stderr: err, exitCode: code, timestamp: Date.now() });
+      setIsOpen(true);
+    };
+    return () => {
+      diffOpenRef.current = null;
+      shellOutputRef.current = null;
+    };
+  }, [openDiffView, addEntry, setIsOpen, diffOpenRef, shellOutputRef]);
+  return null;
+};
 
 export default function App() {
   const { t, i18n } = useTranslation();
@@ -260,6 +283,18 @@ export default function App() {
     }
   }, [setMessages]);
 
+  const diffOpenRef = useRef<((path: string, original: string, newContent: string) => void) | null>(null);
+  const shellOutputRef = useRef<((command: string, stdout: string, stderr: string, exitCode: number) => void) | null>(null);
+
+  const handleDiffOpen = useCallback((filePath: string, originalContent: string, newContent: string) => {
+    setAppMode('command');
+    diffOpenRef.current?.(filePath, originalContent, newContent);
+  }, [setAppMode]);
+
+  const handleShellOutput = useCallback((command: string, stdout: string, stderr: string, exitCode: number) => {
+    shellOutputRef.current?.(command, stdout, stderr, exitCode);
+  }, []);
+
   const agentExecution = useAgentExecution(
     useMemo(() => {
       // 优先使用用户选择的活跃模型配置 ID
@@ -336,7 +371,9 @@ export default function App() {
       onExecutionUpdate: handleExecutionUpdate,
       onContentChunk: handleContentChunk,
       onTaskPlanUpdate: handleTaskPlanUpdate,
-    }), [handleWebSearchResult, handleExecutionUpdate, handleContentChunk, handleTaskPlanUpdate])
+      onDiffOpen: handleDiffOpen,
+      onShellOutput: handleShellOutput,
+    }), [handleWebSearchResult, handleExecutionUpdate, handleContentChunk, handleTaskPlanUpdate, handleDiffOpen, handleShellOutput])
   );
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -1132,6 +1169,8 @@ export default function App() {
 
   return (
     <FileViewerProvider onFileOpen={handleFileOpenSwitchMode}>
+    <TerminalProvider>
+    <CanvasBridgeInner diffOpenRef={diffOpenRef} shellOutputRef={shellOutputRef} />
     <div className={cn(
       "flex h-screen w-full overflow-hidden transition-colors duration-300",
       isDarkMode ? "dark bg-zinc-900 text-zinc-200" : "bg-[#f5f5f5] text-zinc-800"
@@ -1406,6 +1445,7 @@ export default function App() {
         onReject={agentExecution.rejectToolCall}
       />
     </div>
+    </TerminalProvider>
     </FileViewerProvider>
   );
 }

@@ -569,6 +569,7 @@ export class ReActEngine {
         success: result.success,
         output: result.output,
         error: result.error,
+        metadata: result.metadata,
       };
       record.status = result.success ? 'success' : 'error';
 

@@ -1,9 +1,11 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { Plus, Command, PanelRightOpen, PanelRightClose, X, FileText, Code, Save, RotateCcw, FolderOpen, Eye, Pencil } from 'lucide-react';
+import { Plus, Command, PanelRightOpen, PanelRightClose, X, FileText, Code, Save, RotateCcw, FolderOpen, Eye, Pencil, GitCompare } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion } from 'motion/react';
 import { useTranslation } from '../hooks/useTranslation';
 import { useFileViewer, FileTab } from '../context/FileViewerContext';
+import { DiffView } from './DiffView';
+import { CanvasTerminal } from './CanvasTerminal';
 import ReactMarkdown from 'react-markdown';
 import CodeMirror, { ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
@@ -356,7 +358,7 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
   setIsToolPanelOpen
 }) => {
   const { t } = useTranslation();
-  const { tabs, activeTabId, openFile, closeTab, setActiveTab, updateTabContent, saveTab } = useFileViewer();
+  const { tabs, activeTabId, openFile, closeTab, setActiveTab, updateTabContent, saveTab, acceptDiff, rejectDiff } = useFileViewer();
   const [isEditing, setIsEditing] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1342,6 +1344,7 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
   }, [handleSave]);
 
   const getTabIcon = (tab: FileTab) => {
+    if (tab.type === 'diff') return <GitCompare size={14} />;
     const lang = tab.language;
     if (['typescript', 'javascript', 'python', 'rust', 'go', 'java', 'c', 'cpp', 'csharp', 'ruby', 'php', 'swift', 'kotlin', 'scala'].includes(lang)) {
       return <Code size={14} />;
@@ -1449,10 +1452,16 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
             >
               <div className={cn(
                 "w-1.5 h-1.5 rounded-full shrink-0",
-                tab.isDirty ? "bg-amber-500" : (activeTabId === tab.id ? "bg-emerald-500" : "bg-zinc-500/30")
+                tab.type === 'diff' ? "bg-blue-500" : (tab.isDirty ? "bg-amber-500" : (activeTabId === tab.id ? "bg-emerald-500" : "bg-zinc-500/30"))
               )} />
               {getTabIcon(tab)}
               <span className="truncate">{tab.title}</span>
+              {tab.type === 'diff' && (
+                <span className={cn(
+                  "px-1 rounded text-[9px] font-bold shrink-0",
+                  isDarkMode ? "bg-blue-500/20 text-blue-400" : "bg-blue-100 text-blue-600"
+                )}>DIFF</span>
+              )}
               <button
                 onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
                 className="opacity-0 group-hover:opacity-100 p-0.5 rounded-sm hover:bg-zinc-500/20 transition-all shrink-0"
@@ -1495,7 +1504,19 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
 
       <div className="flex-1 flex flex-col overflow-hidden">
         {activeTab ? (
-          <>
+          activeTab.type === 'diff' ? (
+              <div className="flex-1 overflow-hidden">
+                <DiffView
+                  originalContent={activeTab.diffData?.originalContent ?? activeTab.originalContent}
+                  newContent={activeTab.diffData?.newContent ?? activeTab.content}
+                  language={activeTab.language}
+                  isDarkMode={isDarkMode}
+                  onAccept={() => acceptDiff(activeTab.id)}
+                  onReject={() => rejectDiff(activeTab.id)}
+                />
+              </div>
+            ) : (
+            <>
             <div className={cn(
               "flex items-center gap-2 px-4 py-1.5 border-b text-xs shrink-0",
               isDarkMode ? "border-zinc-700 bg-zinc-800/80 text-zinc-400" : "border-zinc-200 bg-white text-zinc-500"
@@ -1601,7 +1622,8 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
                 />
               )}
             </div>
-          </>
+            </>
+            )
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center p-6">
             <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mb-4 border border-transparent", isDarkMode ? "bg-zinc-700 border-zinc-600/50" : "bg-zinc-200")}>
@@ -1624,6 +1646,8 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
           </div>
         )}
       </div>
+
+      <CanvasTerminal isDarkMode={isDarkMode} />
     </motion.div>
   );
 };

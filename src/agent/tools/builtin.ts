@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { setPendingWrite, getPendingWrite } from '../../lib/pendingWrites';
 import {
   ToolDefinition,
   ToolExecutionResult,
@@ -502,6 +503,15 @@ function createReadFileTool(): ToolDefinition {
     },
     execute: async (params): Promise<ToolExecutionResult> => {
       try {
+        const pending = getPendingWrite(params.path as string);
+        if (pending) {
+          return {
+            success: true,
+            output: pending.newContent,
+            metadata: { size: pending.newContent.length },
+          };
+        }
+
         const result = await invoke<{ content: string; size: number }>('read_file', {
           path: params.path,
           encoding: params.encoding || 'utf-8',
@@ -564,15 +574,31 @@ function createWriteFileTool(config: BuiltinToolConfig): ToolDefinition {
           }
         }
 
-        await invoke('write_file', {
-          path: params.path,
-          content: params.content,
-          encoding: params.encoding || 'utf-8',
-        });
+        let originalContent = '';
+        const pending = getPendingWrite(params.path as string);
+        if (pending) {
+          originalContent = pending.originalContent;
+        } else {
+          try {
+            const readResult = await invoke<{ content: string; size: number }>('read_file', {
+              path: params.path,
+              encoding: 'utf-8',
+            });
+            originalContent = readResult.content;
+          } catch {
+            // File doesn't exist yet
+          }
+        }
+
+        setPendingWrite(params.path as string, originalContent, params.content as string);
 
         return {
           success: true,
-          output: `File written successfully to ${params.path}`,
+          output: `File staged for writing to ${params.path} (pending review)`,
+          metadata: {
+            originalContent,
+            newContent: params.content,
+          },
         };
       } catch (error) {
         return {

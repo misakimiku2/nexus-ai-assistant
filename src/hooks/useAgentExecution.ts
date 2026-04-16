@@ -15,6 +15,7 @@ import {
 import { DEFAULT_AGENT } from '../data/agents';
 import { useGlobalState } from '../context/GlobalStateContext';
 import { calculateCost } from '../utils/pricing';
+import { getAllPendingWrites, clearAllPendingWrites } from '../lib/pendingWrites';
 
 interface TokenUsage {
   inputTokens: number;
@@ -63,6 +64,8 @@ interface AgentExecutionCallbacks {
   }) => void;
   onContentChunk?: (chunk: string) => void;
   onTaskPlanUpdate?: (plan: TaskPlan) => void;
+  onDiffOpen?: (filePath: string, originalContent: string, newContent: string) => void;
+  onShellOutput?: (command: string, stdout: string, stderr: string, exitCode: number) => void;
 }
 
 function parseWebSearchResults(output: string): SearchResult[] {
@@ -224,6 +227,22 @@ export function useAgentExecution(
             callbacksRef.current.onWebSearchResult(query, results);
           }
         }
+
+        if (toolRecord.toolName === 'write_file' && toolRecord.status === 'success' && toolRecord.result?.metadata) {
+          const metadata = toolRecord.result.metadata as { originalContent?: string; newContent?: string };
+          if (metadata.originalContent !== undefined && metadata.newContent !== undefined && metadata.originalContent !== metadata.newContent) {
+            const filePath = toolRecord.parameters?.path as string;
+            callbacksRef.current?.onDiffOpen?.(filePath, metadata.originalContent, metadata.newContent);
+          }
+        }
+
+        if (toolRecord.toolName === 'execute_shell' && (toolRecord.status === 'success' || toolRecord.status === 'error')) {
+          const command = (toolRecord.parameters?.command as string) || '';
+          const stdout = toolRecord.result?.output || '';
+          const stderr = toolRecord.result?.error || '';
+          const exitCode = (toolRecord.result?.metadata as { exitCode?: number })?.exitCode ?? (toolRecord.status === 'error' ? 1 : 0);
+          callbacksRef.current?.onShellOutput?.(command, stdout, stderr, exitCode);
+        }
       },
       onReasoningStep: (step) => {
         reasoningStepsRef.current = [...reasoningStepsRef.current, step as ReasoningStep];
@@ -372,6 +391,23 @@ export function useAgentExecution(
     setToolCalls([]);
     setIterationCount(0);
     setCurrentTaskPlan(null);
+
+    const pendingWrites = getAllPendingWrites();
+    if (pendingWrites.size > 0) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        for (const [path, data] of pendingWrites) {
+          await invoke('write_file', {
+            path,
+            content: data.newContent,
+            encoding: 'utf-8',
+          });
+        }
+      } catch (error) {
+        console.error('Failed to flush pending writes:', error);
+      }
+      clearAllPendingWrites();
+    }
 
     try {
       const result = await runtimeRef.current!.execute(input, conversationHistory, imageAttachments);

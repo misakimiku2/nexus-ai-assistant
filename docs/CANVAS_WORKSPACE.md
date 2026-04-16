@@ -590,3 +590,167 @@ const FILE_PATH_REGEX = /[A-Za-z]:\\(?:[^\s<>|*?"'。，！？；：（）、\]]
 | 迭代 7 | **Minimap 功能开发**：Canvas 渲染代码缩略图，经历多轮迭代：(1) 调整色块颜色与语法高亮一致、增加2px行间距、自适应宽度60-170px；(2) 视口指示器尺寸/位置修复（全宽+最小高度、双坐标系系统）；(3) 点击行为优化（范围框点击不跳转仅拖拽滚动、标点符号近背景色处理）；(4) 点击跳转精度修复（内容坐标映射 contentY=relY+currentMinimapScrollTop）；(5) 空白区域修复（统一 renderContent/updateOverlay 的 vpH 计算）；(6) **着色引擎重构**：从自定义 tokenizeLine() 正则分词器迁移到 highlightTree() + 自定义 minimapHighlighter，复用 CodeMirror Lezer 语法树实现与编辑器完全一致的 token 分类；(7) 解决 Vite 预打包导致的 Tag 多实例引用不一致问题（Map 键从对象引用→tag.id→tag.toString() 三次演进）；(8) 补充语言特有标签（paren/brace/derefOperator 等） |
 | 迭代 8 | **Minimap 大文件性能优化**：(1) 可见区域语法高亮优化 — highlightTree 仅处理可见区域行（±15行缓冲），非可见区域用 defaultColor 色块，Canvas 保持全文档高度；(2) Lezer 惰性解析问题 — 发现 CodeMirror 打开大文件时仅解析 ~1.5% 内容，`syntaxTree(view.state)` 返回不完整树；(3) ensureSyntaxTree 强制解析 — 使用 `ensureSyntaxTree(view.state, doc.length, timeout)` 渐进超时策略（50ms→100ms→200ms→...→5000ms）强制完整解析；(4) forcedTree 缓存 — 发现 ensureSyntaxTree 返回的树不会自动更新到 syntaxTree(view.state)，需手动存储到 forcedTree 变量并在 renderContent 中优先使用；(5) 首次渲染两阶段 — 先绘制全文档 defaultColor 色块（立即可见），再异步解析语法树并重绘 |
 | 迭代 9（当前） | **Tab 切换滚动位置保持**：修复多文件切换时页面自动滚动到顶部的问题。根因是 `key={activeTabId}` 导致 React 先卸载旧 CodeMirror（scrollTop 重置为 0），再创建新 CodeMirror。修复方案：(1) setupMinimap 中用 capturedTabId 在 onScroll 时持续保存滚动位置；(2) 移除 handleCreateEditor 中的旧 view scrollTop 保存（避免用 0 覆盖正确值）；(3) handleCreateEditor 中通过双层 RAF 延迟恢复保存的滚动位置 |
+
+***
+
+## 六、Canvas 工作区未来愿景
+
+> 当前 Canvas 工作区仅作为文件查看/编辑器使用，但其作为 AI 助手的"操作台"具有巨大潜力。以下是基于 Nexus AI Assistant 现有架构（ReAct 引擎、内置/MCP 工具、Tauri Rust 后端）的扩展构想。
+
+### 6.1 AI 代码变更 Diff 视图 ⭐⭐⭐
+
+**场景**：AI 调用 `write_file` 修改代码后，用户需要直观看到改了什么。
+
+**当前问题**：AI 修改文件后，聊天区只显示"已写入 xxx"，用户需要手动打开文件对比，无法直观感知变更。
+
+**方案**：
+- 当 AI 执行 `write_file` 时，Canvas 自动打开该文件的 Diff 视图
+- 左侧显示原始内容（绿色高亮删除行），右侧显示新内容（红色高亮新增行）
+- 用户可直接在 Diff 视图中 Accept/Reject 变更
+- 基于 CodeMirror 的 `ChangeSet` / `ChangeDesc` 实现，或使用 `diff-match-patch` 库
+
+**与现有架构的集成**：
+- `FileViewerContext` 扩展 `diffTab` 类型，存储 originalContent 和 newContent
+- Agent Runtime 的 `write_file` 工具执行后，触发 `openDiffView` 事件
+- 用户 Accept 后调用 Tauri `write_file`，Reject 后恢复原内容
+
+### 6.2 终端输出面板 ⭐⭐⭐
+
+**场景**：AI 执行 `execute_shell` 命令后，用户需要查看实时输出。
+
+**当前问题**：Shell 命令输出仅在聊天区以文本形式展示，长输出难以阅读，且无法交互。
+
+**方案**：
+- Canvas 底部添加可折叠的终端面板（类似 VS Code 的 Terminal Panel）
+- AI 执行命令时，终端面板自动展开并显示实时输出
+- 支持 ANSI 颜色渲染（xterm.js）
+- 命令执行完成后，输出保留在终端面板中供回看
+- 用户可在终端面板中手动输入命令（直接与 Tauri shell 交互）
+
+**与现有架构的集成**：
+- 复用现有 `TerminalView` 组件，嵌入 Canvas 底部
+- `execute_shell` 工具通过事件总线将输出发送到终端面板
+- Tauri 后端的 `execute_command` / `execute_powershell` 支持流式输出
+
+### 6.3 AI 推理步骤可视化 ⭐⭐⭐
+
+**场景**：AI 执行复杂任务时（多步 ReAct 循环），用户需要理解 AI 的推理过程。
+
+**当前问题**：Agent 执行视图（Reasoning Steps、Tool Calls）在聊天区以折叠卡片形式展示，空间有限，无法与代码上下文联动。
+
+**方案**：
+- Canvas 右侧或顶部添加可折叠的"推理面板"
+- 以时间线/流程图形式展示 ReAct 循环：Thought → Action → Observation → Thought → ...
+- 每个步骤可展开查看详细内容（工具参数、返回结果、耗时）
+- 点击工具调用步骤，Canvas 自动跳转到相关文件/位置
+- 支持步骤级别的"重新执行"和"编辑参数后执行"
+
+**与现有架构的集成**：
+- 复用 `ReActEngine` 的 `onStep` 回调数据
+- 扩展 `GlobalStateContext` 添加 `activeSteps` 状态
+- Canvas 监听步骤变化，自动联动文件打开和位置跳转
+
+### 6.4 Web 内容预览 ⭐⭐
+
+**场景**：AI 抓取网页内容或生成 HTML 代码后，用户需要预览渲染结果。
+
+**当前问题**：`fetch_url` 和 `web_extract` 的结果以原始文本/Markdown 形式展示，无法看到渲染后的网页。AI 生成的 HTML/CSS/JS 代码也无法即时预览。
+
+**方案**：
+- Canvas 添加"预览"标签页类型，使用沙箱 iframe 渲染 HTML
+- AI 调用 `fetch_url` 后，Canvas 可切换到"网页预览"模式
+- AI 生成 HTML 文件后，Canvas 自动检测并提供预览按钮
+- 支持 Live Reload：编辑 HTML/CSS/JS 后自动刷新预览
+
+**与现有架构的集成**：
+- Tauri 的 WebView 可作为预览容器（比 iframe 更安全）
+- `fetch_url` 工具返回的 HTML 内容存入 `FileViewerContext` 的预览标签
+- 文件保存后通过 `fs.watch` 触发预览刷新
+
+### 6.5 结构化数据查看器 ⭐⭐
+
+**场景**：AI 读取 JSON/YAML/CSV 文件后，用户需要以结构化方式浏览数据。
+
+**当前问题**：大 JSON/YAML 文件在代码编辑器中以纯文本展示，层级关系不直观。CSV 文件无法以表格形式查看。
+
+**方案**：
+- JSON/YAML：树形视图，支持折叠/展开节点、搜索键名、路径复制
+- CSV/TSV：表格视图，支持排序、筛选、列宽调整
+- 自动检测文件类型并切换视图模式
+- 保留代码视图作为"原始数据"模式
+
+**与现有架构的集成**：
+- `FileTab` 扩展 `viewMode` 字段（'code' | 'tree' | 'table' | 'preview'）
+- JSON 树视图可复用现有 React 树组件库
+- CSV 表格视图基于虚拟滚动（处理大文件）
+
+### 6.6 图表/流程图渲染 ⭐⭐
+
+**场景**：AI 生成 Mermaid/PlantUML 图表代码后，用户需要看到渲染结果。
+
+**方案**：
+- 检测 Markdown 中的 Mermaid 代码块，在预览模式中渲染为 SVG
+- 或添加独立的"图表预览"标签页类型
+- 支持 Mermaid、PlantUML、D2 等图表语言
+- 编辑图表代码后实时更新渲染
+
+### 6.7 AI 代码注解层 ⭐⭐
+
+**场景**：AI 分析代码后，用户需要在代码上下文中看到 AI 的注释和建议。
+
+**方案**：
+- 在 CodeMirror 编辑器中添加"注解层"（类似 IDE 的 Inline Suggestion）
+- AI 可在代码行间插入解释性注释、警告标记、优化建议
+- 注解以不同颜色/图标区分类型（info/warning/suggestion/error）
+- 用户可点击注解展开详情、Accept/Dismiss 建议
+- 类似 GitHub Copilot 的 Inline Suggestion，但支持多行注解和富文本
+
+**与现有架构的集成**：
+- 使用 CodeMirror 的 `Decoration.widget` / `Decoration.line` 实现注解渲染
+- Agent 执行 `read_file` + 分析后，通过事件发送注解数据到 Canvas
+- 注解数据结构：`{ line, type, message, suggestion? }`
+
+### 6.8 多文件并排视图 ⭐
+
+**场景**：AI 同时操作多个文件（如重构时修改接口定义 + 实现 + 测试），用户需要同时查看。
+
+**当前问题**：Canvas 只有一个编辑器区域，多文件只能通过标签页切换，无法同时查看。
+
+**方案**：
+- 支持水平/垂直分屏，每个分屏可打开不同文件
+- AI 修改多个文件时，自动在分屏中展示关联文件
+- 拖拽标签页到分屏区域即可创建新分屏
+
+### 6.9 图片/PDF 预览 ⭐
+
+**场景**：AI 读取图片或 PDF 文件，用户需要直接查看内容。
+
+**方案**：
+- 图片文件：直接在 Canvas 中渲染（支持缩放、拖拽）
+- PDF 文件：使用 `pdf.js` 渲染为页面图像
+- 与 Tauri 后端的 `fetch_url` PDF 解析能力联动
+
+### 6.10 Notebook 交互模式 ⭐
+
+**场景**：AI 和用户以"代码单元格"方式交互，类似 Jupyter Notebook。
+
+**方案**：
+- Canvas 支持 Notebook 模式，每个单元格包含代码 + 输出
+- AI 生成代码后，用户可点击"运行"查看输出
+- 输出支持文本、表格、图表、HTML
+- 基于 CodeMirror 的多编辑器实例实现
+
+### 优先级排序
+
+| 优先级 | 功能 | 理由 |
+|--------|------|------|
+| P0 | AI 代码变更 Diff 视图 | AI 最核心的操作是修改代码，Diff 是最直观的变更感知方式 |
+| P0 | 终端输出面板 | Shell 命令执行是 AI 的核心能力，需要可视化输出 |
+| P1 | AI 推理步骤可视化 | 复杂任务的推理过程需要可视化，增强用户信任和理解 |
+| P1 | Web 内容预览 | AI 频繁操作网页内容，预览能力是自然延伸 |
+| P2 | 结构化数据查看器 | JSON/YAML/CSV 是常见文件类型，树/表视图显著提升体验 |
+| P2 | 图表/流程图渲染 | AI 生成图表是常见需求，Mermaid 渲染成本低 |
+| P2 | AI 代码注解层 | 增强代码理解，但实现复杂度较高 |
+| P3 | 多文件并排视图 | 提升多文件操作效率，但非刚需 |
+| P3 | 图片/PDF 预览 | 使用频率较低 |
+| P3 | Notebook 交互模式 | 架构变动大，与当前 ReAct 模式差异较大 |

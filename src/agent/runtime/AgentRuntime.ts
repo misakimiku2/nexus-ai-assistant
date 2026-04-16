@@ -22,7 +22,7 @@ export interface AgentRuntimeOptions {
   agent: Agent;
   config?: Partial<AgentConfig>;
   onStatusChange?: (status: AgentStatus) => void;
-  onToolCall?: (record: { id: string; toolName: string; parameters: Record<string, unknown>; status: string; result?: { success: boolean; output: string; error?: string } }) => void;
+  onToolCall?: (record: { id: string; toolName: string; parameters: Record<string, unknown>; status: string; result?: { success: boolean; output: string; error?: string; metadata?: Record<string, unknown> } }) => void;
   onReasoningStep?: (step: { type: string; content: string }) => void;
   onReasoningStepUpdate?: (step: { id: string; type: string; content: string; isStreaming?: boolean }) => void;
   onRequestAuth?: (toolCall: { id: string; toolName: string; parameters: Record<string, unknown>; status: string }) => Promise<boolean>;

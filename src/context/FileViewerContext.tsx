@@ -1,4 +1,10 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import { clearPendingWrite } from '../lib/pendingWrites';
+
+export interface DiffData {
+  originalContent: string;
+  newContent: string;
+}
 
 export interface FileTab {
   id: string;
@@ -9,6 +15,8 @@ export interface FileTab {
   isDirty: boolean;
   language: string;
   readOnly: boolean;
+  type: 'file' | 'diff';
+  diffData?: DiffData;
 }
 
 interface FileViewerState {
@@ -20,6 +28,9 @@ interface FileViewerState {
   updateTabContent: (id: string, content: string) => void;
   saveTab: (id: string) => Promise<void>;
   saveAllDirty: () => Promise<void>;
+  openDiffView: (path: string, originalContent: string, newContent: string) => void;
+  acceptDiff: (tabId: string) => Promise<void>;
+  rejectDiff: (tabId: string) => Promise<void>;
 }
 
 interface FileViewerProviderProps {
@@ -65,7 +76,7 @@ export const FileViewerProvider: React.FC<FileViewerProviderProps> = ({ children
   const openFile = useCallback(async (path: string, content?: string) => {
     onFileOpen?.();
 
-    const existingTab = tabs.find(t => t.path === path);
+    const existingTab = tabs.find(t => t.path === path && t.type === 'file');
     if (existingTab) {
       setActiveTabId(existingTab.id);
       return;
@@ -103,6 +114,7 @@ export const FileViewerProvider: React.FC<FileViewerProviderProps> = ({ children
       isDirty: false,
       language: isUntitled ? 'plaintext' : getLanguageFromPath(path),
       readOnly: isUntitled ? false : readOnly,
+      type: 'file',
     };
 
     setTabs(prev => [...prev, newTab]);
@@ -159,6 +171,98 @@ export const FileViewerProvider: React.FC<FileViewerProviderProps> = ({ children
     }
   }, [tabs, saveTab]);
 
+  const openDiffView = useCallback((path: string, originalContent: string, newContent: string) => {
+    onFileOpen?.();
+
+    const existingDiffTab = tabs.find(t => t.path === path && t.type === 'diff');
+    if (existingDiffTab) {
+      setTabs(prev => prev.map(t => {
+        if (t.id === existingDiffTab.id) {
+          return {
+            ...t,
+            diffData: {
+              originalContent: t.diffData?.originalContent ?? originalContent,
+              newContent,
+            },
+            content: newContent,
+          };
+        }
+        return t;
+      }));
+      setActiveTabId(existingDiffTab.id);
+      return;
+    }
+
+    const newTab: FileTab = {
+      id: `diff_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      path,
+      title: getFileName(path),
+      content: newContent,
+      originalContent: originalContent,
+      isDirty: false,
+      language: getLanguageFromPath(path),
+      readOnly: true,
+      type: 'diff',
+      diffData: { originalContent, newContent },
+    };
+
+    setTabs(prev => [...prev, newTab]);
+    setActiveTabId(newTab.id);
+  }, [tabs, onFileOpen]);
+
+  const acceptDiff = useCallback(async (tabId: string) => {
+    let filePath: string | undefined;
+    let newContent: string | undefined;
+
+    setTabs(prev => {
+      const tab = prev.find(t => t.id === tabId);
+      if (tab) {
+        filePath = tab.path;
+        newContent = tab.diffData?.newContent;
+      }
+      return prev;
+    });
+
+    if (filePath && newContent !== undefined) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('write_file', {
+          path: filePath,
+          content: newContent,
+          encoding: 'utf-8',
+        });
+        clearPendingWrite(filePath);
+
+        setTabs(prev => prev.map(t => {
+          if (t.path === filePath && t.type === 'file') {
+            return { ...t, content: newContent!, originalContent: newContent!, isDirty: false };
+          }
+          return t;
+        }));
+      } catch (error) {
+        console.error('Failed to write file on accept:', error);
+      }
+    }
+    closeTab(tabId);
+  }, [closeTab]);
+
+  const rejectDiff = useCallback(async (tabId: string) => {
+    let filePath: string | undefined;
+
+    setTabs(prev => {
+      const tab = prev.find(t => t.id === tabId);
+      if (tab) {
+        filePath = tab.path;
+      }
+      return prev;
+    });
+
+    if (filePath) {
+      clearPendingWrite(filePath);
+    }
+    closeTab(tabId);
+  }, [closeTab]);
+
   return (
     <FileViewerContext.Provider value={{
       tabs,
@@ -169,6 +273,9 @@ export const FileViewerProvider: React.FC<FileViewerProviderProps> = ({ children
       updateTabContent,
       saveTab,
       saveAllDirty,
+      openDiffView,
+      acceptDiff,
+      rejectDiff,
     }}>
       {children}
     </FileViewerContext.Provider>

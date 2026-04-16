@@ -360,7 +360,16 @@
     "saveFile": "保存",
     "revertFile": "还原",
     "modified": "已修改",
-    "readOnly": "只读"
+    "readOnly": "只读",
+    "diff": {
+      "original": "原始内容",
+      "modified": "修改内容",
+      "accept": "接受",
+      "reject": "拒绝",
+      "lines": "{count} 行",
+      "added": "+{count}",
+      "removed": "-{count}"
+    }
   },
   "search": {
     "unknownSession": "未知会话",
