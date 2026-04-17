@@ -15,6 +15,7 @@ import { AgentClusterView } from './components/AgentClusterView';
 import { ToolPanel } from './components/ToolPanel';
 import { AddMcpModal } from './components/AddMcpModal';
 import { CanvasWorkspace } from './components/CanvasWorkspace';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { CloseConfirmModal } from './components/CloseConfirmModal';
 import { WindowControls } from './components/WindowControls';
 import { ToolAuthModal } from './components/AgentExecutionView';
@@ -1168,6 +1169,7 @@ export default function App() {
   }, [setAppMode]);
 
   return (
+    <ErrorBoundary>
     <FileViewerProvider onFileOpen={handleFileOpenSwitchMode}>
     <TerminalProvider>
     <CanvasBridgeInner diffOpenRef={diffOpenRef} shellOutputRef={shellOutputRef} />
@@ -1447,6 +1449,7 @@ export default function App() {
     </div>
     </TerminalProvider>
     </FileViewerProvider>
+    </ErrorBoundary>
   );
 }
 

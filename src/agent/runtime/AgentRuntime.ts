@@ -156,7 +156,9 @@ export class AgentRuntime {
     const plan = await planner.plan(userInput, preprocessed.messages as ConversationMessage[]);
     this.currentPlan = plan;
 
-    this.callbacks.onTaskPlanUpdate?.(plan);
+    if (plan.steps.length > 1) {
+      this.callbacks.onTaskPlanUpdate?.(plan);
+    }
 
     const preprocessedData = {
       processedUserInput: preprocessed.processedUserInput,

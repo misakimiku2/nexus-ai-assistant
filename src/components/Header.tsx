@@ -5,9 +5,7 @@ import {
   PanelRightClose, 
   PanelRightOpen, 
   PanelLeftClose,
-  PanelLeftOpen,
-  Play,
-  Users
+  PanelLeftOpen
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useGlobalState } from '../context/GlobalStateContext';
@@ -26,7 +24,7 @@ export const Header: React.FC<HeaderProps> = ({
   isSidebarExpanded,
   setIsSidebarExpanded
 }) => {
-  const { currentTokenCount, clearHistory, simulateTest, simulateClusterTest, maxContextLength, activeModel, modelConfigs } = useGlobalState();
+  const { currentTokenCount, clearHistory, maxContextLength, activeModel, modelConfigs } = useGlobalState();
   const { t } = useTranslation();
   
   // 判断是否为本地模型 (LM Studio 或 Ollama)
@@ -65,24 +63,6 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
       
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2 bg-zinc-500/5 p-1 rounded-lg">
-          <button 
-            onClick={simulateTest}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium hover:bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 transition-colors"
-            title={t.header.unitTestTitle}
-          >
-            <Play size={14} />
-            <span>{t.header.unitTest}</span>
-          </button>
-          <button 
-            onClick={simulateClusterTest}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-500 transition-colors"
-            title={t.header.clusterTestTitle}
-          >
-            <Users size={14} />
-            <span>{t.header.clusterTest}</span>
-          </button>
-        </div>
         <button 
           onClick={clearHistory}
           className="p-2 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors"

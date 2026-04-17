@@ -82,11 +82,95 @@ export class TauriSessionStorage implements SessionStorageService {
       }
       const content = await readFile(filePath);
       const text = new TextDecoder().decode(content);
-      return JSON.parse(text);
+      try {
+        return JSON.parse(text);
+      } catch (parseError) {
+        console.warn('[TauriSessionStorage] JSON 解析失败，尝试修复:', filePath, parseError);
+        const repaired = this.tryRepairJson(text, defaultValue);
+        if (repaired !== null) {
+          try {
+            await this.writeJsonFile(filePath, repaired);
+            console.log('[TauriSessionStorage] 已修复损坏的文件:', filePath);
+          } catch (writeError) {
+            console.error('[TauriSessionStorage] 修复文件写入失败:', filePath, writeError);
+          }
+          return repaired;
+        }
+        try {
+          await this.writeJsonFile(filePath, defaultValue);
+          console.log('[TauriSessionStorage] 已用默认值覆盖损坏的文件:', filePath);
+        } catch (writeError) {
+          console.error('[TauriSessionStorage] 覆盖文件写入失败:', filePath, writeError);
+        }
+        return defaultValue;
+      }
     } catch (error) {
       console.error('[TauriSessionStorage] 读取文件失败:', filePath, error);
       return defaultValue;
     }
+  }
+
+  private tryRepairJson<T>(text: string, defaultValue: T): T | null {
+    try {
+      const isArray = Array.isArray(defaultValue);
+      if (isArray) {
+        const start = text.indexOf('[');
+        const end = text.lastIndexOf(']');
+        if (start !== -1 && end !== -1 && end > start) {
+          const extracted = text.substring(start, end + 1);
+          try {
+            const parsed = JSON.parse(extracted);
+            if (Array.isArray(parsed)) {
+              return parsed as T;
+            }
+          } catch {
+            const validItems: unknown[] = [];
+            const objRegex = /\{\s*"/g;
+            let match: RegExpExecArray | null;
+            while ((match = objRegex.exec(extracted)) !== null) {
+              const objStart = match.index;
+              let depth = 0;
+              let objEnd = -1;
+              for (let i = objStart; i < extracted.length; i++) {
+                if (extracted[i] === '{') depth++;
+                else if (extracted[i] === '}') {
+                  depth--;
+                  if (depth === 0) {
+                    objEnd = i;
+                    break;
+                  }
+                }
+              }
+              if (objEnd !== -1) {
+                const objStr = extracted.substring(objStart, objEnd + 1);
+                try {
+                  const obj = JSON.parse(objStr);
+                  validItems.push(obj);
+                } catch {
+                  // skip corrupted object
+                }
+              }
+            }
+            if (validItems.length > 0) {
+              return validItems as T;
+            }
+          }
+        }
+      } else {
+        const start = text.indexOf('{');
+        const end = text.lastIndexOf('}');
+        if (start !== -1 && end !== -1 && end > start) {
+          const extracted = text.substring(start, end + 1);
+          const parsed = JSON.parse(extracted);
+          if (typeof parsed === 'object' && !Array.isArray(parsed)) {
+            return parsed as T;
+          }
+        }
+      }
+    } catch {
+      // repair failed
+    }
+    return null;
   }
 
   private async writeJsonFile<T>(filePath: string, data: T): Promise<void> {

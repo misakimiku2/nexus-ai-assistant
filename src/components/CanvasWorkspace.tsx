@@ -5,8 +5,13 @@ import { motion } from 'motion/react';
 import { useTranslation } from '../hooks/useTranslation';
 import { useFileViewer, FileTab } from '../context/FileViewerContext';
 import { DiffView } from './DiffView';
+import { ErrorBoundary } from './ErrorBoundary';
 import { CanvasTerminal } from './CanvasTerminal';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { ghcolors } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import CodeMirror, { ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { javascript } from '@codemirror/lang-javascript';
@@ -1279,8 +1284,8 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
 
   useEffect(() => {
     setIsEditing(false);
-    setIsPreviewing(false);
-  }, [activeTabId, activeTab?.path]);
+    setIsPreviewing(activeTab?.language === 'markdown');
+  }, [activeTabId, activeTab?.path, activeTab?.language]);
 
   const handleEdit = useCallback(() => {
     if (!activeTab || activeTab.readOnly) return;
@@ -1506,6 +1511,7 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
         {activeTab ? (
           activeTab.type === 'diff' ? (
               <div className="flex-1 overflow-hidden">
+                <ErrorBoundary>
                 <DiffView
                   originalContent={activeTab.diffData?.originalContent ?? activeTab.originalContent}
                   newContent={activeTab.diffData?.newContent ?? activeTab.content}
@@ -1514,6 +1520,7 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
                   onAccept={() => acceptDiff(activeTab.id)}
                   onReject={() => rejectDiff(activeTab.id)}
                 />
+                </ErrorBoundary>
               </div>
             ) : (
             <>
@@ -1595,12 +1602,10 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
 
             <div className="flex-1 overflow-hidden relative" onKeyDown={handleKeyDown}>
               {isPreviewing && isMarkdown ? (
-                <div className={cn(
-                  "h-full overflow-auto p-6",
-                  isDarkMode ? "prose prose-sm prose-invert max-w-none" : "prose prose-sm max-w-none"
-                )}>
-                  <ReactMarkdown>{activeTab.content}</ReactMarkdown>
-                </div>
+                <MarkdownPreview 
+                  content={activeTab.content} 
+                  isDarkMode={isDarkMode} 
+                />
               ) : (
                 <CodeMirror
                   key={activeTabId}
@@ -1651,3 +1656,295 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
     </motion.div>
   );
 };
+
+const imageCache = new Map<string, string>();
+
+const MarkdownImage = React.memo<{
+  src: string;
+  alt: string;
+  isDarkMode: boolean;
+}>(({ src, alt, isDarkMode }) => {
+  const [imgSrc, setImgSrc] = useState<string>('');
+  const [loadError, setLoadError] = useState<string>('');
+
+  useEffect(() => {
+    const localMarker = '|||LOCAL-FILE:';
+    let displayAlt = alt || '';
+    let filePath = '';
+
+    if (displayAlt.includes(localMarker)) {
+      const parts = displayAlt.split(localMarker);
+      displayAlt = parts[0];
+      filePath = parts[1] || '';
+      if ((filePath.startsWith('"') && filePath.endsWith('"')) || (filePath.startsWith("'") && filePath.endsWith("'"))) {
+        filePath = filePath.slice(1, -1);
+      }
+    }
+
+    if (filePath) {
+      const cached = imageCache.get(filePath);
+      if (cached) { setImgSrc(cached); return; }
+      (async () => {
+        try {
+          const { readFile } = await import('@tauri-apps/plugin-fs');
+          const data = await readFile(filePath);
+          const ext = filePath.split('.').pop()?.toLowerCase() || 'png';
+          const mimeMap: Record<string, string> = {
+            jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png',
+            gif:'image/gif', svg:'image/svg+xml', webp:'image/webp',
+            bmp:'image/bmp', ico:'image/x-icon'
+          };
+          const mimeType = mimeMap[ext] || 'image/png';
+          const blob = new Blob([new Uint8Array(data)], { type: mimeType });
+          const url = URL.createObjectURL(blob);
+          imageCache.set(filePath, url);
+          setImgSrc(url);
+        } catch (err: any) {
+          const errMsg = err?.message || String(err);
+          if (errMsg.includes('forbidden')) { setLoadError('权限不足，无法读取该路径的文件'); return; }
+          try {
+            const { convertFileSrc } = await import('@tauri-apps/api/core');
+            let p = /^[A-Za-z]:/.test(filePath) ? '/' + filePath.replace(/\\/g, '/') : filePath;
+            const result = convertFileSrc(p);
+            if (result && result.length > 0) { setImgSrc(result); }
+            else { setLoadError('图片加载失败'); }
+          } catch { setLoadError('图片加载失败'); }
+        }
+      })();
+    } else if (src && !src.startsWith('https://local-image.placeholder')) {
+      setImgSrc(src);
+    }
+  }, [src, alt]);
+
+  if (!imgSrc && !loadError) return null;
+
+  if (loadError) {
+    return (
+      <span style={{
+        display: 'block', margin: '1.5rem auto', maxWidth: '100%', padding: '2rem',
+        textAlign: 'center', borderRadius: '0.5rem',
+        background: isDarkMode ? 'rgba(39,39,42,0.5)' : 'rgba(244,244,245,0.8)',
+        border: `1px dashed ${isDarkMode ? '#52525b' : '#d4d4d8'}`,
+        color: isDarkMode ? '#a1a1aa' : '#71717a', fontSize: '0.875rem'
+      }}>
+        <span style={{ fontSize: '1.5rem', marginBottom: '0.5rem', display: 'block' }}>🖼️</span>
+        <span style={{ display: 'block' }}>{(alt || '').split('|||LOCAL-FILE:')[0] || '图片'}</span>
+        <span style={{ fontSize: '0.75rem', marginTop: '0.25rem', opacity: 0.7, display: 'block' }}>{loadError}</span>
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={imgSrc} alt={(alt || '').split('|||LOCAL-FILE:')[0] || ''}
+      loading="lazy"
+      style={{ maxWidth: '100%', height: 'auto', borderRadius: '0.5rem', display: 'block', marginLeft: 'auto', marginRight: 'auto', margin: '1.5rem 0' }}
+    />
+  );
+});
+MarkdownImage.displayName = 'MarkdownImage';
+
+interface MarkdownPreviewProps {
+  content: string;
+  isDarkMode: boolean;
+}
+
+const MarkdownPreview = React.memo<MarkdownPreviewProps>(({ content, isDarkMode }) => {
+  console.log('[MarkdownPreview] raw content received, length:', content?.length, 'first 500 chars:', content?.substring(0, 500));
+
+  const cleanTheme = useMemo(() => {
+    const base = isDarkMode ? oneDark : ghcolors;
+    const cleaned: Record<string, any> = {};
+    for (const [key, val] of Object.entries(base)) {
+      if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+        const sub: Record<string, any> = {};
+        for (const [k, v] of Object.entries(val as Record<string, any>)) {
+          if (k === 'backgroundColor' || k === 'background') continue;
+          sub[k] = v;
+        }
+        cleaned[key] = sub;
+      } else {
+        cleaned[key] = val;
+      }
+    }
+    return cleaned;
+  }, [isDarkMode]);
+
+  const codeComponent = useMemo(() => {
+    return function CodeBlock({ node, className, children, ...props }: { node?: any; className?: string; children?: React.ReactNode; [key: string]: any }) {
+      const match = /language-(\w+)/.exec(className || '');
+      const codeContent = String(children).replace(/\n$/, '');
+      const hasNewlines = codeContent.includes('\n');
+      const isCodeBlock = hasNewlines && (match || codeContent.trim().length > 0);
+      
+      if (isCodeBlock) {
+        const lang = match ? match[1] : 'text';
+        return (
+          <div 
+            className="my-4 rounded-lg overflow-hidden"
+            style={{
+              background: isDarkMode ? '#1e1e1e' : '#f3f4f6',
+              boxShadow: 'none',
+              border: 'none',
+              outline: 'none'
+            }}
+          >
+            <style>{`
+              .md-code-block span[style*="background"],
+              .md-code-block span { background: transparent !important; background-color: transparent !important; }
+              .md-code-block code { background: transparent !important; }
+              .md-code-block,
+              .md-code-block *,
+              .md-code-block div,
+              .md-code-block pre { border: none !important; outline: none !important; box-shadow: none !important; }
+            `}</style>
+            <div className="md-code-block">
+              <SyntaxHighlighter
+                style={cleanTheme}
+                language={lang}
+                PreTag="div"
+                wrapLongLines={true}
+                customStyle={{ 
+                  margin: 0, 
+                  borderRadius: 0,
+                  fontSize: '13px', 
+                  padding: '1.25rem',
+                  background: 'transparent',
+                  lineHeight: '1.6',
+                  border: 'none'
+                }}
+                codeTagProps={{
+                  style: {
+                    fontFamily: '"Fira Code", "Cascadia Code", Consolas, Monaco, "Courier New", monospace',
+                    fontSize: 'inherit',
+                    background: 'transparent'
+                  }
+                }}
+              >
+                {codeContent}
+              </SyntaxHighlighter>
+            </div>
+          </div>
+        );
+      }
+      
+      return (
+        <code 
+          className={`${className || ''} ${isDarkMode ? 'bg-zinc-700/50 text-zinc-200' : 'bg-zinc-100 text-zinc-800'} px-1.5 py-0.5 rounded font-mono text-[0.9em]`}
+          {...props}
+        >
+          {children}
+        </code>
+      );
+    };
+  }, [isDarkMode, cleanTheme]);
+
+  const proseClassName = useMemo(() => {
+    return cn(
+      "prose prose-sm max-w-none",
+      isDarkMode 
+        ? "prose-invert prose-headings:text-zinc-100" 
+        : "prose-headings:text-zinc-900",
+      "prose-table:border-collapse"
+    );
+  }, [isDarkMode]);
+
+  const processedContent = useMemo(() => {
+    const result = content.replace(
+      /!\[([^\]]*)\]\(([^)]+)\)/g,
+      (match, alt, url) => {
+        console.log('[MarkdownPreview] regex matched image - alt:', alt, 'raw url:', JSON.stringify(url));
+        if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+          return match;
+        }
+        let fixedUrl = url;
+        if ((fixedUrl.startsWith('"') && fixedUrl.endsWith('"')) || (fixedUrl.startsWith("'") && fixedUrl.endsWith("'"))) {
+          fixedUrl = fixedUrl.slice(1, -1);
+        }
+        if (fixedUrl.includes('\\')) {
+          fixedUrl = fixedUrl.replace(/\\/g, '/');
+        }
+        if (!fixedUrl.startsWith('file://') && /^[A-Za-z]:/.test(fixedUrl)) {
+          fixedUrl = 'file:///' + fixedUrl;
+        } else if (!fixedUrl.startsWith('/') && !fixedUrl.startsWith('./') && !fixedUrl.startsWith('file://')) {
+          fixedUrl = 'file:///' + fixedUrl;
+        }
+        const filePath = fixedUrl.replace(/^file:\/+/, '');
+        const encodedAlt = `${alt}|||LOCAL-FILE:${filePath}`;
+        console.log('[MarkdownPreview] encoded alt with embedded path:', JSON.stringify(encodedAlt));
+        return `![${encodedAlt}](https://local-image.placeholder)`;
+      }
+    );
+    console.log('[MarkdownPreview] processedContent length:', result.length);
+    return result;
+  }, [content]);
+
+  return (
+    <div className="h-full overflow-auto">
+      <div className="mx-auto p-6 text-left max-w-[900px]">
+        <div className={proseClassName}>
+          <MarkdownStyles isDarkMode={isDarkMode} />
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{ 
+              code: codeComponent,
+              pre({ children }: { children?: React.ReactNode }) {
+                return <>{children}</>;
+              },
+              img({ src, alt, ...props }: { src?: string; alt?: string; [key: string]: any }) {
+                return <MarkdownImage src={src || ''} alt={alt || ''} isDarkMode={isDarkMode} />;
+              }
+            }}
+          >
+            {processedContent}
+          </ReactMarkdown>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+MarkdownPreview.displayName = 'MarkdownPreview';
+
+const MarkdownStyles = React.memo<{ isDarkMode: boolean }>(({ isDarkMode }) => {
+  const styles = useMemo(() => ({
+    table: {
+      width: '100%',
+      borderCollapse: 'collapse' as const,
+      margin: '1rem 0',
+      display: 'table' as const,
+    },
+    th: {
+      border: `1px solid ${isDarkMode ? '#3f3f46' : '#d4d4d8'}`,
+      padding: '0.5rem 0.75rem',
+      textAlign: 'left' as const,
+      backgroundColor: isDarkMode ? '#27272a' : '#f4f4f5',
+      fontWeight: 600,
+    },
+    td: {
+      border: `1px solid ${isDarkMode ? '#3f3f46' : '#d4d4d8'}`,
+      padding: '0.5rem 0.75rem',
+      textAlign: 'left' as const,
+    },
+  }), [isDarkMode]);
+
+  return (
+    <style>{`
+      .prose { --tw-prose-body: ${isDarkMode ? '#d4d4d8' : '#374151'}; }
+      .prose table { width: 100%; border-collapse: collapse; margin: 1rem 0; display: table; }
+      .prose th, .prose td { border: 1px solid ${isDarkMode ? '#3f3f46' : '#d4d4d8'}; padding: 0.5rem 0.75rem; text-align: left; }
+      .prose th { background-color: ${isDarkMode ? '#27272a' : '#f4f4f5'}; font-weight: 600; }
+      .prose tr:nth-child(even) { background-color: ${isDarkMode ? 'rgba(39, 39, 42, 0.3)' : 'rgba(244, 244, 245, 0.5)'}; }
+      .prose pre { background-color: transparent !important; padding: 0 !important; margin: 0 !important; border: none !important; box-shadow: none !important; }
+      .prose img { display: block !important; margin-left: auto !important; margin-right: auto !important; max-width: 100% !important; height: auto; border-radius: 0.5rem; }
+      .prose :not(pre) > code { 
+        background-color: ${isDarkMode ? 'rgba(63, 63, 70, 0.5)' : 'rgba(244, 244, 245, 1)'}; 
+        padding: 0.2em 0.4em; 
+        border-radius: 0.25rem; 
+        font-weight: normal;
+      }
+    `}</style>
+  );
+});
+
+MarkdownStyles.displayName = 'MarkdownStyles';

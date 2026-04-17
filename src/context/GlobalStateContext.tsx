@@ -41,7 +41,7 @@ interface GlobalState {
   folders: ChatFolder[];
   createFolder: (name: string) => void;
   updateFolder: (id: string, name: string) => void;
-  deleteFolder: (id: string) => void;
+  deleteFolder: (id: string) => Promise<void>;
   toggleFolder: (id: string) => void;
   moveSessionToFolder: (sessionId: string, folderId?: string) => void;
 
@@ -557,17 +557,26 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
   useEffect(() => {
     if (!storageRef.current || !sessionStorageState.isInitialized) return;
 
-    const saveFolders = async () => {
+    const syncFolders = async () => {
       try {
+        const storedFolders = await storageRef.current!.getAllFolders();
+        const currentIds = new Set(folders.map(f => f.id));
+
         for (const folder of folders) {
           await storageRef.current!.saveFolder(folder);
         }
+
+        for (const stored of storedFolders) {
+          if (!currentIds.has(stored.id)) {
+            await storageRef.current!.deleteFolder(stored.id);
+          }
+        }
       } catch (error) {
-        console.error('[GlobalState] 保存文件夹失败:', error);
+        console.error('[GlobalState] 同步文件夹失败:', error);
       }
     };
 
-    saveFolders();
+    syncFolders();
   }, [folders, sessionStorageState.isInitialized]);
 
   const loadAllSessions = useCallback(async () => {
@@ -1016,7 +1025,14 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     setFolders(prev => prev.map(f => f.id === id ? { ...f, name } : f));
   };
 
-  const deleteFolder = (id: string) => {
+  const deleteFolder = async (id: string) => {
+    if (storageRef.current && sessionStorageState.isInitialized) {
+      try {
+        await storageRef.current.deleteFolder(id);
+      } catch (error) {
+        console.error('[GlobalState] 删除存储中的文件夹失败:', error);
+      }
+    }
     setFolders(prev => prev.filter(f => f.id !== id));
     setSessions(prev => prev.map(s => s.folderId === id ? { ...s, folderId: undefined } : s));
   };

@@ -589,7 +589,9 @@ const FILE_PATH_REGEX = /[A-Za-z]:\\(?:[^\s<>|*?"'。，！？；：（）、\]]
 | 迭代 6 | 修复选区高亮不显示问题（进行中）：分析 CodeMirror drawSelection/LayerView/hideNativeSelection 源码，发现选区层 z-index 内联样式无法通过 CSS 覆盖，尝试通过 JavaScript DOM 操作修复 z-index 堆叠顺序，但问题尚未解决 |
 | 迭代 7 | **Minimap 功能开发**：Canvas 渲染代码缩略图，经历多轮迭代：(1) 调整色块颜色与语法高亮一致、增加2px行间距、自适应宽度60-170px；(2) 视口指示器尺寸/位置修复（全宽+最小高度、双坐标系系统）；(3) 点击行为优化（范围框点击不跳转仅拖拽滚动、标点符号近背景色处理）；(4) 点击跳转精度修复（内容坐标映射 contentY=relY+currentMinimapScrollTop）；(5) 空白区域修复（统一 renderContent/updateOverlay 的 vpH 计算）；(6) **着色引擎重构**：从自定义 tokenizeLine() 正则分词器迁移到 highlightTree() + 自定义 minimapHighlighter，复用 CodeMirror Lezer 语法树实现与编辑器完全一致的 token 分类；(7) 解决 Vite 预打包导致的 Tag 多实例引用不一致问题（Map 键从对象引用→tag.id→tag.toString() 三次演进）；(8) 补充语言特有标签（paren/brace/derefOperator 等） |
 | 迭代 8 | **Minimap 大文件性能优化**：(1) 可见区域语法高亮优化 — highlightTree 仅处理可见区域行（±15行缓冲），非可见区域用 defaultColor 色块，Canvas 保持全文档高度；(2) Lezer 惰性解析问题 — 发现 CodeMirror 打开大文件时仅解析 ~1.5% 内容，`syntaxTree(view.state)` 返回不完整树；(3) ensureSyntaxTree 强制解析 — 使用 `ensureSyntaxTree(view.state, doc.length, timeout)` 渐进超时策略（50ms→100ms→200ms→...→5000ms）强制完整解析；(4) forcedTree 缓存 — 发现 ensureSyntaxTree 返回的树不会自动更新到 syntaxTree(view.state)，需手动存储到 forcedTree 变量并在 renderContent 中优先使用；(5) 首次渲染两阶段 — 先绘制全文档 defaultColor 色块（立即可见），再异步解析语法树并重绘 |
-| 迭代 9（当前） | **Tab 切换滚动位置保持**：修复多文件切换时页面自动滚动到顶部的问题。根因是 `key={activeTabId}` 导致 React 先卸载旧 CodeMirror（scrollTop 重置为 0），再创建新 CodeMirror。修复方案：(1) setupMinimap 中用 capturedTabId 在 onScroll 时持续保存滚动位置；(2) 移除 handleCreateEditor 中的旧 view scrollTop 保存（避免用 0 覆盖正确值）；(3) handleCreateEditor 中通过双层 RAF 延迟恢复保存的滚动位置 |
+| 迭代 9 | **Tab 切换滚动位置保持**：修复多文件切换时页面自动滚动到顶部的问题。根因是 `key={activeTabId}` 导致 React 先卸载旧 CodeMirror（scrollTop 重置为 0），再创建新 CodeMirror。修复方案：(1) setupMinimap 中用 capturedTabId 在 onScroll 时持续保存滚动位置；(2) 移除 handleCreateEditor 中的旧 view scrollTop 保存（避免用 0 覆盖正确值）；(3) handleCreateEditor 中通过双层 RAF 延迟恢复保存的滚动位置 |
+| 迭代 10 | **Markdown 预览全面增强**：将 Markdown 预览效果升级至接近 Trae IDE 水平，经历多轮迭代解决多个技术难题：(1) **GFM 表格支持** — 安装 `remark-gfm` 插件，添加完整表格样式（边框、斑马纹行、表头高亮、暗色/浅色模式适配）；(2) **居中布局 + 最大宽度** — 内容区域 `max-w-[900px] mx-auto` 居中显示，窗口 >1000px 时自动居中；(3) **语法高亮** — 集成 `react-syntax-highlighter`（Prism 引擎），自定义 `code` 组件区分代码块/行内代码，`oneDark`/`ghcolors` 主题适配暗色/浅色模式；(4) **Token 背景色移除** — 创建 `cleanTheme` useMemo 遍历 Prism 主题对象，递归移除所有 token 的 `backgroundColor` 和 `background` 属性，配合 CSS `!important` 覆盖内联样式；(5) **代码块卡片样式优化** — 浅色模式背景从蓝色调 `#f6f8fa` 改为纯灰 `#f3f4f6`（zinc-100），移除阴影和描边；(6) **代码块描边修复** — 发现 ReactMarkdown 将代码包裹在 `<pre>` 标签中继承 Tailwind prose 默认边框，自定义 `pre` 组件返回 `{children}` 直接剥离 `<pre>` 包装层；(7) **自动预览切换** — 打开 `.md` 文件时自动设置 `isPreviewing=true`；(8) **本地图片加载（核心难点）** — 经历 5 轮迭代解决 Tauri WebView 安全限制下的本地文件读取问题：(8a) `convertFileSrc()` 返回空字符串 → 改用 `@tauri-apps/plugin-fs` readFile → base64 data URL；(8b) Windows 反斜杠路径 `\` 被 Markdown 解析器作为转义符消耗 → `processedContent` useMemo 预处理正则替换 `\` 为 `/`；(8c) ReactMarkdown 内置 sanitize 过滤器剥离 `file://` 协议 src → 改用 `asset-local://` 自定义协议 → 同样被过滤；(8d) 最终方案：**alt 文本隐式传参** — 将文件路径编码到 `alt` 属性中（`|||LOCAL-FILE:` 分隔符），src 使用合法的 placeholder URL，img 组件从 alt 中解码真实路径再调用 readFile；(8e) 空字节 `\x00` 分隔符被 HTML 解析器剥离 → 改用纯文本 `|||LOCAL-FILE:` 分隔符；(8f) 带双引号路径 `"C:\path"` 处理 — 预处理和组件两端均添加引号剥离逻辑；(9) **权限不足友好提示** — Tauri `allow-read-file` 权限范围外的路径不再显示裂开图标，改为带 🖼️ 图标的错误提示卡片（含图片名+错误原因），使用 `<span display="block">` 替代 `<div>` 避免 DOM 嵌套警告（`<p>` 不能包含 `<div>`）；(10) **性能优化（4项）** — (10a) 提取 `MarkdownImage` 为独立 `React.memo` 组件（替代内联函数，滚动时保持状态不重新加载）；(10b) `URL.createObjectURL(Blob)` 替代 base64 字符串（单张 166KB 图片状态从 ~224K 字符缩减到 ~50 字符，减少 99.98%）；(10c) 模块级 `imageCache: Map<string, string>` 缓存已加载图片（同路径不重复读取文件）；(10d) 所有 `<img>` 添加 `loading="lazy"` 浏览器原生懒加载；(11) **图片居中** — `.prose img` CSS 规则添加 `!important` 确保 `margin-left/right: auto` 生效 |
+| 迭代 11（当前） | **AI 代码 Diff 视图 + 终端输出面板**：实现 Canvas 工作区两个 P0 级功能，经历多轮迭代修复多个架构和交互问题。**(1) Diff 视图**：(1a) 初始实现 — 安装 `diff-match-patch`，扩展 FileViewerContext 支持 type='diff' 标签，创建 DiffView 组件（双面板 diff + Accept/Reject 按钮），修改 write_file 工具返回 metadata，添加 onDiffOpen 回调，App.tsx 中 CanvasBridgeInner 桥接；(1b) CanvasBridge 修复 — useCallback 内调用 React Hooks 违规，改为 CanvasBridgeInner 正确的 React 组件；(1c) ReActEngine metadata 透传修复 — record.result 赋值时未包含 metadata 字段；(1d) **架构重构"Review Before Write"** — 发现 Accept/Reject 无意义（文件已写入磁盘），创建 `pendingWrites.ts` 内存暂存缓存，write_file 不再直接写磁盘而是暂存，read_file 优先读取缓存，Accept 才写磁盘 + 更新已打开文件标签，Reject 丢弃暂存；(1e) 多次 write_file 处理 — 同一文件多次写入保留首次 originalContent，新任务开始时自动 flush 未处理的暂存写入；(1f) Diff 视图重写 — 从 div 渲染改为双 CodeMirror 实例（解决滚动掉帧和语法高亮问题），提取 `codemirror-theme.ts` 共享主题/语言扩展；(1g) i18n — Diff 视图所有 UI 文本国际化。**(2) 终端输出面板**：(2a) 初始实现 — 安装 `@xterm/xterm` + `@xterm/addon-fit`，创建 TerminalContext 和 CanvasTerminal 组件，集成到 CanvasWorkspace 底部，添加 onShellOutput 回调；(2b) 每行2字符修复 — 条件渲染导致 xterm 在 div 不存在时创建失败，改为始终渲染 div + CSS height 控制显隐 + ResizeObserver 自动 fit；(2c) **Windows 中文乱码修复** — cmd 输出 GBK 编码，添加 `encoding_rs` 依赖，`decode_output()` 先 UTF-8 后 GBK 回退解码；(2d) 文本复制修复 — keydown 挂在容器 div 上被 xterm 内部 textarea 拦截，改用 `attachCustomKeyEventHandler` + 临时 textarea `execCommand('copy')`；(2e) 提示符格式 — Windows 显示 `PS C:\Users\xxx>`，Linux 显示 `user@host:~$`；(2f) 动画抖动修复 — 动画层/渲染层分离（外层 overflow-hidden + transition，内层固定 height），延迟 320ms 后 fit |
 
 ***
 
@@ -597,7 +599,7 @@ const FILE_PATH_REGEX = /[A-Za-z]:\\(?:[^\s<>|*?"'。，！？；：（）、\]]
 
 > 当前 Canvas 工作区仅作为文件查看/编辑器使用，但其作为 AI 助手的"操作台"具有巨大潜力。以下是基于 Nexus AI Assistant 现有架构（ReAct 引擎、内置/MCP 工具、Tauri Rust 后端）的扩展构想。
 
-### 6.1 AI 代码变更 Diff 视图 ⭐⭐⭐
+### 6.1 AI 代码变更 Diff 视图 ✅ 已实现
 
 **场景**：AI 调用 `write_file` 修改代码后，用户需要直观看到改了什么。
 
@@ -614,7 +616,71 @@ const FILE_PATH_REGEX = /[A-Za-z]:\\(?:[^\s<>|*?"'。，！？；：（）、\]]
 - Agent Runtime 的 `write_file` 工具执行后，触发 `openDiffView` 事件
 - 用户 Accept 后调用 Tauri `write_file`，Reject 后恢复原内容
 
-### 6.2 终端输出面板 ⭐⭐⭐
+#### 实现详情
+
+**核心架构："Review Before Write"（先审后写）**
+
+AI 调用 `write_file` 时，文件**不会立即写入磁盘**，而是暂存到内存缓存中。用户在 Diff 视图中点击 Accept 才真正写入磁盘，点击 Reject 则丢弃修改。
+
+**关键文件**：
+
+| 文件 | 说明 |
+|------|------|
+| `src/lib/pendingWrites.ts` | 内存暂存缓存，Map<path, {originalContent, newContent}> |
+| `src/components/DiffView.tsx` | Diff 视图组件，双 CodeMirror 实例 + diff-match-patch |
+| `src/lib/codemirror-theme.ts` | 共享的 CodeMirror 主题/语言扩展（DiffView 和 CanvasWorkspace 共用） |
+| `src/context/FileViewerContext.tsx` | 扩展 FileTab 支持 type='diff'、openDiffView/acceptDiff/rejectDiff |
+| `src/agent/tools/builtin.ts` | write_file 改为暂存到 pendingWrites，read_file 优先读取缓存 |
+| `src/hooks/useAgentExecution.ts` | onDiffOpen 回调 + 新任务开始时自动 flush 暂存写入 |
+| `src/agent/runtime/ReActEngine.ts` | metadata 字段透传（修复 result.metadata 丢失问题） |
+| `src/agent/runtime/AgentRuntime.ts` | onToolCall 类型签名扩展 metadata |
+| `src/App.tsx` | CanvasBridgeInner 桥接组件 + diffOpenRef/shellOutputRef |
+
+**数据流**：
+
+```
+AI 调用 write_file
+  → builtin.ts: 读取原文件内容 → setPendingWrite(path, original, new)
+  → 返回 ToolExecutionResult { metadata: { originalContent, newContent } }
+  → ReActEngine: record.result.metadata = result.metadata (透传)
+  → useAgentExecution: onToolCall 拦截 write_file → onDiffOpen(path, original, new)
+  → App.tsx: diffOpenRef → CanvasBridgeInner → openDiffView()
+  → FileViewerContext: 创建 type='diff' 的 FileTab，Diff 视图展示
+  → 用户 Accept → write_file 写入磁盘 + 更新已打开的同路径文件标签
+  → 用户 Reject → 丢弃暂存，不写入磁盘
+```
+
+**Diff 视图渲染**：
+
+- 使用 `diff-match-patch` 计算差异，将结果分为 `added`/`removed`/`unchanged` 行
+- 双 CodeMirror 实例：左侧原始内容，右侧修改内容
+- `ViewPlugin` + `Decoration.line` 实现行级着色（红色删除、绿色新增、浅色背景）
+- 自定义 `lineNumbers` 扩展的 `formatNumber` 实现对齐行号
+- `MutationObserver` 监听 `.cm-scroller` 实现双面板同步滚动
+- `React.memo` 优化 DiffPanel 子组件
+
+**多次 write_file 处理**：
+
+- 同一文件多次 write_file 时，`openDiffView` 保留第一次的 `originalContent`，只更新 `newContent`
+- 新任务开始时，`useAgentExecution.execute()` 自动 flush 所有未处理的暂存写入到磁盘
+
+**i18n 支持**：
+
+Diff 视图所有 UI 文本通过 `useTranslation` hook 国际化，翻译键位于 `canvas.diff.*`。
+
+**已知问题及修复历史**：
+
+| 问题 | 根因 | 修复 |
+|------|------|------|
+| Diff 视图不触发 | CanvasBridge 使用 useCallback 内调用 React Hooks（违规） | 改为 CanvasBridgeInner 正确的 React 组件 |
+| metadata 丢失 | ReActEngine 赋值 record.result 时未包含 metadata | 添加 `metadata: result.metadata` |
+| Reject 不恢复文件 | rejectDiff 使用 stale tabs 闭包 | 改用 `setTabs(prev => ...)` 函数式更新 |
+| Accept/Reject 无意义（文件已写入） | write_first 架构缺陷 | 重构为 review_before_write + pendingWrites 缓存 |
+| Accept 后已打开文件不更新 | acceptDiff 未更新同路径标签 | 添加 `setTabs(prev => prev.map(...))` 更新 |
+| 未 Accept 的暂存写入残留 | 新任务开始时未处理旧暂存 | execute() 开始时 flush 所有 pendingWrites |
+| 滚动掉帧 + 无语法高亮 | div 渲染无虚拟滚动和语法支持 | 重写为 CodeMirror 实例渲染 |
+
+### 6.2 终端输出面板 ✅ 已实现
 
 **场景**：AI 执行 `execute_shell` 命令后，用户需要查看实时输出。
 
@@ -631,6 +697,81 @@ const FILE_PATH_REGEX = /[A-Za-z]:\\(?:[^\s<>|*?"'。，！？；：（）、\]]
 - 复用现有 `TerminalView` 组件，嵌入 Canvas 底部
 - `execute_shell` 工具通过事件总线将输出发送到终端面板
 - Tauri 后端的 `execute_command` / `execute_powershell` 支持流式输出
+
+#### 实现详情
+
+**核心架构：xterm.js 终端模拟器 + Tauri IPC**
+
+AI 执行 shell 命令后，输出通过回调链传递到 Canvas 底部的 xterm.js 终端面板，支持 ANSI 颜色渲染和文本选择复制。
+
+**关键文件**：
+
+| 文件 | 说明 |
+|------|------|
+| `src/components/CanvasTerminal.tsx` | xterm.js 终端面板组件 |
+| `src/context/TerminalContext.tsx` | 终端状态管理（entries、isOpen） |
+| `src-tauri/src/tools/shell.rs` | Rust 后端命令执行（cmd/powershell/sh） |
+| `src/hooks/useAgentExecution.ts` | onShellOutput 回调拦截 execute_shell |
+| `src/App.tsx` | CanvasBridgeInner 桥接 shellOutputRef |
+
+**数据流**：
+
+```
+AI 调用 execute_shell
+  → builtin.ts: invoke('execute_command', { command, args, timeout })
+  → Rust shell.rs: cmd /C <command> 或 sh -c <command>
+  → 返回 CommandResult { stdout, stderr, exit_code }
+  → ReActEngine: record.result = { success, output, error, metadata: { exitCode } }
+  → useAgentExecution: onToolCall 拦截 execute_shell → onShellOutput(cmd, stdout, stderr, exitCode)
+  → App.tsx: shellOutputRef → CanvasBridgeInner → addEntry() + setIsOpen(true)
+  → TerminalContext: entries 追加新 TerminalEntry
+  → CanvasTerminal: useEffect 监听 entries → writeEntry() 写入 xterm
+```
+
+**终端面板功能**：
+
+- **xterm.js 渲染**：ANSI 转义码颜色支持，虚拟滚动，5000 行回滚缓冲
+- **可折叠面板**：CSS height 过渡动画，展开/收起按钮
+- **自动打开**：AI 执行命令时自动展开终端面板
+- **文本选择复制**：`attachCustomKeyEventHandler` 拦截 Ctrl+C，临时 textarea + `execCommand('copy')` 写入剪贴板
+- **提示符格式**：Windows 显示 `PS C:\Users\xxx>` ，Linux/Mac 显示 `user@host:~$`
+- **清空按钮**：清除终端内容和 entries 状态
+
+**Windows 中文编码修复**：
+
+Windows 的 `cmd.exe` 输出使用系统代码页（中文系统为 GBK/CP936），而 Rust 的 `String::from_utf8_lossy` 期望 UTF-8，导致中文乱码。
+
+修复方案：
+1. 添加 `encoding_rs` 依赖到 `Cargo.toml`
+2. 新增 `decode_output()` 函数：先尝试 UTF-8 解码，失败则回退到 GBK 解码
+3. `execute_command` 和 `execute_powershell` 都使用 `decode_output()` 替代 `String::from_utf8_lossy`
+
+```rust
+fn decode_output(bytes: &[u8]) -> String {
+    if bytes.is_empty() { return String::new(); }
+    if let Ok(s) = String::from_utf8(bytes.to_vec()) { return s; }
+    let (cow, _, _) = encoding_rs::GBK.decode(bytes);
+    cow.into_owned()
+}
+```
+
+**动画抖动修复**：
+
+展开/收起动画时 xterm 内容抖动，根因是 CSS height 过渡期间 `ResizeObserver` 反复触发 `fitAddon.fit()` 重排终端。
+
+修复方案：将动画层和 xterm 渲染层分离
+- 外层 div：`overflow-hidden` + `transition-[height]` 负责平滑过渡
+- 内层 div（xterm 容器）：固定 `height: 200px`，尺寸永远不变
+- `isOpen` 变化后延迟 320ms（动画结束后）再调用 `fitAddon.fit()`
+
+**已知问题及修复历史**：
+
+| 问题 | 根因 | 修复 |
+|------|------|------|
+| 每行只显示2个字符 | 条件渲染导致 xterm 在 div 不存在时创建失败 | 始终渲染 div，用 CSS height 控制显隐 |
+| 中文乱码 | cmd 输出 GBK 编码，from_utf8_lossy 期望 UTF-8 | encoding_rs GBK 回退解码 |
+| 无法复制选中文本 | keydown 挂在容器 div 上，xterm 内部 textarea 拦截事件 | attachCustomKeyEventHandler + execCommand('copy') |
+| 展开/收起动画抖动 | ResizeObserver 在动画期间反复触发 fit | 动画层/渲染层分离 + 延迟 fit |
 
 ### 6.3 AI 推理步骤可视化 ⭐⭐⭐
 
@@ -744,8 +885,8 @@ const FILE_PATH_REGEX = /[A-Za-z]:\\(?:[^\s<>|*?"'。，！？；：（）、\]]
 
 | 优先级 | 功能 | 理由 |
 |--------|------|------|
-| P0 | AI 代码变更 Diff 视图 | AI 最核心的操作是修改代码，Diff 是最直观的变更感知方式 |
-| P0 | 终端输出面板 | Shell 命令执行是 AI 的核心能力，需要可视化输出 |
+| P0 ✅ | AI 代码变更 Diff 视图 | AI 最核心的操作是修改代码，Diff 是最直观的变更感知方式 |
+| P0 ✅ | 终端输出面板 | Shell 命令执行是 AI 的核心能力，需要可视化输出 |
 | P1 | AI 推理步骤可视化 | 复杂任务的推理过程需要可视化，增强用户信任和理解 |
 | P1 | Web 内容预览 | AI 频繁操作网页内容，预览能力是自然延伸 |
 | P2 | 结构化数据查看器 | JSON/YAML/CSV 是常见文件类型，树/表视图显著提升体验 |

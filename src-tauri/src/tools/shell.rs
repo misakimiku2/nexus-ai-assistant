@@ -1,3 +1,4 @@
+use encoding_rs;
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 
@@ -8,6 +9,17 @@ pub struct CommandResult {
     pub exit_code: i32,
 }
 
+fn decode_output(bytes: &[u8]) -> String {
+    if bytes.is_empty() {
+        return String::new();
+    }
+    if let Ok(s) = String::from_utf8(bytes.to_vec()) {
+        return s;
+    }
+    let (cow, _encoding, _had_errors) = encoding_rs::GBK.decode(bytes);
+    cow.into_owned()
+}
+
 #[tauri::command]
 pub async fn execute_command(
     command: String,
@@ -15,7 +27,7 @@ pub async fn execute_command(
     _timeout: Option<u64>,
 ) -> Result<CommandResult, String> {
     let _timeout_ms = _timeout.unwrap_or(30000);
-    
+
     let blocked_commands = [
         "rm -rf",
         "format",
@@ -28,14 +40,14 @@ pub async fn execute_command(
         "chmod -R 777 /",
         "chown -R",
     ];
-    
+
     let command_lower = command.to_lowercase();
     for blocked in &blocked_commands {
         if command_lower.contains(blocked) {
             return Err(format!("Blocked command detected: {}", blocked));
         }
     }
-    
+
     let output = if cfg!(target_os = "windows") {
         Command::new("cmd")
             .args(["/C", &command])
@@ -46,13 +58,13 @@ pub async fn execute_command(
             .args(["-c", &command])
             .output()
     };
-    
+
     match output {
         Ok(output) => {
-            let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            let stdout = decode_output(&output.stdout);
+            let stderr = decode_output(&output.stderr);
             let exit_code = output.status.code().unwrap_or(-1);
-            
+
             Ok(CommandResult {
                 stdout,
                 stderr,
@@ -66,22 +78,30 @@ pub async fn execute_command(
 #[tauri::command]
 pub async fn execute_powershell(
     command: String,
-    timeout: Option<u64>,
+    _timeout: Option<u64>,
 ) -> Result<CommandResult, String> {
     if !cfg!(target_os = "windows") {
         return Err("PowerShell is only available on Windows".to_string());
     }
-    
+
+    let full_command =
+        format!("[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; {}", command);
     let output = Command::new("powershell")
-        .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &command])
+        .args([
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            &full_command,
+        ])
         .output();
-    
+
     match output {
         Ok(output) => {
-            let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            let stdout = decode_output(&output.stdout);
+            let stderr = decode_output(&output.stderr);
             let exit_code = output.status.code().unwrap_or(-1);
-            
+
             Ok(CommandResult {
                 stdout,
                 stderr,
@@ -103,18 +123,18 @@ pub async fn get_system_info() -> Result<SystemInfo, String> {
     } else {
         "Unknown"
     };
-    
+
     let home_dir = dirs::home_dir()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_default();
-    
+
     let current_dir = std::env::current_dir()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_default();
-    
+
     let username = whoami::username();
     let hostname = whoami::fallible::hostname().unwrap_or_default();
-    
+
     Ok(SystemInfo {
         os: os_name.to_string(),
         home_dir,

@@ -323,10 +323,10 @@ export const DiffView: React.FC<DiffViewProps> = ({
         "flex items-center gap-3 px-4 py-1.5 border-b text-xs shrink-0",
         isDarkMode ? "border-zinc-700 bg-zinc-800/80 text-zinc-400" : "border-zinc-200 bg-white text-zinc-500"
       )}>
-        <span className="text-green-500 font-medium">{t.canvas.diff.added({ count: addedCount })}</span>
-        <span className="text-red-500 font-medium">{t.canvas.diff.removed({ count: removedCount })}</span>
+        <span className="text-green-500 font-medium">{t('canvas.diff.added', { count: addedCount })}</span>
+        <span className="text-red-500 font-medium">{t('canvas.diff.removed', { count: removedCount })}</span>
         <span className="opacity-50">|</span>
-        <span className="text-xs">{t.canvas.diff.lines({ count: lines.length })}</span>
+        <span className="text-xs">{t('canvas.diff.lines', { count: lines.length })}</span>
         <div className="ml-auto flex items-center gap-1">
           <button
             onClick={onAccept}

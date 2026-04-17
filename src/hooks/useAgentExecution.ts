@@ -228,14 +228,6 @@ export function useAgentExecution(
           }
         }
 
-        if (toolRecord.toolName === 'write_file' && toolRecord.status === 'success' && toolRecord.result?.metadata) {
-          const metadata = toolRecord.result.metadata as { originalContent?: string; newContent?: string };
-          if (metadata.originalContent !== undefined && metadata.newContent !== undefined && metadata.originalContent !== metadata.newContent) {
-            const filePath = toolRecord.parameters?.path as string;
-            callbacksRef.current?.onDiffOpen?.(filePath, metadata.originalContent, metadata.newContent);
-          }
-        }
-
         if (toolRecord.toolName === 'execute_shell' && (toolRecord.status === 'success' || toolRecord.status === 'error')) {
           const command = (toolRecord.parameters?.command as string) || '';
           const stdout = toolRecord.result?.output || '';
@@ -411,6 +403,16 @@ export function useAgentExecution(
 
     try {
       const result = await runtimeRef.current!.execute(input, conversationHistory, imageAttachments);
+
+      const currentPendingWrites = getAllPendingWrites();
+      if (currentPendingWrites.size > 0) {
+        for (const [path, data] of currentPendingWrites) {
+          if (data.originalContent.length > 0 && data.originalContent !== data.newContent) {
+            callbacksRef.current?.onDiffOpen?.(path, data.originalContent, data.newContent);
+          }
+        }
+      }
+
       return result;
     } catch (error) {
       setStatus('failed');
