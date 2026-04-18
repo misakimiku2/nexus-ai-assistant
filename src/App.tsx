@@ -72,6 +72,12 @@ export default function App() {
     setSearchGroups,
     setSearchResults,
     updateSessionTitle,
+    taskRounds,
+    setTaskRounds,
+    currentRoundId,
+    startNewRound,
+    completeCurrentRound,
+    addSearchToRound,
     fontFamily,
     mcpServers,
     setMcpServers,
@@ -199,9 +205,14 @@ export default function App() {
       timestamp: Date.now(),
       sessionId: currentSessionId
     };
-    setSearchGroups(prev => [newGroup, ...prev]);
+
+    if (currentRoundId) {
+      addSearchToRound(currentRoundId, newGroup);
+    } else {
+      setSearchGroups(prev => [newGroup, ...prev]);
+    }
     addLog(`Agent 网络搜索完成: ${results.length} 个结果`, 'info');
-  }, [currentSessionId, setSearchGroups, addLog]);
+  }, [currentSessionId, currentRoundId, setSearchGroups, addSearchToRound, addLog]);
 
   const handleExecutionUpdate = useCallback((data: {
     reasoningSteps: ReasoningStep[];
@@ -253,7 +264,15 @@ export default function App() {
       }
       return m;
     }));
-  }, [setMessages]);
+
+    if (currentRoundId) {
+      setTaskRounds(prev => prev.map(round =>
+        round.id === currentRoundId
+          ? { ...round, todos: todoItems }
+          : round
+      ));
+    }
+  }, [setMessages, currentRoundId, setTaskRounds]);
 
   const handleContentChunk = useCallback((chunk: string) => {
     const messageId = currentExecutionMessageIdRef.current;
@@ -291,6 +310,27 @@ export default function App() {
     setAppMode('command');
     diffOpenRef.current?.(filePath, originalContent, newContent);
   }, [setAppMode]);
+
+  const handleFilesWritten = useCallback((files: Array<{ path: string; isNew: boolean }>) => {
+    const messageId = currentExecutionMessageIdRef.current;
+    if (!messageId) return;
+
+    const fileLines = files.map(f => {
+      const label = f.isNew ? '📄 新建' : '✏️ 修改';
+      return `${label}: ${f.path}`;
+    }).join('\n');
+
+    setMessages(prev => prev.map(m => {
+      if (m.id === messageId) {
+        const separator = m.content ? '\n\n---\n' : '';
+        return {
+          ...m,
+          content: m.content + separator + fileLines,
+        };
+      }
+      return m;
+    }));
+  }, [setMessages]);
 
   const handleShellOutput = useCallback((command: string, stdout: string, stderr: string, exitCode: number) => {
     shellOutputRef.current?.(command, stdout, stderr, exitCode);
@@ -374,7 +414,8 @@ export default function App() {
       onTaskPlanUpdate: handleTaskPlanUpdate,
       onDiffOpen: handleDiffOpen,
       onShellOutput: handleShellOutput,
-    }), [handleWebSearchResult, handleExecutionUpdate, handleContentChunk, handleTaskPlanUpdate, handleDiffOpen, handleShellOutput])
+      onFilesWritten: handleFilesWritten,
+    }), [handleWebSearchResult, handleExecutionUpdate, handleContentChunk, handleTaskPlanUpdate, handleDiffOpen, handleShellOutput, handleFilesWritten])
   );
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -807,6 +848,8 @@ export default function App() {
 
     addLog(t.logs.messageSent.replace('{length}', String(input.trim().length)), 'info');
 
+    const roundId = startNewRound(messageContent, sessionId);
+
     let currentMsgs = [...messages, userMessage];
 
     const originalInput = messageContent;
@@ -978,6 +1021,7 @@ export default function App() {
       setCurrentExecutionMessageId(null);
       setIsStreaming(false);
       setIsWaitingForResponse(false);
+      completeCurrentRound();
     }
   };
 

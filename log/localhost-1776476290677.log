@@ -1,0 +1,100 @@
+ToolPanel.tsx:808 ReferenceError: useRef is not defined
+    at TaskRoundCard (ToolPanel.tsx:157:25)
+    at Object.react_stack_bottom_frame (react-dom-client.development.js:25904:20)
+    at renderWithHooks (react-dom-client.development.js:7662:22)
+    at updateFunctionComponent (react-dom-client.development.js:10166:19)
+    at beginWork (react-dom-client.development.js:11778:18)
+    at runWithFiberInDEV (react-dom-client.development.js:871:30)
+    at performUnitOfWork (react-dom-client.development.js:17641:22)
+    at workLoopSync (react-dom-client.development.js:17469:41)
+    at renderRootSync (react-dom-client.development.js:17450:11)
+    at performWorkOnRoot (react-dom-client.development.js:16583:35)
+
+The above error occurred in the <TaskRoundCard> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
+
+defaultOnCaughtError @ react-dom-client.development.js:9410
+logCaughtError @ react-dom-client.development.js:9446
+runWithFiberInDEV @ react-dom-client.development.js:871
+(匿名) @ react-dom-client.development.js:9493
+callCallback @ react-dom-client.development.js:7423
+commitCallbacks @ react-dom-client.development.js:7443
+runWithFiberInDEV @ react-dom-client.development.js:871
+commitClassCallbacks @ react-dom-client.development.js:13377
+commitLayoutEffectOnFiber @ react-dom-client.development.js:14026
+recursivelyTraverseLayoutEffects @ react-dom-client.development.js:15159
+commitLayoutEffectOnFiber @ react-dom-client.development.js:13949
+recursivelyTraverseLayoutEffects @ react-dom-client.development.js:15159
+commitLayoutEffectOnFiber @ react-dom-client.development.js:14165
+recursivelyTraverseLayoutEffects @ react-dom-client.development.js:15159
+commitLayoutEffectOnFiber @ react-dom-client.development.js:13949
+recursivelyTraverseLayoutEffects @ react-dom-client.development.js:15159
+commitLayoutEffectOnFiber @ react-dom-client.development.js:14165
+recursivelyTraverseLayoutEffects @ react-dom-client.development.js:15159
+commitLayoutEffectOnFiber @ react-dom-client.development.js:14031
+flushLayoutEffects @ react-dom-client.development.js:18138
+commitRoot @ react-dom-client.development.js:17954
+commitRootWhenReady @ react-dom-client.development.js:16824
+performWorkOnRoot @ react-dom-client.development.js:16722
+performSyncWorkOnRoot @ react-dom-client.development.js:18972
+flushSyncWorkAcrossRoots_impl @ react-dom-client.development.js:18814
+processRootScheduleInMicrotask @ react-dom-client.development.js:18853
+(匿名) @ react-dom-client.development.js:18991
+<TaskRoundCard>
+(匿名) @ react-jsx-dev-runtime.development.js:335
+(匿名) @ ToolPanel.tsx:808
+(匿名) @ ToolPanel.tsx:807
+react_stack_bottom_frame @ react-dom-client.development.js:25904
+renderWithHooksAgain @ react-dom-client.development.js:7762
+renderWithHooks @ react-dom-client.development.js:7674
+updateFunctionComponent @ react-dom-client.development.js:10166
+beginWork @ react-dom-client.development.js:11778
+runWithFiberInDEV @ react-dom-client.development.js:871
+performUnitOfWork @ react-dom-client.development.js:17641
+workLoopSync @ react-dom-client.development.js:17469
+renderRootSync @ react-dom-client.development.js:17450
+performWorkOnRoot @ react-dom-client.development.js:16583
+performSyncWorkOnRoot @ react-dom-client.development.js:18972
+flushSyncWorkAcrossRoots_impl @ react-dom-client.development.js:18814
+processRootScheduleInMicrotask @ react-dom-client.development.js:18853
+(匿名) @ react-dom-client.development.js:18991
+ErrorBoundary.tsx:26 [ErrorBoundary] 组件错误: ReferenceError: useRef is not defined
+    at TaskRoundCard (ToolPanel.tsx:157:25)
+    at Object.react_stack_bottom_frame (react-dom-client.development.js:25904:20)
+    at renderWithHooks (react-dom-client.development.js:7662:22)
+    at updateFunctionComponent (react-dom-client.development.js:10166:19)
+    at beginWork (react-dom-client.development.js:11778:18)
+    at runWithFiberInDEV (react-dom-client.development.js:871:30)
+    at performUnitOfWork (react-dom-client.development.js:17641:22)
+    at workLoopSync (react-dom-client.development.js:17469:41)
+    at renderRootSync (react-dom-client.development.js:17450:11)
+    at performWorkOnRoot (react-dom-client.development.js:16583:35) {componentStack: '\n    at TaskRoundCard (http://localhost:3000/src/c…ext/GlobalStateContext.tsx?t=1776475858571:24:39)'}
+(匿名) @ ErrorBoundary.tsx:26
+react_stack_bottom_frame @ react-dom-client.development.js:25959
+(匿名) @ react-dom-client.development.js:9504
+callCallback @ react-dom-client.development.js:7423
+commitCallbacks @ react-dom-client.development.js:7443
+runWithFiberInDEV @ react-dom-client.development.js:871
+commitClassCallbacks @ react-dom-client.development.js:13377
+commitLayoutEffectOnFiber @ react-dom-client.development.js:14026
+recursivelyTraverseLayoutEffects @ react-dom-client.development.js:15159
+commitLayoutEffectOnFiber @ react-dom-client.development.js:13949
+recursivelyTraverseLayoutEffects @ react-dom-client.development.js:15159
+commitLayoutEffectOnFiber @ react-dom-client.development.js:14165
+recursivelyTraverseLayoutEffects @ react-dom-client.development.js:15159
+commitLayoutEffectOnFiber @ react-dom-client.development.js:13949
+recursivelyTraverseLayoutEffects @ react-dom-client.development.js:15159
+commitLayoutEffectOnFiber @ react-dom-client.development.js:14165
+recursivelyTraverseLayoutEffects @ react-dom-client.development.js:15159
+commitLayoutEffectOnFiber @ react-dom-client.development.js:14031
+flushLayoutEffects @ react-dom-client.development.js:18138
+commitRoot @ react-dom-client.development.js:17954
+commitRootWhenReady @ react-dom-client.development.js:16824
+performWorkOnRoot @ react-dom-client.development.js:16722
+performSyncWorkOnRoot @ react-dom-client.development.js:18972
+flushSyncWorkAcrossRoots_impl @ react-dom-client.development.js:18814
+processRootScheduleInMicrotask @ react-dom-client.development.js:18853
+(匿名) @ react-dom-client.development.js:18991
+GlobalStateContext.tsx:1415 [GlobalState] 从消息中恢复了 1 个轮次的任务进度
+GlobalStateContext.tsx:543 [GlobalState] 会话已保存: 1776458486518m5f69sg

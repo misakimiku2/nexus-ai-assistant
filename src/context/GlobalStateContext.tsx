@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
 import { useTokenStorage } from '../hooks/useTokenStorage';
-import { Message, LogEntry, ChatSession, ChatFolder, Agent, TodoItem, SearchGroup, SearchResult, McpServer, ModelConfig, TokenUsageRecord, StorageState } from '../types';
+import { Message, LogEntry, ChatSession, ChatFolder, Agent, TodoItem, SearchGroup, SearchResult, McpServer, ModelConfig, TokenUsageRecord, StorageState, TaskRound } from '../types';
 import { AGENTS as INITIAL_AGENTS } from '../data/agents';
 import { generateMockConversation, generateClusterMockConversation } from '../utils/mockData';
 import { checkModelHealth, HealthCheckResult } from '../services/modelHealthCheck';
@@ -67,6 +67,14 @@ interface GlobalState {
   setSearchResults: React.Dispatch<React.SetStateAction<SearchResult[]>>;
   deleteSearchGroup: (id: string) => void;
   batchDeleteSearchGroups: (ids: string[]) => void;
+
+  // Task Round Management
+  taskRounds: TaskRound[];
+  setTaskRounds: React.Dispatch<React.SetStateAction<TaskRound[]>>;
+  currentRoundId: string | null;
+  startNewRound: (userMessage: string, sessionId: string) => string;
+  completeCurrentRound: () => void;
+  addSearchToRound: (roundId: string, searchGroup: SearchGroup) => void;
 
   // MCP State
   mcpServers: McpServer[];
@@ -191,6 +199,8 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [agents, setAgents] = useState<Agent[]>(INITIAL_AGENTS);
   const [searchGroups, setSearchGroups] = useState<SearchGroup[]>([]);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [taskRounds, setTaskRounds] = useState<TaskRound[]>([]);
+  const [currentRoundId, setCurrentRoundId] = useState<string | null>(null);
   
   const [sessionStorageState, setSessionStorageState] = useState<StorageState>({
     isInitialized: false,
@@ -470,6 +480,12 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
         if (allSearchGroups.length > 0) {
           setSearchGroups(allSearchGroups);
           console.log('[GlobalState] 加载了', allSearchGroups.length, '个搜索组');
+
+          const rebuiltRounds = rebuildTaskRoundsFromSearchGroups(allSearchGroups, loadedSessions);
+          if (rebuiltRounds.length > 0) {
+            setTaskRounds(rebuiltRounds);
+            console.log('[GlobalState] 重建了', rebuiltRounds.length, '个任务轮次');
+          }
         }
         
         if (loadedFolders.length > 0) {
@@ -1017,6 +1033,123 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     setSearchGroups(prev => prev.filter(g => !ids.includes(g.id)));
   };
 
+  const rebuildTaskRoundsFromSearchGroups = (groups: SearchGroup[], sessions: ChatSession[]): TaskRound[] => {
+    const roundMap = new Map<string, { sessionId: string; searchGroups: SearchGroup[]; startTime: number }>();
+    const legacyGroups: { sessionId: string; groups: SearchGroup[] }[] = [];
+
+    groups.forEach(group => {
+      if (group.roundId && group.sessionId) {
+        if (!roundMap.has(group.roundId)) {
+          roundMap.set(group.roundId, {
+            sessionId: group.sessionId,
+            searchGroups: [],
+            startTime: group.timestamp
+          });
+        }
+        const round = roundMap.get(group.roundId)!;
+        round.searchGroups.push(group);
+        if (group.timestamp < round.startTime) {
+          round.startTime = group.timestamp;
+        }
+      } else if (group.sessionId) {
+        const existing = legacyGroups.find(l => l.sessionId === group.sessionId);
+        if (existing) {
+          existing.groups.push(group);
+        } else {
+          legacyGroups.push({ sessionId: group.sessionId, groups: [group] });
+        }
+      }
+    });
+
+    const allAssistantMessagesWithTodos = sessions.flatMap(s => 
+      s.messages.filter(m => m.role === 'assistant' && m.todos && m.todos.length > 0)
+        .map(m => ({ ...m, sessionId: s.id }))
+    );
+
+    const rebuiltRounds: TaskRound[] = Array.from(roundMap.entries()).map(([roundId, data]) => {
+      const session = sessions.find(s => s.id === data.sessionId);
+      const sessionRounds = Array.from(roundMap.entries())
+        .filter(([_, d]) => d.sessionId === data.sessionId)
+        .sort((a, b) => a[1].startTime - b[1].startTime);
+      const roundIndex = sessionRounds.findIndex(([id]) => id === roundId);
+      const nextRound = roundIndex < sessionRounds.length - 1 ? sessionRounds[roundIndex + 1] : null;
+
+      const matchingMessage = allAssistantMessagesWithTodos.find(msg => {
+        if (msg.sessionId !== data.sessionId) return false;
+        const isAfterRoundStart = msg.timestamp >= data.startTime;
+        const isBeforeNextRound = nextRound ? msg.timestamp < nextRound[1].startTime : true;
+        return isAfterRoundStart && isBeforeNextRound;
+      });
+
+      return {
+        id: roundId,
+        sessionId: data.sessionId,
+        userMessage: data.searchGroups.length > 0
+          ? data.searchGroups[0].query.substring(0, 50)
+          : '历史搜索',
+        startTime: data.startTime,
+        status: 'completed' as const,
+        searchGroups: data.searchGroups,
+        todos: matchingMessage?.todos || []
+      };
+    });
+
+    legacyGroups.forEach((legacy, index) => {
+      if (legacy.groups.length > 0) {
+        const sortedGroups = [...legacy.groups].sort((a, b) => a.timestamp - b.timestamp);
+        rebuiltRounds.push({
+          id: `legacy-${legacy.sessionId}-${index}`,
+          sessionId: legacy.sessionId,
+          userMessage: sortedGroups[0].query.substring(0, 50),
+          startTime: sortedGroups[0].timestamp,
+          status: 'completed' as const,
+          searchGroups: sortedGroups,
+          todos: []
+        });
+      }
+    });
+
+    return rebuiltRounds.sort((a, b) => b.startTime - a.startTime);
+  };
+
+  // Task Round Management
+  const startNewRound = useCallback((userMessage: string, sessionId: string): string => {
+    const roundId = Date.now().toString() + Math.random().toString(36).substring(2, 9);
+    const newRound: TaskRound = {
+      id: roundId,
+      sessionId,
+      userMessage: userMessage.substring(0, 50) + (userMessage.length > 50 ? '...' : ''),
+      startTime: Date.now(),
+      status: 'active',
+      searchGroups: [],
+      todos: []
+    };
+    setTaskRounds(prev => [newRound, ...prev]);
+    setCurrentRoundId(roundId);
+    console.log('[GlobalState] 新任务轮次已创建:', roundId);
+    return roundId;
+  }, []);
+
+  const completeCurrentRound = useCallback(() => {
+    if (!currentRoundId) return;
+    setTaskRounds(prev => prev.map(round =>
+      round.id === currentRoundId
+        ? { ...round, endTime: Date.now(), status: 'completed' as const }
+        : round
+    ));
+    console.log('[GlobalState] 任务轮次已完成:', currentRoundId);
+  }, [currentRoundId]);
+
+  const addSearchToRound = useCallback((roundId: string, searchGroup: SearchGroup) => {
+    const searchWithRoundId = { ...searchGroup, roundId };
+    setSearchGroups(prev => [searchWithRoundId, ...prev]);
+    setTaskRounds(prev => prev.map(round =>
+      round.id === roundId
+        ? { ...round, searchGroups: [...round.searchGroups, searchWithRoundId] }
+        : round
+    ));
+  }, []);
+
   const createFolder = (name: string) => {
     setFolders(prev => [{ id: Date.now().toString() + Math.random().toString(36).substring(2, 9), name, isExpanded: true }, ...prev]);
   };
@@ -1262,6 +1395,49 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     addLog(t?.logs?.clusterTestDataLoaded || '已加载集群测试模拟数据，并创建任务文件夹', 'info');
   };
 
+  useEffect(() => {
+    if (messages.length === 0 || taskRounds.length === 0) {
+      return;
+    }
+
+    const assistantMessagesWithTodos = messages.filter(m => m.role === 'assistant' && m.todos && m.todos.length > 0);
+    if (assistantMessagesWithTodos.length === 0) return;
+
+    const sessionRounds = taskRounds.filter(r => r.sessionId === currentSessionId);
+    if (sessionRounds.length === 0) return;
+
+    let updated = false;
+    const newTaskRounds = taskRounds.map(round => {
+      if (round.sessionId !== currentSessionId) {
+        return round;
+      }
+
+      if (round.todos && round.todos.length > 0) {
+        return round;
+      }
+
+      const sortedRounds = [...sessionRounds].sort((a, b) => a.startTime - b.startTime);
+      const roundIndex = sortedRounds.findIndex(r => r.id === round.id);
+      const nextRound = roundIndex < sortedRounds.length - 1 ? sortedRounds[roundIndex + 1] : null;
+
+      const matchingMessage = assistantMessagesWithTodos.find(msg => {
+        const isAfterRoundStart = msg.timestamp >= round.startTime;
+        const isBeforeNextRound = nextRound ? msg.timestamp < nextRound.startTime : true;
+        return isAfterRoundStart && isBeforeNextRound;
+      });
+
+      if (matchingMessage && matchingMessage.todos) {
+        updated = true;
+        return { ...round, todos: matchingMessage.todos };
+      }
+      return round;
+    });
+
+    if (updated) {
+      setTaskRounds(newTaskRounds);
+    }
+  }, [messages, currentSessionId, taskRounds]);
+
   return (
     <GlobalStateContext.Provider value={{
       messages, setMessages,
@@ -1277,6 +1453,7 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
       searchGroups, setSearchGroups,
       searchResults, setSearchResults,
       deleteSearchGroup, batchDeleteSearchGroups,
+      taskRounds, setTaskRounds, currentRoundId, startNewRound, completeCurrentRound, addSearchToRound,
       mcpServers, setMcpServers,
       userName, setUserName,
       aiName, setAiName,

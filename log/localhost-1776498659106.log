@@ -1,0 +1,22 @@
+GlobalStateContext.tsx:1378 [GlobalState] todos恢复Effect触发 | messages: 2 | taskRounds: 2 | currentSessionId: 1776458486518m5f69sg
+GlobalStateContext.tsx:1386 [GlobalState] 找到含todos的assistant消息: 1条
+GlobalStateContext.tsx:1390 [GlobalState] 当前会话的轮次: 1个
+GlobalStateContext.tsx:1399 [GlobalState] 检查轮次 177645850449123labga | 已有todos: 0
+GlobalStateContext.tsx:1417 [GlobalState] ✅ 为轮次 177645850449123labga 恢复 todos: 6项
+GlobalStateContext.tsx:1425 [GlobalState] 从消息中恢复了 2 个轮次的任务进度
+ToolPanel.tsx:693 [ToolPanel] 渲染 TaskRoundProgressCard | roundId: 177645850449123labga | todos: 6 | status: completed
+ToolPanel.tsx:693 [ToolPanel] 渲染 TaskRoundProgressCard | roundId: 177645850449123labga | todos: 6 | status: completed
+ToolPanel.tsx:325 [TaskRoundProgressCard] 渲染 #1 | roundId: 177645850449123labga | isExpanded: false | hasMounted: false | shouldShow: false | todos长度: 6
+ToolPanel.tsx:325 [TaskRoundProgressCard] 渲染 #2 | roundId: 177645850449123labga | isExpanded: false | hasMounted: false | shouldShow: false | todos长度: 6
+ToolPanel.tsx:328 [TaskRoundProgressCard] useEffect 执行 #2 | 设置 hasMounted=true | roundId: 177645850449123labga
+GlobalStateContext.tsx:1378 [GlobalState] todos恢复Effect触发 | messages: 2 | taskRounds: 2 | currentSessionId: 1776458486518m5f69sg
+GlobalStateContext.tsx:1386 [GlobalState] 找到含todos的assistant消息: 1条
+GlobalStateContext.tsx:1390 [GlobalState] 当前会话的轮次: 1个
+GlobalStateContext.tsx:1399 [GlobalState] 检查轮次 177645850449123labga | 已有todos: 6
+GlobalStateContext.tsx:1427 [GlobalState] 无需更新
+ToolPanel.tsx:328 [TaskRoundProgressCard] useEffect 执行 #2 | 设置 hasMounted=true | roundId: 177645850449123labga
+GlobalStateContext.tsx:543 [GlobalState] 会话已保存: 1776458486518m5f69sg
+ToolPanel.tsx:693 [ToolPanel] 渲染 TaskRoundProgressCard | roundId: 177645850449123labga | todos: 6 | status: completed
+ToolPanel.tsx:693 [ToolPanel] 渲染 TaskRoundProgressCard | roundId: 177645850449123labga | todos: 6 | status: completed
+ToolPanel.tsx:325 [TaskRoundProgressCard] 渲染 #3 | roundId: 177645850449123labga | isExpanded: false | hasMounted: true | shouldShow: false | todos长度: 6
+ToolPanel.tsx:325 [TaskRoundProgressCard] 渲染 #4 | roundId: 177645850449123labga | isExpanded: false | hasMounted: true | shouldShow: false | todos长度: 6

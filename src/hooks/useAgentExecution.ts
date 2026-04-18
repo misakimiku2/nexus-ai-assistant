@@ -15,7 +15,7 @@ import {
 import { DEFAULT_AGENT } from '../data/agents';
 import { useGlobalState } from '../context/GlobalStateContext';
 import { calculateCost } from '../utils/pricing';
-import { getAllPendingWrites, clearAllPendingWrites } from '../lib/pendingWrites';
+import { getAllPendingWrites, clearAllPendingWrites, clearPendingWrite } from '../lib/pendingWrites';
 
 interface TokenUsage {
   inputTokens: number;
@@ -66,6 +66,7 @@ interface AgentExecutionCallbacks {
   onTaskPlanUpdate?: (plan: TaskPlan) => void;
   onDiffOpen?: (filePath: string, originalContent: string, newContent: string) => void;
   onShellOutput?: (command: string, stdout: string, stderr: string, exitCode: number) => void;
+  onFilesWritten?: (files: Array<{ path: string; isNew: boolean }>) => void;
 }
 
 function parseWebSearchResults(output: string): SearchResult[] {
@@ -405,12 +406,31 @@ export function useAgentExecution(
       const result = await runtimeRef.current!.execute(input, conversationHistory, imageAttachments);
 
       const currentPendingWrites = getAllPendingWrites();
+      const writtenFiles: Array<{ path: string; isNew: boolean }> = [];
       if (currentPendingWrites.size > 0) {
         for (const [path, data] of currentPendingWrites) {
           if (data.originalContent.length > 0 && data.originalContent !== data.newContent) {
             callbacksRef.current?.onDiffOpen?.(path, data.originalContent, data.newContent);
+            writtenFiles.push({ path, isNew: false });
+          } else if (data.originalContent.length === 0 && data.newContent.length > 0) {
+            try {
+              const { invoke } = await import('@tauri-apps/api/core');
+              await invoke('write_file', {
+                path,
+                content: data.newContent,
+                encoding: 'utf-8',
+              });
+              clearPendingWrite(path);
+              writtenFiles.push({ path, isNew: true });
+            } catch (error) {
+              console.error('Failed to auto-write new file:', path, error);
+            }
           }
         }
+      }
+
+      if (writtenFiles.length > 0) {
+        callbacksRef.current?.onFilesWritten?.(writtenFiles);
       }
 
       return result;

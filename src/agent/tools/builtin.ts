@@ -592,9 +592,12 @@ function createWriteFileTool(config: BuiltinToolConfig): ToolDefinition {
 
         setPendingWrite(params.path as string, originalContent, params.content as string);
 
+        const isNewFile = originalContent.length === 0;
         return {
           success: true,
-          output: `File staged for writing to ${params.path} (pending review)`,
+          output: isNewFile
+            ? `文件已保存至 ${params.path}`
+            : `文件修改已暂存: ${params.path}`,
           metadata: {
             originalContent,
             newContent: params.content,

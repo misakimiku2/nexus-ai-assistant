@@ -54,6 +54,7 @@ export interface TodoItem {
   subAgentId?: string;
   targetSessionId?: string;
   steps?: TodoStep[];
+  roundId?: string;
 }
 
 export interface MessageVersion {
@@ -98,6 +99,18 @@ export interface SearchGroup {
   results: SearchResult[];
   timestamp: number;
   sessionId?: string;
+  roundId?: string;
+}
+
+export interface TaskRound {
+  id: string;
+  sessionId: string;
+  userMessage: string;
+  startTime: number;
+  endTime?: number;
+  status: 'active' | 'completed' | 'failed';
+  searchGroups: SearchGroup[];
+  todos: TodoItem[];
 }
 
 export interface LogEntry {

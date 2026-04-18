@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Globe, 
@@ -18,7 +18,7 @@ import {
   Circle
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { SearchResult, TodoItem, SearchGroup } from '../types';
+import { SearchResult, TodoItem, SearchGroup, TaskRound } from '../types';
 import { useGlobalState } from '../context/GlobalStateContext';
 import { Edit2, Check } from 'lucide-react';
 
@@ -39,22 +39,23 @@ const SearchGroupCard: React.FC<{
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
+    <div
       className={cn(
-        "rounded-2xl border overflow-hidden transition-all",
-        isDarkMode ? "bg-zinc-700/50 border-zinc-600" : "bg-white border-zinc-200 shadow-sm"
+        "rounded-2xl border overflow-hidden",
+        isDarkMode ? "bg-zinc-700/50 border-zinc-600" : "bg-white border-zinc-200"
       )}
     >
-      <div className={cn(
-        "px-4 py-3 flex items-center justify-between border-b",
-        isDarkMode ? "border-zinc-700 bg-zinc-700/30" : "border-zinc-100 bg-zinc-50/50"
-      )}>
+      <div
+        className={cn(
+          "px-4 py-3 flex items-center justify-between border-b cursor-pointer",
+          isDarkMode ? "bg-zinc-700/30" : "bg-zinc-50/50"
+        )}
+        onClick={onToggle}
+      >
         <div className="flex-1 min-w-0 mr-2">
           {isEditing ? (
             <div className="flex items-center gap-2">
-              <input 
+              <input
                 type="text"
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
@@ -68,13 +69,13 @@ const SearchGroupCard: React.FC<{
             </div>
           ) : (
             <div className="flex items-center gap-2 group/title">
-              <h3 
-                className="text-xs font-bold truncate cursor-pointer" 
+              <h3
+                className="text-xs font-bold truncate cursor-pointer"
                 onClick={onToggle}
               >
                 {group.query}
               </h3>
-              <button 
+              <button
                 onClick={() => setIsEditing(true)}
                 className="opacity-0 group-hover/title:opacity-100 p-1 hover:bg-zinc-500/10 rounded transition-all"
               >
@@ -84,13 +85,13 @@ const SearchGroupCard: React.FC<{
           )}
         </div>
         <div className="flex items-center gap-1">
-          <button 
+          <button
             onClick={onDelete}
             className="p-1.5 hover:bg-red-500/10 text-zinc-500 hover:text-red-500 rounded-lg transition-all"
           >
             <Trash2 size={14} />
           </button>
-          <button 
+          <button
             onClick={onToggle}
             className={cn("p-1.5 hover:bg-zinc-500/10 rounded-lg transition-transform", isExpanded ? "rotate-90" : "")}
           >
@@ -99,39 +100,310 @@ const SearchGroupCard: React.FC<{
         </div>
       </div>
 
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div 
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden"
-          >
-            <div className="p-3 space-y-2">
-              {group.results.map((result) => (
-                <div 
-                  key={result.url}
-                  className={cn(
-                    "p-2.5 rounded-xl border transition-all hover:scale-[1.02]",
-                    isDarkMode ? "bg-black/20 border-zinc-700 hover:border-indigo-500/30" : "bg-zinc-50 border-zinc-100 hover:border-indigo-500/30"
-                  )}
-                >
-                  <a 
-                    href={result.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="text-[11px] font-bold text-indigo-500 hover:underline block truncate mb-1"
-                  >
-                    {result.title}
-                  </a>
-                  <p className="text-[10px] opacity-60 line-clamp-2 leading-relaxed">{result.snippet}</p>
-                </div>
-              ))}
+      {isExpanded && (
+        <div className="p-3 space-y-2">
+          {group.results.map((result) => (
+            <div
+              key={result.url}
+              className={cn(
+                "p-2.5 rounded-xl border transition-all hover:scale-[1.02]",
+                isDarkMode ? "bg-black/20 border-zinc-700 hover:border-indigo-500/30" : "bg-zinc-50 border-zinc-100 hover:border-indigo-500/30"
+              )}
+            >
+              <a
+                href={result.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] font-bold text-indigo-500 hover:underline block truncate mb-1"
+              >
+                {result.title}
+              </a>
+              <p className="text-[10px] opacity-60 line-clamp-2 leading-relaxed">{result.snippet}</p>
             </div>
-          </motion.div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const TaskRoundCard: React.FC<{
+  round: TaskRound;
+  isDarkMode: boolean;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onDelete: () => void;
+}> = ({ round, isDarkMode, isExpanded, onToggle, onDelete }) => {
+  const totalResults = round.searchGroups.reduce((acc, group) => acc + group.results.length, 0);
+  const [expandedSearchId, setExpandedSearchId] = useState<string | null>(null);
+
+  const getStatusIcon = () => {
+    switch (round.status) {
+      case 'active':
+        return <Loader2 size={14} className="text-indigo-500 animate-spin" />;
+      case 'completed':
+        return <CheckCircle2 size={14} className="text-emerald-500" />;
+      case 'failed':
+        return <AlertCircle size={14} className="text-red-500" />;
+      default:
+        return <Circle size={14} className="text-zinc-500" />;
+    }
+  };
+
+  const getStatusText = () => {
+    switch (round.status) {
+      case 'active': return '执行中';
+      case 'completed': return '已完成';
+      case 'failed': return '失败';
+      default: return '未知';
+    }
+  };
+
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border overflow-hidden",
+        isDarkMode ? "bg-zinc-700/50 border-zinc-600" : "bg-white border-zinc-200"
+      )}
+    >
+      <div
+        className={cn(
+          "px-4 py-3 flex items-center justify-between cursor-pointer",
+          isDarkMode ? "bg-zinc-700/30" : "bg-zinc-50/50"
         )}
-      </AnimatePresence>
-    </motion.div>
+        onClick={onToggle}
+      >
+        <div className="flex-1 min-w-0 mr-2">
+          <div className="flex items-center gap-2 mb-1">
+            {getStatusIcon()}
+            <h3 className="text-xs font-bold truncate">{round.userMessage}</h3>
+          </div>
+          <div className="flex items-center gap-3 text-[10px] opacity-50">
+            <span>{round.searchGroups.length} 次搜索</span>
+            <span>{totalResults} 个结果</span>
+            <span>{getStatusText()}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            className="p-1.5 hover:bg-red-500/10 text-zinc-500 hover:text-red-500 rounded-lg transition-all"
+          >
+            <Trash2 size={14} />
+          </button>
+          <button
+            className={cn("p-1.5 hover:bg-zinc-500/10 rounded-lg transition-transform", isExpanded ? "rotate-90" : "")}
+          >
+            <ChevronRight size={14} />
+          </button>
+        </div>
+      </div>
+
+      {isExpanded && (
+        <div className="p-3 space-y-3">
+          {round.searchGroups.length === 0 ? (
+            <div className="p-3 text-center text-[10px] opacity-40">
+              暂无搜索记录
+            </div>
+          ) : (
+            round.searchGroups.map((group) => (
+              <div key={group.id}>
+                <div
+                  className={cn(
+                    "flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-colors mb-1",
+                    isDarkMode ? "hover:bg-zinc-600/30" : "hover:bg-zinc-100"
+                  )}
+                  onClick={() => setExpandedSearchId(expandedSearchId === group.id ? null : group.id)}
+                >
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <Globe size={12} className="text-indigo-500 shrink-0" />
+                    <span className="text-[11px] font-medium truncate">{group.query}</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[9px] font-mono opacity-40">{group.results.length} 结果</span>
+                    <ChevronRight
+                      size={12}
+                      className={cn("transition-transform", expandedSearchId === group.id ? "rotate-90" : "")}
+                    />
+                  </div>
+                </div>
+
+                {expandedSearchId === group.id && (
+                  <div className="space-y-0 py-2 pt-3 px-2">
+                    {group.results.map((result) => (
+                      <div
+                        key={result.url}
+                        className="py-2 px-6 -mx-6 transition-all hover:bg-indigo-500/10 rounded-xl"
+                      >
+                        <div className="px-1">
+                          <a
+                            href={result.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] font-bold text-indigo-500 hover:underline block truncate mb-1.5"
+                          >
+                            {result.title}
+                          </a>
+                          <p className="text-[10px] opacity-60 line-clamp-2 leading-relaxed">{result.snippet}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const TaskRoundProgressCard: React.FC<{
+  round: TaskRound;
+  todos: TodoItem[];
+  avgProgress: number;
+  status: 'active' | 'completed' | 'failed' | 'pending' | 'working';
+  isDarkMode: boolean;
+  onSwitchSession: (id: string) => void;
+}> = ({ round, todos, avgProgress, status, isDarkMode, onSwitchSession }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const getStatusIcon = () => {
+    switch (status) {
+      case 'working':
+        return <Loader2 size={14} className="text-indigo-500 animate-spin" />;
+      case 'completed':
+        return <CheckCircle2 size={14} className="text-emerald-500" />;
+      case 'failed':
+        return <AlertCircle size={14} className="text-red-500" />;
+      default:
+        return <Circle size={14} className="text-zinc-500" />;
+    }
+  };
+
+  const getStatusText = () => {
+    switch (round.status) {
+      case 'active': return '执行中';
+      case 'completed': return '已完成';
+      case 'failed': return '失败';
+      default: return '';
+    }
+  };
+
+  const groupedTodos = useMemo(() => {
+    const groups: Record<string, TodoItem[]> = {};
+    todos.forEach(todo => {
+      if (!groups[todo.title]) {
+        groups[todo.title] = [];
+      }
+      groups[todo.title].push(todo);
+    });
+    return Object.entries(groups).map(([title, items]) => {
+      const progress = Math.round(items.reduce((acc, curr) => acc + curr.progress, 0) / items.length);
+      const itemStatus = items.every(i => i.status === 'completed') ? 'completed' :
+                        items.some(i => i.status === 'failed') ? 'failed' :
+                        items.some(i => i.status === 'working') ? 'working' : 'pending';
+      return { title, items, progress, status: itemStatus };
+    });
+  }, [todos]);
+
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border overflow-hidden",
+        isDarkMode ? "bg-zinc-700/50 border-zinc-600" : "bg-white border-zinc-200"
+      )}
+    >
+      <div
+        className={cn(
+          "px-4 py-3 flex items-center justify-between cursor-pointer",
+          isDarkMode ? "bg-zinc-700/30" : "bg-zinc-50/50"
+        )}
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex-1 min-w-0 mr-2">
+          <div className="flex items-center gap-2 mb-1">
+            {getStatusIcon()}
+            <h3 className="text-xs font-bold truncate">{round.userMessage}</h3>
+          </div>
+          <div className="flex items-center gap-3 text-[10px] opacity-50">
+            <span>{todos.length} 个任务</span>
+            <span>{avgProgress}% 完成</span>
+            {getStatusText() && <span>{getStatusText()}</span>}
+          </div>
+          {avgProgress > 0 && (
+            <div className="h-1 w-full bg-zinc-500/10 rounded-full overflow-hidden mt-2">
+              <div
+                className={cn(
+                  "h-full transition-all duration-500",
+                  round.status === 'completed' ? "bg-emerald-500" : "bg-indigo-500"
+                )}
+                style={{ width: `${avgProgress}%` }}
+              />
+            </div>
+          )}
+        </div>
+        <button className={cn("p-1.5 hover:bg-zinc-500/10 rounded-lg transition-transform", isExpanded ? "rotate-90" : "")}>
+          <ChevronRight size={14} />
+        </button>
+      </div>
+
+      {isExpanded && (
+        <div className="p-3 space-y-3">
+          {groupedTodos.map((task) => (
+            <div key={task.title}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <div className="shrink-0">
+                    {task.status === 'completed' ? <CheckCircle2 size={12} className="text-emerald-500" /> :
+                     task.status === 'working' ? <Loader2 size={12} className="text-indigo-500 animate-spin" /> :
+                     task.status === 'failed' ? <AlertCircle size={12} className="text-red-500" /> :
+                     <Circle size={12} className="text-zinc-500" />}
+                  </div>
+                  <span className={cn(
+                    "text-[11px] font-medium truncate",
+                    task.status === 'completed' ? "opacity-50" : ""
+                  )}>
+                    {task.title}
+                  </span>
+                </div>
+                <span className="text-[9px] font-mono text-indigo-500 font-bold ml-2">{task.progress}%</span>
+              </div>
+
+              <div className="h-1 w-full bg-zinc-500/10 rounded-full overflow-hidden mb-2">
+                <div
+                  className={cn(
+                    "h-full transition-all duration-500",
+                    task.status === 'completed' ? "bg-emerald-500" : "bg-indigo-500"
+                  )}
+                  style={{ width: `${task.progress}%` }}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                {task.items.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between text-[10px] opacity-60 py-1">
+                    <span className="truncate flex-1">{item.description || '执行中...'}</span>
+                    {item.targetSessionId && (
+                      <button
+                        onClick={() => onSwitchSession(item.targetSessionId!)}
+                        className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 font-medium flex items-center gap-0.5 shrink-0 ml-2 transition-colors"
+                      >
+                        查看 <ArrowRight size={9} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -164,6 +436,8 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
     setSearchGroups,
     deleteSearchGroup,
     currentSessionId,
+    taskRounds,
+    setTaskRounds,
     temperature,
     setTemperature,
     systemPrompt,
@@ -182,14 +456,14 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
   const [memoryUsage, setMemoryUsage] = useState('N/A');
   const [isStatsExpanded, setIsStatsExpanded] = useState(true);
   const [expandedSearchGroupId, setExpandedSearchGroupId] = useState<string | null>(null);
+  const [expandedRoundId, setExpandedRoundId] = useState<string | null>(null);
 
-  // Auto-expand the latest search group when a new one is added
-  React.useEffect(() => {
-    if (sessionSearchGroups.length > 0) {
-      const latest = sessionSearchGroups[0];
-      setExpandedSearchGroupId(latest.id);
-    }
-  }, [sessionSearchGroups.length]);
+  // Filter task rounds by current session and sort by time
+  const sessionTaskRounds = useMemo(() => {
+    return taskRounds
+      .filter(round => round.sessionId === currentSessionId)
+      .sort((a, b) => b.startTime - a.startTime);
+  }, [taskRounds, currentSessionId]);
 
   React.useEffect(() => {
     if (activeTab === 'monitor') {
@@ -224,7 +498,7 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
     }
   }, [activeTab]);
 
-  // Group todos by title
+  // Group todos by title (for backward compatibility with non-round todos)
   const groupedTasks = useMemo(() => {
     const groups: Record<string, TodoItem[]> = {};
     todos.forEach(todo => {
@@ -242,6 +516,11 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
     });
   }, [todos]);
 
+  // Group task rounds that have todos
+  const roundsWithTodos = useMemo(() => {
+    return sessionTaskRounds.filter(round => round.todos && round.todos.length > 0);
+  }, [sessionTaskRounds]);
+
   const estimateTokens = (text: string) => Math.ceil((text || '').length * 0.5);
 
   const handleSaveAsPreset = () => {
@@ -255,9 +534,9 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
   };
 
   return (
-    <AnimatePresence>
+    <AnimatePresence initial={false}>
       {isOpen && (
-        <motion.aside 
+        <motion.aside
           initial={{ width: 0, opacity: 0 }}
           animate={{ width: 320, opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
@@ -314,116 +593,141 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
 
           <div className="p-4 flex flex-col h-full overflow-y-auto custom-scrollbar">
             {activeTab === 'status' && (
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
+              <motion.div
+                initial={false}
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-8"
               >
-                {/* Task Progress Section */}
+                {/* Task Progress Section - Grouped by Round */}
                 <div>
                   <div className="flex items-center gap-2 mb-4 text-xs font-bold uppercase tracking-widest opacity-50">
                     <ListTodo size={14} />
                     <span>任务执行进度</span>
                   </div>
-                  {groupedTasks.length === 0 ? (
+
+                  {roundsWithTodos.length === 0 && groupedTasks.length === 0 ? (
                     <div className="p-4 rounded-xl border border-dashed border-zinc-500/20 text-center">
                       <p className="text-[10px] opacity-40">暂无活动任务</p>
                     </div>
                   ) : (
-                    <div className={cn(
-                      "rounded-2xl border overflow-hidden",
-                      isDarkMode ? "bg-zinc-700/50 border-zinc-600" : "bg-white border-zinc-200 shadow-sm"
-                    )}>
-                      <>
-                        {/* 总进度卡片头部 */}
-                        <div className={cn(
-                          "p-4 border-b",
-                          isDarkMode ? "bg-zinc-700/30 border-zinc-700" : "bg-zinc-50 border-zinc-100"
-                        )}>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-bold text-zinc-700 dark:text-zinc-200">任务总进度</span>
-                            <span className="text-xs font-mono font-bold text-indigo-500">
-                              {Math.round(groupedTasks.reduce((acc, curr) => acc + curr.avgProgress, 0) / groupedTasks.length)}%
-                            </span>
-                          </div>
-                          <div className="h-1.5 w-full bg-zinc-500/10 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-indigo-500 transition-all duration-500"
-                              style={{ width: `${Math.round(groupedTasks.reduce((acc, curr) => acc + curr.avgProgress, 0) / groupedTasks.length)}%` }}
-                            />
-                          </div>
-                        </div>
+                    <div className="space-y-4">
+                      {roundsWithTodos.map((round) => {
+                        const roundTodos = round.todos || [];
+                        const avgProgress = roundTodos.length > 0
+                          ? Math.round(roundTodos.reduce((acc, t) => acc + t.progress, 0) / roundTodos.length)
+                          : 0;
+                        const overallStatus = round.status === 'active'
+                          ? (roundTodos.some(t => t.status === 'working') ? 'working' : 'pending')
+                          : round.status;
 
-                        {/* 子任务列表 */}
-                        {groupedTasks.map((task, index) => (
-                          <div 
-                            key={task.title}
-                            className={cn(
-                              "p-4 transition-colors group",
-                              index !== groupedTasks.length - 1 ? "border-b border-zinc-500/10" : ""
-                            )}
-                          >
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2 overflow-hidden">
-                                <div className="shrink-0">
-                                  {task.status === 'completed' ? <CheckCircle2 size={14} className="text-emerald-500" /> :
-                                   task.status === 'working' ? <Loader2 size={14} className="text-indigo-500 animate-spin" /> :
-                                   task.status === 'failed' ? <AlertCircle size={14} className="text-red-500" /> :
-                                   <Circle size={14} className="text-zinc-500" />}
-                                </div>
-                                <span className={cn(
-                                  "text-xs font-bold truncate",
-                                  task.status === 'completed' ? "text-zinc-500" : "text-zinc-200"
-                                )}>
-                                  {task.title}
+                        return (
+                          <TaskRoundProgressCard
+                            key={`progress-${round.id}`}
+                            round={round}
+                            todos={roundTodos}
+                            avgProgress={avgProgress}
+                            status={overallStatus}
+                            isDarkMode={isDarkMode}
+                            onSwitchSession={switchSession}
+                          />
+                        );
+                      })}
+
+                      {groupedTasks.length > 0 && roundsWithTodos.length === 0 && (
+                        <div className={cn(
+                          "rounded-2xl border overflow-hidden",
+                          isDarkMode ? "bg-zinc-700/50 border-zinc-600" : "bg-white border-zinc-200"
+                        )}>
+                          <>
+                            <div className={cn(
+                              "p-4 border-b",
+                              isDarkMode ? "bg-zinc-700/30 border-zinc-700" : "bg-zinc-50 border-zinc-100"
+                            )}>
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-bold text-zinc-700 dark:text-zinc-200">任务总进度</span>
+                                <span className="text-xs font-mono font-bold text-indigo-500">
+                                  {Math.round(groupedTasks.reduce((acc, curr) => acc + curr.avgProgress, 0) / groupedTasks.length)}%
                                 </span>
                               </div>
-                              <span className="text-[10px] font-mono text-indigo-500 font-bold">{task.avgProgress}%</span>
+                              <div className="h-1.5 w-full bg-zinc-500/10 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-indigo-500 transition-all duration-500"
+                                  style={{ width: `${Math.round(groupedTasks.reduce((acc, curr) => acc + curr.avgProgress, 0) / groupedTasks.length)}%` }}
+                                />
+                              </div>
                             </div>
 
-                            <div className="h-1 w-full bg-zinc-500/10 rounded-full overflow-hidden mb-3">
-                              <div 
+                            {groupedTasks.map((task, index) => (
+                              <div
+                                key={task.title}
                                 className={cn(
-                                  "h-full transition-all duration-500",
-                                  task.status === 'completed' ? "bg-emerald-500" : "bg-indigo-500"
+                                  "p-4 transition-colors group",
+                                  index !== groupedTasks.length - 1 ? "border-b border-zinc-500/10" : ""
                                 )}
-                                style={{ width: `${task.avgProgress}%` }}
-                              />
-                            </div>
-
-                            <div className="space-y-2">
-                              {task.items.map((item) => (
-                                <div key={item.id} className="flex flex-col gap-1">
-                                  <div className="flex items-center justify-between text-[10px] opacity-60">
-                                    <span className="truncate flex-1">{item.description || '执行中...'}</span>
-                                    {item.targetSessionId && (
-                                      <button 
-                                        onClick={() => switchSession(item.targetSessionId!)}
-                                        className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 font-medium flex items-center gap-0.5 shrink-0 ml-2 transition-colors"
-                                      >
-                                        查看子任务 <ArrowRight size={10} />
-                                      </button>
-                                    )}
+                              >
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2 overflow-hidden">
+                                    <div className="shrink-0">
+                                      {task.status === 'completed' ? <CheckCircle2 size={14} className="text-emerald-500" /> :
+                                       task.status === 'working' ? <Loader2 size={14} className="text-indigo-500 animate-spin" /> :
+                                       task.status === 'failed' ? <AlertCircle size={14} className="text-red-500" /> :
+                                       <Circle size={14} className="text-zinc-500" />}
+                                    </div>
+                                    <span className={cn(
+                                      "text-xs font-bold truncate",
+                                      task.status === 'completed' ? "text-zinc-500" : "text-zinc-200"
+                                    )}>
+                                      {task.title}
+                                    </span>
                                   </div>
+                                  <span className="text-[10px] font-mono text-indigo-500 font-bold">{task.avgProgress}%</span>
                                 </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </>
+
+                                <div className="h-1 w-full bg-zinc-500/10 rounded-full overflow-hidden mb-3">
+                                  <div
+                                    className={cn(
+                                      "h-full transition-all duration-500",
+                                      task.status === 'completed' ? "bg-emerald-500" : "bg-indigo-500"
+                                    )}
+                                    style={{ width: `${task.avgProgress}%` }}
+                                  />
+                                </div>
+
+                                <div className="space-y-2">
+                                  {task.items.map((item) => (
+                                    <div key={item.id} className="flex flex-col gap-1">
+                                      <div className="flex items-center justify-between text-[10px] opacity-60">
+                                        <span className="truncate flex-1">{item.description || '执行中...'}</span>
+                                        {item.targetSessionId && (
+                                          <button
+                                            onClick={() => switchSession(item.targetSessionId!)}
+                                            className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 font-medium flex items-center gap-0.5 shrink-0 ml-2 transition-colors"
+                                          >
+                                            查看子任务 <ArrowRight size={10} />
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
 
-                {/* Search Results Section */}
+                {/* Search Results Section - Grouped by Task Round */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest opacity-50">
                       <Globe size={14} />
                       <span>联网搜索结果</span>
                     </div>
-                    {sessionSearchGroups.length > 0 && (
-                      <button 
+                    {sessionTaskRounds.some(r => r.searchGroups.length > 0) && (
+                      <button
                         onClick={() => setSearchGroups(prev => prev.filter(g => g.sessionId !== currentSessionId))}
                         className="text-[10px] text-red-500 hover:text-red-400 font-medium transition-colors"
                       >
@@ -432,20 +736,24 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
                     )}
                   </div>
                   <div className="space-y-4">
-                    {sessionSearchGroups.length === 0 ? (
+                    {sessionTaskRounds.length === 0 || !sessionTaskRounds.some(r => r.searchGroups.length > 0) ? (
                       <div className="p-4 rounded-xl border border-dashed border-zinc-500/20 text-center">
                         <p className="text-[10px] opacity-40">暂无联网搜索数据</p>
                       </div>
                     ) : (
-                      sessionSearchGroups.map((group) => (
-                        <SearchGroupCard 
-                          key={group.id} 
-                          group={group} 
+                      sessionTaskRounds.map((round) => (
+                        <TaskRoundCard
+                          key={round.id}
+                          round={round}
                           isDarkMode={isDarkMode}
-                          isExpanded={expandedSearchGroupId === group.id}
-                          onToggle={() => setExpandedSearchGroupId(expandedSearchGroupId === group.id ? null : group.id)}
-                          onDelete={() => deleteSearchGroup(group.id)}
-                          onUpdateTitle={(newTitle) => setSearchGroups(prev => prev.map(g => g.id === group.id ? { ...g, query: newTitle } : g))}
+                          isExpanded={expandedRoundId === round.id}
+                          onToggle={() => setExpandedRoundId(expandedRoundId === round.id ? null : round.id)}
+                          onDelete={() => {
+                            setSearchGroups(prev => prev.filter(g => g.roundId !== round.id));
+                            setTaskRounds(prev => prev.map(r =>
+                              r.id === round.id ? { ...r, searchGroups: [] } : r
+                            ));
+                          }}
                         />
                       ))
                     )}
@@ -455,8 +763,8 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
             )}
 
             {activeTab === 'params' && (
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
+              <motion.div
+                initial={false}
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-6"
               >
@@ -594,8 +902,8 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
             )}
 
             {activeTab === 'monitor' && (
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
+              <motion.div
+                initial={false}
                 animate={{ opacity: 1, y: 0 }}
                 className="flex-1 flex flex-col min-h-0 h-full space-y-4"
               >
@@ -611,9 +919,9 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
                     <ChevronRight size={14} className={cn("transition-transform", isStatsExpanded ? "rotate-90" : "")} />
                   </button>
                   
-                  <AnimatePresence>
+                  <AnimatePresence initial={false}>
                     {isStatsExpanded && (
-                      <motion.div 
+                      <motion.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
