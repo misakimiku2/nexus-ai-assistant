@@ -196,7 +196,7 @@ const CollapsibleSection = memo<CollapsibleSectionProps>(({ title, icon, childre
   const toggleOpen = useCallback(() => setIsOpen(prev => !prev), []);
 
   return (
-    <div className={cn("mt-2 mb-3 rounded-xl border overflow-hidden", isDarkMode ? "border-zinc-600 bg-zinc-700/30" : "border-zinc-200 bg-zinc-50")}>
+    <div className={cn("rounded-xl border overflow-hidden", isDarkMode ? "border-zinc-600 bg-zinc-700/30" : "border-zinc-200 bg-zinc-50")}>
       <button 
         onClick={toggleOpen}
         className={cn("w-full flex items-center justify-between px-4 py-2 text-sm font-medium transition-colors", isDarkMode ? "hover:bg-zinc-700/50 text-zinc-300" : "hover:bg-zinc-200/50 text-zinc-700")}
@@ -384,6 +384,16 @@ const ReasoningStepItem = memo<{
         <span className={cn("text-[10px] uppercase font-medium", getStepColor(step.type))}>
           {getStepLabel(step.type)}
         </span>
+        {(step.type === 'action' || step.type === 'tool_start') && step.executionStatus && (
+          <span className={cn(
+            "ml-2 px-1.5 py-0.5 rounded text-[10px]",
+            step.executionStatus === 'executing'
+              ? "bg-amber-500/20 text-amber-500"
+              : "bg-emerald-500/20 text-emerald-500"
+          )}>
+            {step.executionStatus === 'executing' ? '执行中' : '执行完成'}
+          </span>
+        )}
         {(step.type === 'action' || step.type === 'tool_start') && step.toolName && (
           <div className="mt-1 flex items-center gap-2">
             <span>
@@ -407,16 +417,6 @@ const ReasoningStepItem = memo<{
                  ''}
               </span>
             </span>
-            {step.executionStatus && (
-              <span className={cn(
-                "px-1.5 py-0.5 rounded text-[10px]",
-                step.executionStatus === 'executing' 
-                  ? "bg-amber-500/20 text-amber-500" 
-                  : "bg-emerald-500/20 text-emerald-500"
-              )}>
-                {step.executionStatus === 'executing' ? '执行中...' : '执行完成'}
-              </span>
-            )}
           </div>
         )}
         {(step.type === 'observation' || step.type === 'tool_result') && step.observationData && step.observationData.length > 0 && !hasTodos && (
@@ -606,14 +606,14 @@ export const MessageItem = memo<MessageItemProps>(({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
       className={cn(
-        "flex flex-col gap-1 mx-auto w-full min-w-0 relative",
-        appMode === 'command' ? "items-stretch pb-4" : (isUser ? "max-w-4xl items-end" : "max-w-4xl items-start")
+        "flex flex-col gap-1 mx-auto w-full min-w-0 relative max-w-4xl transition-all duration-200",
+        appMode === 'command' ? "items-stretch pb-3" : (isUser ? "items-end" : "items-start")
       )}
     >
       <div className={cn(
-        "flex w-full min-w-0",
-        appMode === 'command' 
-          ? "flex-col group relative px-[20px]" 
+        "flex w-full min-w-0 transition-all duration-200",
+        appMode === 'command'
+          ? "flex-col group relative px-[20px]"
           : (isUser ? "flex-row-reverse gap-4 items-start" : "flex-row gap-4 items-start")
       )}>
         {appMode === 'command' ? (
@@ -682,7 +682,7 @@ export const MessageItem = memo<MessageItemProps>(({
               </button>
             </div>
           ) : (
-            <div className="flex flex-col gap-2 min-w-0">
+            <div className="flex flex-col gap-1 min-w-0">
               {showThinkingSection && (
                 <CollapsibleSection 
                   title={

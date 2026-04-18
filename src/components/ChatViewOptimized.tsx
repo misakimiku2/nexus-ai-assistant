@@ -446,11 +446,13 @@ export const ChatViewOptimized: React.FC<ChatViewProps> = ({
     if (lastWidthRef.current !== commandChatWidth && lastWidthRef.current !== undefined) {
       const scrollRatio = scrollEl.scrollTop / (scrollEl.scrollHeight - scrollEl.clientHeight || 1);
       scrollRatioRef.current = scrollRatio;
-      measuredHeightsRef.current.clear();
+      if (!isResizingWidth) {
+        measuredHeightsRef.current.clear();
+      }
       rowVirtualizer.measure();
     }
     lastWidthRef.current = commandChatWidth;
-  }, [commandChatWidth, appMode, scrollRef, rowVirtualizer]);
+  }, [commandChatWidth, appMode, scrollRef, rowVirtualizer, isResizingWidth]);
 
   const measureThrottleRef = useRef(0);
 
@@ -512,6 +514,15 @@ export const ChatViewOptimized: React.FC<ChatViewProps> = ({
     
     prevMessagesContentRef.current = currentContentHash;
   }, [messages, rowVirtualizer, isResizingWidth]);
+
+  const prevIsResizingWidthRef = useRef(false);
+  useEffect(() => {
+    if (prevIsResizingWidthRef.current && !isResizingWidth && appMode === 'command') {
+      measuredHeightsRef.current.clear();
+      rowVirtualizer.measure();
+    }
+    prevIsResizingWidthRef.current = isResizingWidth;
+  }, [isResizingWidth, rowVirtualizer, appMode]);
 
   const virtualItems = rowVirtualizer.getVirtualItems();
 

@@ -120,29 +120,64 @@ export default function App() {
   const [isResizing, setIsResizing] = useState(false);
   const isResizingRef = useRef(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const widthMotionValue = useMotionValue(commandChatWidth);
+  const widthMotionValue = useMotionValue(appMode === 'command' ? commandChatWidth : (typeof window !== 'undefined' ? window.innerWidth : 800));
   const prevAppModeRef = useRef(appMode);
+  const isInitializedRef = useRef(false);
+
+  useEffect(() => {
+    if (isInitializedRef.current) return;
+    isInitializedRef.current = true;
+
+    if (appMode === 'chat') {
+      const parentEl = chatContainerRef.current?.parentElement;
+      const targetWidth = parentEl ? parentEl.getBoundingClientRect().width : window.innerWidth;
+      widthMotionValue.set(targetWidth);
+    }
+  }, []);
 
   useEffect(() => {
     if (isResizingRef.current) return;
-    if (appMode !== 'command') {
+
+    if (appMode === 'command') {
+      if (prevAppModeRef.current !== 'command') {
+        const currentWidth = chatContainerRef.current?.getBoundingClientRect().width || commandChatWidth;
+        widthMotionValue.set(currentWidth);
+      }
       prevAppModeRef.current = appMode;
-      return;
-    }
 
-    if (prevAppModeRef.current !== 'command') {
-      const currentWidth = chatContainerRef.current?.getBoundingClientRect().width || commandChatWidth;
-      widthMotionValue.set(currentWidth);
-    }
-    prevAppModeRef.current = appMode;
+      motionAnimate(widthMotionValue, commandChatWidth, {
+        duration: 0.3,
+        ease: [0.4, 0, 0.2, 1],
+      });
+    } else if (prevAppModeRef.current === 'command') {
+      prevAppModeRef.current = appMode;
 
-    motionAnimate(widthMotionValue, commandChatWidth, {
-      type: "spring",
-      stiffness: 300,
-      damping: 30,
-      mass: 1,
-    });
+      const parentEl = chatContainerRef.current?.parentElement;
+      const targetWidth = parentEl ? parentEl.getBoundingClientRect().width : window.innerWidth;
+
+      motionAnimate(widthMotionValue, targetWidth, {
+        duration: 0.3,
+        ease: [0.4, 0, 0.2, 1],
+      });
+    } else {
+      prevAppModeRef.current = appMode;
+    }
   }, [commandChatWidth, appMode, widthMotionValue]);
+
+  useEffect(() => {
+    if (appMode !== 'chat') return;
+
+    const handleResize = () => {
+      if (isResizingRef.current) return;
+      const parentEl = chatContainerRef.current?.parentElement;
+      if (parentEl) {
+        widthMotionValue.set(parentEl.getBoundingClientRect().width);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [appMode, widthMotionValue]);
 
   const handleMouseMove = React.useCallback((e: MouseEvent) => {
     if (!isResizingRef.current || !chatContainerRef.current) return;
@@ -1300,10 +1335,9 @@ export default function App() {
                   appMode === 'command' && "border-r",
                   isDarkMode ? "border-zinc-700" : "border-zinc-200"
                 )}
-                layout="position"
                 initial={false}
                 style={{
-                  width: appMode === 'command' ? widthMotionValue : '100%',
+                  width: widthMotionValue,
                 }}
               >
                 {appMode === 'command' && (

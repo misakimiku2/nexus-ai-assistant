@@ -408,9 +408,9 @@ export const ChatInput: React.FC<ChatInputProps> = memo(({
   }, [isRecording, input, setInput]);
 
   return (
-    <div 
+    <div
       ref={containerRef}
-      className={cn("pt-0 relative z-20", appMode === 'command' ? "p-2" : "p-3")}
+      className={cn("pt-0 relative z-20 p-3")}
     >
       <AnimatePresence>
         {isDragOver && (
