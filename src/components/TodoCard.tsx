@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo, useCallback, useMemo } from 'react';
 import { 
   CheckCircle2, 
   Circle, 
@@ -69,13 +69,24 @@ interface TodoContainerProps {
   todos: TodoItem[];
 }
 
-const StepDetail: React.FC<{ step: TodoStep; stepIdx: number; todoId: string }> = ({ step, stepIdx, todoId }) => {
+const StepDetail: React.FC<{ step: TodoStep; stepIdx: number; todoId: string }> = memo(({ step, stepIdx, todoId }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const { openFile } = useFileViewer();
-  const hasDetail = (step.result && step.result.length > 0) || 
-                    (step.observationData && step.observationData.length > 0) || 
-                    (step.error && step.error.length > 0) ||
-                    !!step.filePath;
+  const hasDetail = useMemo(() => 
+    (step.result && step.result.length > 0) || 
+    (step.observationData && step.observationData.length > 0) || 
+    (step.error && step.error.length > 0) ||
+    !!step.filePath,
+  [step.result, step.observationData, step.error, step.filePath]);
+
+  const toggleExpand = useCallback(() => {
+    if (hasDetail) setIsExpanded(prev => !prev);
+  }, [hasDetail]);
+
+  const handleFileClick = useCallback((e: React.MouseEvent, path: string) => {
+    e.stopPropagation();
+    openFile(path);
+  }, [openFile]);
 
   return (
     <div className="flex flex-col">
@@ -84,7 +95,7 @@ const StepDetail: React.FC<{ step: TodoStep; stepIdx: number; todoId: string }> 
           "flex items-center gap-2 text-[11px]",
           hasDetail && "cursor-pointer hover:bg-zinc-500/10 dark:hover:bg-white/5 rounded px-1 -mx-1"
         )}
-        onClick={() => hasDetail && setIsExpanded(!isExpanded)}
+        onClick={toggleExpand}
       >
         <div className={cn(
           "w-1.5 h-1.5 rounded-full shrink-0",
@@ -125,10 +136,7 @@ const StepDetail: React.FC<{ step: TodoStep; stepIdx: number; todoId: string }> 
                 <div className="flex items-start gap-1.5 text-[10px]">
                   <FileText size={9} className="shrink-0 mt-0.5 text-blue-400" />
                   <span
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openFile(step.filePath!);
-                    }}
+                    onClick={(e) => handleFileClick(e, step.filePath!)}
                     className="text-blue-500 hover:text-blue-600 hover:underline cursor-pointer break-all"
                     title="点击在工作区查看"
                   >
@@ -183,9 +191,11 @@ const StepDetail: React.FC<{ step: TodoStep; stepIdx: number; todoId: string }> 
       </AnimatePresence>
     </div>
   );
-};
+});
 
-export const TodoCard: React.FC<TodoItem & { onNavigateToSubAgent?: (id: string) => void }> = ({ 
+StepDetail.displayName = 'StepDetail';
+
+export const TodoCard: React.FC<TodoItem & { onNavigateToSubAgent?: (id: string) => void }> = memo(({ 
   title, 
   status, 
   progress, 
@@ -235,17 +245,20 @@ export const TodoCard: React.FC<TodoItem & { onNavigateToSubAgent?: (id: string)
       )}
     </div>
   );
-};
+});
 
-export const TodoContainer: React.FC<TodoContainerProps> = ({ todos }) => {
+TodoCard.displayName = 'TodoCard';
+
+export const TodoContainer: React.FC<TodoContainerProps> = memo(({ todos }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const { switchSession } = useGlobalState();
 
-  const totalProgress = Math.round(
-    todos.reduce((acc, curr) => acc + curr.progress, 0) / todos.length
+  const totalProgress = useMemo(() => 
+    Math.round(todos.reduce((acc, curr) => acc + curr.progress, 0) / todos.length),
+    [todos]
   );
 
-  const getStatusIcon = (status: TodoItem['status']) => {
+  const getStatusIcon = useCallback((status: TodoItem['status']) => {
     switch (status) {
       case 'completed':
         return <CheckCircle2 className="text-emerald-500" size={16} />;
@@ -256,12 +269,21 @@ export const TodoContainer: React.FC<TodoContainerProps> = ({ todos }) => {
       default:
         return <Circle className="text-zinc-400" size={16} />;
     }
-  };
+  }, []);
 
-  const hasStepErrors = (steps?: TodoStep[]) => {
+  const hasStepErrors = useCallback((steps?: TodoStep[]) => {
     if (!steps) return false;
     return steps.some(s => s.status === 'failed' || s.error);
-  };
+  }, []);
+
+  const toggleExpand = useCallback((id: string) => {
+    setExpandedId(prev => prev === id ? null : id);
+  }, []);
+
+  const handleSwitchSession = useCallback((e: React.MouseEvent, sessionId: string) => {
+    e.stopPropagation();
+    switchSession(sessionId);
+  }, [switchSession]);
 
   return (
     <div className="glass rounded-2xl overflow-hidden shadow-sm my-2 min-w-0 max-w-full">
@@ -292,7 +314,7 @@ export const TodoContainer: React.FC<TodoContainerProps> = ({ todos }) => {
                 "p-4 flex items-center gap-3 cursor-pointer transition-colors",
                 expandedId === todo.id ? "bg-blue-500/10 dark:bg-blue-500/20" : "hover:bg-zinc-500/5 dark:hover:bg-white/5"
               )}
-              onClick={() => setExpandedId(expandedId === todo.id ? null : todo.id)}
+              onClick={() => toggleExpand(todo.id)}
             >
               <div className="shrink-0">
                 {getStatusIcon(todo.status)}
@@ -378,10 +400,7 @@ export const TodoContainer: React.FC<TodoContainerProps> = ({ todos }) => {
 
                     {todo.targetSessionId && (
                       <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          switchSession(todo.targetSessionId!);
-                        }}
+                        onClick={(e) => handleSwitchSession(e, todo.targetSessionId!)}
                         className="flex items-center gap-2 text-[11px] font-semibold text-blue-500 hover:text-blue-600 transition-colors group/link"
                       >
                         <span>跳转到子 Agent 对话</span>
@@ -397,4 +416,6 @@ export const TodoContainer: React.FC<TodoContainerProps> = ({ todos }) => {
       </div>
     </div>
   );
-};
+});
+
+TodoContainer.displayName = 'TodoContainer';

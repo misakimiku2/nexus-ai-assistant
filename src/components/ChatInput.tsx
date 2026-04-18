@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo, useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import { 
   MessageSquare, 
   Command, 
@@ -86,7 +86,7 @@ interface ChatInputProps {
 
 const MAX_ATTACHMENTS = 10;
 
-export const ChatInput: React.FC<ChatInputProps> = ({
+export const ChatInput: React.FC<ChatInputProps> = memo(({
   input,
   setInput,
   appMode,
@@ -101,28 +101,28 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   removeAttachment
 }) => {
   const { isStreaming, simulateSmbCheck, sessions, currentSessionId, currentTokenCount, compressMessages, fontFamily, agents, updateSessionAgents, maxContextLength } = useGlobalState();
-  const [showTokenCount, setShowTokenCount] = React.useState(false);
-  const [isHoveringStatus, setIsHoveringStatus] = React.useState(false);
-  const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = React.useState(false);
-  const [isAgentMenuOpen, setIsAgentMenuOpen] = React.useState(false);
-  const [isRecording, setIsRecording] = React.useState(false);
-  const [expandedAgents, setExpandedAgents] = React.useState<Set<string>>(new Set());
-  const [isDragOver, setIsDragOver] = React.useState(false);
-  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
-  const documentInputRef = React.useRef<HTMLInputElement>(null);
-  const attachmentMenuRef = React.useRef<HTMLDivElement>(null);
-  const agentMenuRef = React.useRef<HTMLDivElement>(null);
-  const recognitionRef = React.useRef<any>(null);
-  const originalInputRef = React.useRef(input);
-  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [showTokenCount, setShowTokenCount] = useState(false);
+  const [isHoveringStatus, setIsHoveringStatus] = useState(false);
+  const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
+  const [isAgentMenuOpen, setIsAgentMenuOpen] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [expandedAgents, setExpandedAgents] = useState<Set<string>>(new Set());
+  const [isDragOver, setIsDragOver] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null);
+  const attachmentMenuRef = useRef<HTMLDivElement>(null);
+  const agentMenuRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
+  const originalInputRef = useRef(input);
+  const containerRef = useRef<HTMLDivElement>(null);
   
-  const canAddMoreAttachments = attachments.length < MAX_ATTACHMENTS;
+  const canAddMoreAttachments = useMemo(() => attachments.length < MAX_ATTACHMENTS, [attachments.length]);
   
-  const currentSession = sessions.find(s => s.id === currentSessionId);
+  const currentSession = useMemo(() => sessions.find(s => s.id === currentSessionId), [sessions, currentSessionId]);
   const activeAgentId = currentSession?.activeAgents?.[0];
-  const activeAgent = activeAgentId ? agents.find(a => a.id === activeAgentId) : null;
+  const activeAgent = useMemo(() => activeAgentId ? agents.find(a => a.id === activeAgentId) : null, [agents, activeAgentId]);
 
-  const iconMap: Record<string, React.ElementType> = {
+  const iconMap: Record<string, React.ElementType> = useMemo(() => ({
     Cpu,
     Database,
     Globe,
@@ -130,9 +130,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     Layout,
     Terminal,
     Bot
-  };
+  }), []);
 
-  const toggleAgentExpand = (e: React.MouseEvent, agentId: string) => {
+  const toggleAgentExpand = useCallback((e: React.MouseEvent, agentId: string) => {
     e.stopPropagation();
     setExpandedAgents(prev => {
       const next = new Set(prev);
@@ -143,19 +143,18 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       }
       return next;
     });
-  };
+  }, []);
 
-  const renderAgentAvatar = (agent: any, size: number = 14) => {
+  const renderAgentAvatar = useCallback((agent: any, size: number = 14) => {
     if (agent.avatar?.startsWith('data:image')) {
-      // For custom images, make them slightly larger to fill the visual space better
       const imgSize = size === 14 ? 20 : size + 4;
       return <img src={agent.avatar} alt={agent.name} className="object-cover rounded-md shrink-0" style={{ width: imgSize, height: imgSize }} />;
     }
     const Icon = iconMap[agent.avatar] || Bot;
     return <Icon size={size} className="opacity-70 shrink-0" />;
-  };
+  }, [iconMap]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (attachmentMenuRef.current && !attachmentMenuRef.current.contains(event.target as Node)) {
         setIsAttachmentMenuOpen(false);
@@ -168,16 +167,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const canAddMoreAttachmentsRef = React.useRef(canAddMoreAttachments);
+  const canAddMoreAttachmentsRef = useRef(canAddMoreAttachments);
   canAddMoreAttachmentsRef.current = canAddMoreAttachments;
   
-  const unlistenFnsRef = React.useRef<{
+  const unlistenFnsRef = useRef<{
     dragEnter: (() => void) | null;
     dragLeave: (() => void) | null;
     dragDrop: (() => void) | null;
   }>({ dragEnter: null, dragLeave: null, dragDrop: null });
 
-  React.useEffect(() => {
+  useEffect(() => {
     let mounted = true;
 
     const setupTauriDragListeners = async () => {
@@ -335,15 +334,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     return btoa(binary);
   };
 
-  // Auto-expand textarea height
-  React.useEffect(() => {
+  useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 250)}px`;
     }
   }, [input]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     return () => {
       if (recognitionRef.current) {
         recognitionRef.current.stop();
@@ -351,9 +349,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     };
   }, []);
 
-  const onSend = () => {
+  const onSend = useCallback(() => {
     if (isRecording) {
-      toggleRecording();
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition && recognitionRef.current) {
+        recognitionRef.current.stop();
+        setIsRecording(false);
+      }
     }
     if (input.trim() === '/check-smb') {
       setInput('');
@@ -361,9 +363,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     } else {
       handleSendMessage();
     }
-  };
+  }, [isRecording, input, setInput, simulateSmbCheck, handleSendMessage]);
 
-  const toggleRecording = () => {
+  const toggleRecording = useCallback(() => {
     if (isRecording) {
       recognitionRef.current?.stop();
       setIsRecording(false);
@@ -403,7 +405,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     recognition.start();
     recognitionRef.current = recognition;
     setIsRecording(true);
-  };
+  }, [isRecording, input, setInput]);
 
   return (
     <div 
@@ -802,4 +804,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       </div>
     </div>
   );
-};
+});
+
+ChatInput.displayName = 'ChatInput';

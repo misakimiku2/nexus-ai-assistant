@@ -5,7 +5,7 @@ import { Message, SearchResult, AppMode, McpServer, McpServerConfig, PendingActi
 import { McpService } from './agent/mcp/McpService';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
-import { ChatView } from './components/ChatView';
+import { ChatViewOptimized } from './components/ChatViewOptimized';
 import { ChatInput } from './components/ChatInput';
 import { SearchView } from './components/SearchView';
 import { TerminalView } from './components/TerminalView';
@@ -23,7 +23,7 @@ import { useGlobalState } from './context/GlobalStateContext';
 import { FileViewerProvider, useFileViewer } from './context/FileViewerContext';
 import { TerminalProvider, useTerminal } from './context/TerminalContext';
 import { useAgentExecution, taskPlanToTodoItems } from './hooks/useAgentExecution';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useMotionValue, animate as motionAnimate } from 'motion/react';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
@@ -116,44 +116,68 @@ export default function App() {
   const [isSearching, setIsSearching] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
 
-  // Resizing State
   const [commandChatWidth, setCommandChatWidth] = useState(350);
   const [isResizing, setIsResizing] = useState(false);
   const isResizingRef = useRef(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const rafRef = useRef<number>(0);
-  const pendingWidthRef = useRef(350);
+  const widthMotionValue = useMotionValue(commandChatWidth);
+  const prevAppModeRef = useRef(appMode);
+
+  useEffect(() => {
+    if (isResizingRef.current) return;
+    if (appMode !== 'command') {
+      prevAppModeRef.current = appMode;
+      return;
+    }
+
+    if (prevAppModeRef.current !== 'command') {
+      const currentWidth = chatContainerRef.current?.getBoundingClientRect().width || commandChatWidth;
+      widthMotionValue.set(currentWidth);
+    }
+    prevAppModeRef.current = appMode;
+
+    motionAnimate(widthMotionValue, commandChatWidth, {
+      type: "spring",
+      stiffness: 300,
+      damping: 30,
+      mass: 1,
+    });
+  }, [commandChatWidth, appMode, widthMotionValue]);
 
   const handleMouseMove = React.useCallback((e: MouseEvent) => {
     if (!isResizingRef.current || !chatContainerRef.current) return;
     const rect = chatContainerRef.current.getBoundingClientRect();
-    const newWidth = e.clientX - rect.left;
-    pendingWidthRef.current = Math.min(Math.max(newWidth, 350), 580);
-    if (!rafRef.current) {
-      rafRef.current = requestAnimationFrame(() => {
-        setCommandChatWidth(pendingWidthRef.current);
-        rafRef.current = 0;
-      });
-    }
-  }, []);
+    const newWidth = Math.min(Math.max(e.clientX - rect.left, 350), 580);
+    widthMotionValue.set(newWidth);
+    setCommandChatWidth(Math.round(newWidth));
+  }, [widthMotionValue]);
 
   const handleMouseUp = React.useCallback(() => {
+    if (!isResizingRef.current) return;
     isResizingRef.current = false;
-    setIsResizing(false);
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = 0;
+
+    if (chatContainerRef.current) {
+      const computedWidth = chatContainerRef.current.getBoundingClientRect().width;
+      const finalWidth = Math.min(Math.max(Math.round(computedWidth), 350), 580);
+      widthMotionValue.set(finalWidth);
+      setIsResizing(false);
+      setCommandChatWidth(finalWidth);
+    } else {
+      setIsResizing(false);
     }
+
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
     document.body.style.cursor = '';
-  }, [handleMouseMove]);
+  }, [widthMotionValue, handleMouseMove]);
 
   const startResizing = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+
     isResizingRef.current = true;
     setIsResizing(true);
-    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mousemove', handleMouseMove, { passive: true });
     document.addEventListener('mouseup', handleMouseUp);
     document.body.style.cursor = 'col-resize';
   };
@@ -1269,17 +1293,17 @@ export default function App() {
         <div className={cn("flex-1 flex flex-col overflow-hidden relative", isDarkMode ? "bg-zinc-800" : "bg-zinc-50")}>
           {activeTab === 'chat' && (
             <div className="h-full flex flex-row w-full overflow-hidden relative">
-              <div 
+              <motion.div 
                 ref={chatContainerRef}
                 className={cn(
                   "flex flex-col h-full shrink-0 relative overflow-hidden",
                   appMode === 'command' && "border-r",
                   isDarkMode ? "border-zinc-700" : "border-zinc-200"
                 )}
+                layout="position"
+                initial={false}
                 style={{
-                  width: appMode === 'command' ? commandChatWidth : '100%',
-                  transition: isResizing ? 'none' : 'width 0.3s ease-in-out',
-                  willChange: isResizing ? 'width' : undefined,
+                  width: appMode === 'command' ? widthMotionValue : '100%',
                 }}
               >
                 {appMode === 'command' && (
@@ -1292,7 +1316,7 @@ export default function App() {
                     style={{ transform: 'translateX(50%)' }}
                   />
                 )}
-                <ChatView 
+                <ChatViewOptimized 
                   pendingAction={pendingAction}
                   handleApproveAction={handleApproveAction}
                   handleRejectAction={handleRejectAction}
@@ -1307,6 +1331,8 @@ export default function App() {
                   isSidebarExpanded={isSidebarExpanded}
                   setIsSidebarExpanded={setIsSidebarExpanded}
                   scrollResetKey={scrollResetKey}
+                  commandChatWidth={commandChatWidth}
+                  isResizingWidth={isResizing}
                 />
                 <ChatInput 
                   input={input}
@@ -1322,15 +1348,27 @@ export default function App() {
                   handleFileUpload={handleFileUpload}
                   removeAttachment={removeAttachment}
                 />
-              </div>
+              </motion.div>
 
               <AnimatePresence>
                 {appMode === 'command' && (
-                  <CanvasWorkspace 
-                    isDarkMode={isDarkMode} 
-                    isToolPanelOpen={isToolPanelOpen}
-                    setIsToolPanelOpen={setIsToolPanelOpen}
-                  />
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.98 }}
+                    transition={{
+                      duration: 0.25,
+                      delay: 0.1,
+                      ease: [0.4, 0, 0.2, 1],
+                    }}
+                    className="flex-1 min-w-0 overflow-hidden"
+                  >
+                    <CanvasWorkspace 
+                      isDarkMode={isDarkMode} 
+                      isToolPanelOpen={isToolPanelOpen}
+                      setIsToolPanelOpen={setIsToolPanelOpen}
+                    />
+                  </motion.div>
                 )}
               </AnimatePresence>
             </div>
