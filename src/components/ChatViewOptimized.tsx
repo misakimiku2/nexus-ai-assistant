@@ -370,7 +370,9 @@ export const ChatViewOptimized: React.FC<ChatViewProps> = ({
     
     let height = isUser ? 90 : 120;
     
-    if (!isUser) {
+    if (appMode === 'command') {
+      height += 56;
+    } else if (!isUser) {
       height += 52;
     }
     
@@ -412,12 +414,13 @@ export const ChatViewOptimized: React.FC<ChatViewProps> = ({
       height += 50;
     }
     
-    return Math.max(height, isUser ? 90 : 150);
+    return Math.max(height, isUser ? (appMode === 'command' ? 140 : 90) : 150);
   }, [messages, commandChatWidth, appMode]);
 
   const measuredHeightsRef = useRef<Map<number, number>>(new Map());
   const prevMessagesContentRef = useRef<string>('');
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const virtualizerRef = useRef<ReturnType<typeof useVirtualizer> | null>(null);
   
   const measureElement = useCallback((el: HTMLElement | null, virtualIndex: number) => {
     if (!el) return;
@@ -430,9 +433,14 @@ export const ChatViewOptimized: React.FC<ChatViewProps> = ({
       const oldHeight = measuredHeightsRef.current.get(virtualIndex);
       if (!oldHeight || Math.abs(oldHeight - height) > 2) {
         measuredHeightsRef.current.set(virtualIndex, height);
+        if (!isResizingWidthRef.current && appMode === 'command' && virtualizerRef.current) {
+          requestAnimationFrame(() => {
+            virtualizerRef.current?.measure();
+          });
+        }
       }
     }
-  }, []);
+  }, [appMode]);
 
   const resizeRafRef = useRef(0);
   const pendingMeasureRef = useRef(false);
@@ -445,6 +453,8 @@ export const ChatViewOptimized: React.FC<ChatViewProps> = ({
     },
     overscan: 5,
   });
+
+  virtualizerRef.current = rowVirtualizer;
 
   useEffect(() => {
     if (appMode !== 'command') return;
@@ -504,6 +514,8 @@ export const ChatViewOptimized: React.FC<ChatViewProps> = ({
     };
   }, [rowVirtualizer]);
 
+  const prevMessageCountRef = useRef(0);
+
   useEffect(() => {
     if (isResizingWidth) return;
     const currentContentHash = messages.map(m => `${m.id}:${m.content?.length || 0}:${m.thinking?.length || 0}:${m.todos?.length || 0}:${m.fileEdits?.length || 0}`).join('|');
@@ -513,13 +525,7 @@ export const ChatViewOptimized: React.FC<ChatViewProps> = ({
       const currentParts = currentContentHash.split('|');
       
       for (let i = 0; i < Math.max(prevParts.length, currentParts.length); i++) {
-        if (prevParts[i] !== currentParts[i]) {
-          measuredHeightsRef.current.delete(i);
-        }
-      }
-      
-      if (currentParts.length < prevParts.length) {
-        for (let i = currentParts.length; i < prevParts.length; i++) {
+        if (i >= prevParts.length || i >= currentParts.length || prevParts[i] !== currentParts[i]) {
           measuredHeightsRef.current.delete(i);
         }
       }
@@ -527,8 +533,30 @@ export const ChatViewOptimized: React.FC<ChatViewProps> = ({
       rowVirtualizer.measure();
     }
     
+    if (messages.length !== prevMessageCountRef.current) {
+      prevMessageCountRef.current = messages.length;
+      
+      if (appMode === 'command') {
+        setTimeout(() => {
+          const scrollEl = scrollRef.current;
+          if (!scrollEl) return;
+          const items = scrollEl.querySelectorAll('[data-index]');
+          items.forEach((item) => {
+            const index = parseInt(item.getAttribute('data-index') || '-1', 10);
+            if (index >= 0) {
+              const height = (item as HTMLElement).getBoundingClientRect().height;
+              if (height > 0) {
+                measuredHeightsRef.current.set(index, height);
+              }
+            }
+          });
+          rowVirtualizer.measure();
+        }, 100);
+      }
+    }
+    
     prevMessagesContentRef.current = currentContentHash;
-  }, [messages, rowVirtualizer, isResizingWidth]);
+  }, [messages, rowVirtualizer, isResizingWidth, appMode, scrollRef]);
 
   const prevIsResizingWidthRef = useRef(false);
   const forceMeasureRafRef = useRef(0);
