@@ -485,13 +485,13 @@ export const ChatView: React.FC<ChatViewProps> = ({
         </div>
       )}
 
-      <div 
+      <div
         ref={scrollRef}
         className={cn(
           "flex-1 overflow-y-auto overflow-x-hidden space-y-8 scroll-smooth z-10",
           appMode === 'command' ? "py-4 px-0 no-scrollbar" : "p-6"
         )}
-        style={{ fontFamily }}
+        style={{ fontFamily, contain: 'layout style' }}
       >
         {messages.length === 0 ? (
         <div className="h-full flex flex-col items-center justify-center text-center max-w-md mx-auto opacity-40">
@@ -552,7 +552,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
           }
 
           return (
-            <motion.div 
+            <motion.div
               key={msg.id}
               id={`msg-${msg.id}`}
               data-role={msg.role}
@@ -565,8 +565,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
             >
               <div className={cn(
                 "flex w-full min-w-0",
-                appMode === 'command' 
-                  ? "flex-col group relative px-[20px]" 
+                appMode === 'command'
+                  ? "flex-col group px-[20px]"
                   : (isUser ? "flex-row-reverse gap-4 items-start" : "flex-row gap-4 items-start")
               )}>
                 {appMode === 'command' ? (
@@ -599,9 +599,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   </div>
                 )}
                 <div className={cn(
-                  "flex flex-col gap-1",
-                  appMode === 'command' 
-                    ? (isUser ? "max-w-[85%] self-end text-left" : "w-full text-left min-w-0") 
+                  "flex flex-col gap-1 min-w-0",
+                  appMode === 'command'
+                    ? (isUser ? "max-w-[85%] self-end text-left" : "w-full text-left min-w-0")
                     : (isUser ? "max-w-[85%] items-start" : (msg.todos && msg.todos.length > 0 ? "max-w-[85%] w-full items-start" : "max-w-[85%] items-start"))
                 )}>
                   {appMode !== 'command' && (
@@ -862,9 +862,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
                   {(msg.content || (msg.role === 'assistant' && !msg.content && (isWaitingForResponse || isSearching) && msg.id === messages[messages.length - 1]?.id)) && (
                     <div className={cn(
-                      "inline-block break-words min-w-0 max-w-full overflow-hidden",
-                      msg.role === 'user' 
-                        ? "bg-indigo-600 text-white rounded-tr-none px-4 py-3 rounded-2xl text-sm leading-relaxed" 
+                      "inline-block break-words",
+                      appMode === 'command' ? "w-full min-w-0" : "max-w-full min-w-0",
+                      msg.role === 'user'
+                        ? "bg-indigo-600 text-white rounded-tr-none px-4 py-3 rounded-2xl text-sm leading-relaxed"
                         : (msg.content || (isWaitingForResponse || isSearching) ? (appMode === 'command' ? "w-full text-sm leading-relaxed" : "glass rounded-tl-none px-4 py-3 rounded-2xl text-sm leading-relaxed") : "")
                     )}>
                       {msg.role === 'assistant' && !msg.content && !msg.agentExecution?.reasoningSteps?.length && (isWaitingForResponse || isSearching) && msg.id === messages[messages.length - 1]?.id && (
@@ -1313,10 +1314,11 @@ export const ChatView: React.FC<ChatViewProps> = ({
         <div className={cn(
           "flex flex-col gap-1 mx-auto w-full items-start",
           appMode === 'command' ? "max-w-4xl" : "max-w-3xl"
-        )}>
+        )}
+        >
           <div className={cn(
             "flex w-full",
-            appMode === 'command' ? "flex-row items-stretch group relative px-[20px]" : "flex-row gap-4 items-start"
+            appMode === 'command' ? "flex-row items-stretch group px-[20px]" : "flex-row gap-4 items-start"
           )}>
             {appMode !== 'command' && (
               <div className="w-12 h-12 rounded-xl bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-600 shadow-sm flex items-center justify-center shrink-0 animate-pulse">
@@ -1328,7 +1330,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
               </div>
             )}
             <div className={cn(
-              "flex flex-col gap-1",
+              "flex flex-col gap-1 min-w-0",
               appMode === 'command' ? "flex-1 min-w-0 text-left" : "max-w-[85%] text-left"
             )}>
               {appMode !== 'command' && (

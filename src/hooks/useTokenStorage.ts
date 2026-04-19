@@ -52,25 +52,15 @@ export function useTokenStorage(modelConfigs: ModelConfig[]) {
       setIsMigrating(true);
       
       const isTauri = await checkTauriEnv();
-      console.log('[TokenStorage] Tauri环境:', isTauri);
       
       if (isTauri) {
-        console.log('[TokenStorage] 开始迁移localStorage数据...');
-        const localStorageMigrated = await tauriMigrateFromLocalStorage();
-        console.log('[TokenStorage] localStorage迁移结果:', localStorageMigrated);
-        
-        console.log('[TokenStorage] 开始迁移IndexedDB数据...');
-        const indexedDBMigrated = await tauriMigrateFromIndexedDB();
-        console.log('[TokenStorage] IndexedDB迁移结果:', indexedDBMigrated);
+        await tauriMigrateFromLocalStorage();
+        await tauriMigrateFromIndexedDB();
         
         const info = await getStorageInfo();
         setStoragePath(info.path);
-        console.log('[TokenStorage] 存储路径:', info.path);
       } else {
-        const migratedCount = await idbMigrateFromLocalStorage();
-        if (migratedCount > 0) {
-          console.log(`[TokenStorage] 迁移了 ${migratedCount} 条记录从localStorage到IndexedDB`);
-        }
+        await idbMigrateFromLocalStorage();
       }
       
       setIsMigrating(false);
@@ -79,16 +69,6 @@ export function useTokenStorage(modelConfigs: ModelConfig[]) {
         ? await tauriGetAllTokenRecords() 
         : await idbGetAllTokenRecords();
       
-      console.log('[TokenStorage] 加载了', allRecords.length, '条记录');
-      allRecords.forEach((r, i) => {
-        console.log(`[TokenStorage] 记录${i + 1}:`, {
-          modelId: r.modelId,
-          inputTokens: r.inputTokens,
-          outputTokens: r.outputTokens,
-          timestamp: new Date(r.timestamp).toLocaleString(),
-          cost: r.cost,
-        });
-      });
       setRecords(allRecords);
       setIsLoading(false);
     }
@@ -97,17 +77,14 @@ export function useTokenStorage(modelConfigs: ModelConfig[]) {
   }, []);
 
   const addRecord = useCallback(async (record: Omit<TokenUsageRecord, 'id'>) => {
-    console.log('[TokenStorage] addRecord called with:', record);
     const model = modelConfigs.find(m => m.id === record.modelId);
     const cost = record.cost ?? calculateCost(record.inputTokens, record.outputTokens, model?.pricing);
-    console.log('[TokenStorage] Calculated cost:', cost, 'model found:', !!model);
     
     const newRecord: TokenUsageRecord = {
       ...record,
       cost,
       id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
     };
-    console.log('[TokenStorage] New record created:', newRecord);
     
     const isTauri = await checkTauriEnv();
     if (isTauri) {
@@ -117,9 +94,7 @@ export function useTokenStorage(modelConfigs: ModelConfig[]) {
     }
     
     setRecords(prev => {
-      const updated = [...prev, newRecord];
-      console.log('[TokenStorage] Updated records count:', updated.length);
-      return updated;
+      return [...prev, newRecord];
     });
   }, [modelConfigs]);
 

@@ -114,6 +114,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const sidebarRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
+    console.log(`%c[Sidebar] 状态变化`, 'background: #6b21a8; color: #fff; padding: 2px 6px; border-radius: 3px;', {
+      isExpanded,
+      expectedTotalWidth: isExpanded ? 288 : 64,
+      padding: isExpanded ? '12px×2=24px' : '0px',
+      boxSizing: 'border-box (width包含padding)'
+    });
+
+    const el = sidebarRef.current;
+    if (!el) return;
+
+    const checkWidth = () => {
+      const rect = el.getBoundingClientRect();
+      const style = getComputedStyle(el);
+      console.log(`%c[Sidebar] 实际尺寸`, 'background: #6b21a8; color: #fff; padding: 2px 6px; border-radius: 3px;', {
+        actualTotalWidth: Math.round(rect.width),
+        computedStyleWidth: style.width,
+        paddingLeft: style.paddingLeft,
+        paddingRight: style.paddingRight,
+        boxSizing: style.boxSizing,
+        isExpanded
+      });
+    };
+
+    setTimeout(checkWidth, 50);
+    setTimeout(checkWidth, 150);
+    setTimeout(checkWidth, 300);
+  }, [isExpanded]);
+
+  useEffect(() => {
     if (!contextMenu) return;
     const handleClick = () => setContextMenu(null);
     const handleKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') setContextMenu(null); };
@@ -549,13 +578,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      <aside 
+      <aside
         ref={sidebarRef}
         onClick={() => setContextMenu(null)}
         className={cn(
-        "flex flex-col py-4 glass z-20 transition-all duration-300 border-r border-zinc-700/50",
-        isExpanded ? "w-72 items-stretch px-3" : "w-16 items-center"
-      )}>
+          "flex flex-col py-4 glass z-20 transition-[width] duration-300 ease-in-out box-border border-r border-zinc-700/50 shrink-0",
+          isExpanded ? "w-[288px] items-stretch px-3" : "w-[64px] items-center"
+        )}>
         {isExpanded && (
           <div className="flex items-center gap-3 px-3 mb-8">
             <NexusLogo size={32} />

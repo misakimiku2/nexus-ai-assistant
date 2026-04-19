@@ -99,8 +99,6 @@ export class AgentRuntime {
         }
       }
     }
-
-    console.log('[AgentRuntime] Tools refreshed, enabled tools:', ToolRegistry.getEnabledToolNames());
   }
 
   private async registerMcpToolsForAgent(): Promise<void> {
@@ -124,7 +122,6 @@ export class AgentRuntime {
       );
 
       ToolRegistry.registerMcpTools(server.id, toolDefinitions);
-      console.log(`[AgentRuntime] Registered ${toolDefinitions.length} MCP tools from server '${server.name}'`);
     }
   }
 
@@ -136,11 +133,6 @@ export class AgentRuntime {
     resetUrlPlaceholderCounter();
     this.aborted = false;
     const preprocessed = preprocessConversation(userInput, conversationHistory);
-    
-    console.log('[AgentRuntime] Preprocessed conversation:', {
-      hasUrls: preprocessed.urlMap.size > 0,
-      urlCount: preprocessed.urlMap.size,
-    });
 
     const planner = new TaskPlanner({
       apiUrl: this.agent.apiUrl || 'http://localhost:1234/v1/chat/completions',

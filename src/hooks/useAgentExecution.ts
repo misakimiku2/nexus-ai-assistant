@@ -102,23 +102,49 @@ function parseWebSearchResults(output: string): SearchResult[] {
 }
 
 export function taskPlanToTodoItems(plan: TaskPlan): TodoItem[] {
-  return plan.steps.map((step) => {
+  const totalSteps = plan.steps.length;
+
+  return plan.steps.map((step, stepIndex) => {
     const todoStatus: TodoItem['status'] =
       step.status === 'completed' ? 'completed' :
       step.status === 'in_progress' ? 'working' :
       step.status === 'failed' ? 'failed' : 'pending';
 
-    const totalSteps = plan.steps.length;
-    const stepIndex = plan.steps.indexOf(step);
-
     let progress = 0;
+
     if (step.status === 'completed') {
       progress = 100;
     } else if (step.status === 'in_progress') {
-      progress = 50;
+      if (step.toolCalls && step.toolCalls.length > 0) {
+        const totalCalls = step.toolCalls.length;
+        const completedCalls = step.toolCalls.filter(tc =>
+          tc.status === 'completed' || tc.status === 'error'
+        ).length;
+        const executingCalls = step.toolCalls.filter(tc =>
+          tc.status === 'executing'
+        ).length;
+
+        if (completedCalls === totalCalls) {
+          progress = 90;
+        } else if (executingCalls > 0) {
+          progress = Math.round(((completedCalls + 0.5) / totalSteps) * 100);
+          progress = Math.min(Math.max(progress, 10), 89);
+        } else {
+          progress = Math.round((completedCalls / totalCalls) * 100);
+          progress = Math.max(progress, 5);
+        }
+      } else {
+        progress = 50;
+      }
+    } else if (step.status === 'failed') {
+      const failedStepIndex = plan.steps.findIndex(s => s.status === 'failed');
+      if (failedStepIndex >= 0 && failedStepIndex < stepIndex) {
+        progress = 0;
+      } else {
+        progress = 0;
+      }
     } else {
-      const completedBefore = plan.steps.slice(0, stepIndex).filter(s => s.status === 'completed').length;
-      progress = Math.round((completedBefore / totalSteps) * 100);
+      progress = 0;
     }
 
     const steps: TodoStep[] = [];

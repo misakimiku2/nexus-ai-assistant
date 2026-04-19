@@ -461,9 +461,7 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
         
         const needsMigration = await checkMigrationNeeded();
         if (needsMigration) {
-          console.log('[GlobalState] 检测到需要迁移旧数据...');
-          const migrationResult = await migrateFromLocalStorage();
-          console.log('[GlobalState] 迁移完成:', migrationResult);
+          await migrateFromLocalStorage();
         }
         
         const [loadedSessions, loadedFolders] = await Promise.all([
@@ -471,20 +469,15 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
           storage.getAllFolders(),
         ]);
         
-        console.log('[GlobalState] 加载了', loadedSessions.length, '个会话');
-        console.log('[GlobalState] 加载了', loadedFolders.length, '个文件夹');
-        
         setSessions(loadedSessions);
         
         const allSearchGroups = loadedSessions.flatMap(s => s.searchGroups || []);
         if (allSearchGroups.length > 0) {
           setSearchGroups(allSearchGroups);
-          console.log('[GlobalState] 加载了', allSearchGroups.length, '个搜索组');
 
           const rebuiltRounds = rebuildTaskRoundsFromSearchGroups(allSearchGroups, loadedSessions);
           if (rebuiltRounds.length > 0) {
             setTaskRounds(rebuiltRounds);
-            console.log('[GlobalState] 重建了', rebuiltRounds.length, '个任务轮次');
           }
         }
         
@@ -498,11 +491,9 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
           const lastSession = loadedSessions[0];
           setCurrentSessionId(lastSession.id);
           setMessages(lastSession.messages);
-          console.log('[GlobalState] 存储初始化完成 (恢复上次会话)');
         } else {
           setCurrentSessionId('');
           setMessages([]);
-          console.log('[GlobalState] 存储初始化完成 (会话列表已加载，当前界面为空)');
         }
         
         setSessionStorageState(prev => ({
@@ -511,7 +502,6 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
           isLoading: false,
         }));
       } catch (error) {
-        console.error('[GlobalState] 存储初始化失败:', error);
         setSessionStorageState(prev => ({
           ...prev,
           isInitialized: true,
@@ -540,9 +530,7 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     try {
       await storageRef.current.saveSession(currentSession);
       setSessionStorageState(prev => ({ ...prev, lastSavedAt: Date.now() }));
-      console.log('[GlobalState] 会话已保存:', currentSessionId);
     } catch (error) {
-      console.error('[GlobalState] 保存会话失败:', error);
       setSessionStorageState(prev => ({
         ...prev,
         error: error instanceof Error ? error.message : '保存会话失败',
@@ -586,10 +574,10 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
           if (!currentIds.has(stored.id)) {
             await storageRef.current!.deleteFolder(stored.id);
           }
-        }
-      } catch (error) {
-        console.error('[GlobalState] 同步文件夹失败:', error);
       }
+    } catch (error) {
+      // 同步文件夹失败
+    }
     };
 
     syncFolders();
@@ -616,7 +604,6 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
       
       setSessionStorageState(prev => ({ ...prev, isLoading: false }));
     } catch (error) {
-      console.error('[GlobalState] 加载会话失败:', error);
       setSessionStorageState(prev => ({
         ...prev,
         isLoading: false,
@@ -640,7 +627,6 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     try {
       const session = sessions.find(s => s.id === id);
       if (!session) {
-        console.error('[GlobalState] 导出失败: 会话不存在');
         return;
       }
 
@@ -661,17 +647,14 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
           if (filePath) {
             const { writeFile: writeTauriFile } = await import('@tauri-apps/plugin-fs');
             await writeTauriFile(filePath, new TextEncoder().encode(content));
-            console.log('[GlobalState] 会话已导出到:', filePath);
           }
         } catch (dialogErr) {
-          console.warn('[GlobalState] Tauri dialog 不可用，使用浏览器下载:', dialogErr);
           downloadFile(content, `${session.title}${getFileExtension(format)}`, getMimeType(format));
         }
       } else {
         downloadFile(content, `${session.title}${getFileExtension(format)}`, getMimeType(format));
       }
     } catch (error) {
-      console.error('[GlobalState] 导出会话失败:', error);
       throw error;
     }
   }, [sessions]);
@@ -698,7 +681,6 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
             fileContent = new TextDecoder().decode(content);
           }
         } catch (dialogErr) {
-          console.warn('[GlobalState] Tauri dialog 不可用，使用浏览器文件选择:', dialogErr);
           fileContent = await pickFileViaBrowser();
         }
       } else {
@@ -708,7 +690,6 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
       if (!fileContent) return;
 
       const importedSessions = await importSessionFromData(fileContent);
-      console.log('[GlobalState] 导入了', importedSessions.length, '个会话');
 
       setSessions(prev => [...importedSessions, ...prev]);
       if (importedSessions.length > 0) {
@@ -716,7 +697,6 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
         setMessages(importedSessions[0].messages);
       }
     } catch (error) {
-      console.error('[GlobalState] 导入会话失败:', error);
       throw error;
     }
   }, []);
@@ -741,17 +721,14 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
           if (filePath) {
             const { writeFile: writeTauriFile } = await import('@tauri-apps/plugin-fs');
             await writeTauriFile(filePath, new TextEncoder().encode(content));
-            console.log('[GlobalState] 批量导出到:', filePath);
           }
         } catch (dialogErr) {
-          console.warn('[GlobalState] Tauri dialog 不可用，使用浏览器下载:', dialogErr);
           downloadFile(content, `${fileName}${getFileExtension(format)}`, getMimeType(format));
         }
       } else {
         downloadFile(content, `${fileName}${getFileExtension(format)}`, getMimeType(format));
       }
     } catch (error) {
-      console.error('[GlobalState] 批量导出会话失败:', error);
       throw error;
     }
   }, []);
@@ -889,9 +866,8 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     if (storageRef.current && sessionStorageState.isInitialized) {
       try {
         await storageRef.current.saveSession(newSession);
-        console.log('[GlobalState] 新会话已保存:', newSession.id);
       } catch (error) {
-        console.error('[GlobalState] 保存新会话失败:', error);
+        // 保存新会话失败
       }
     }
   };
@@ -909,9 +885,8 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     if (storageRef.current && sessionStorageState.isInitialized) {
       try {
         await storageRef.current.saveSession(newSession);
-        console.log('[GlobalState] 自动创建并保存新会话:', newSession.id);
       } catch (error) {
-        console.error('[GlobalState] 保存新会话失败:', error);
+        // 保存新会话失败
       }
     }
     
@@ -929,7 +904,7 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
         try {
           await storageRef.current.saveFolder(newFolder);
         } catch (error) {
-          console.error('[GlobalState] 保存文件夹失败:', error);
+          // 保存文件夹失败
         }
       }
     }
@@ -950,9 +925,8 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     if (storageRef.current && sessionStorageState.isInitialized) {
       try {
         await storageRef.current.saveSession(newSession);
-        console.log('[GlobalState] Agent会话已保存:', newSession.id);
       } catch (error) {
-        console.error('[GlobalState] 保存Agent会话失败:', error);
+        // 保存Agent会话失败
       }
     }
   };
@@ -979,9 +953,8 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     if (storageRef.current && sessionStorageState.isInitialized) {
       try {
         await storageRef.current.deleteSession(id);
-        console.log('[GlobalState] 已从存储中删除会话:', id);
       } catch (error) {
-        console.error('[GlobalState] 删除存储中的会话失败:', error);
+        // 删除存储中的会话失败
       }
     }
     
@@ -1004,9 +977,8 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     if (storageRef.current && sessionStorageState.isInitialized) {
       try {
         await storageRef.current.batchDeleteSessions(ids);
-        console.log('[GlobalState] 已从存储中批量删除会话:', ids);
       } catch (error) {
-        console.error('[GlobalState] 批量删除存储中的会话失败:', error);
+        // 批量删除存储中的会话失败
       }
     }
     
@@ -1126,7 +1098,6 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
     };
     setTaskRounds(prev => [newRound, ...prev]);
     setCurrentRoundId(roundId);
-    console.log('[GlobalState] 新任务轮次已创建:', roundId);
     return roundId;
   }, []);
 
@@ -1137,7 +1108,6 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
         ? { ...round, endTime: Date.now(), status: 'completed' as const }
         : round
     ));
-    console.log('[GlobalState] 任务轮次已完成:', currentRoundId);
   }, [currentRoundId]);
 
   const addSearchToRound = useCallback((roundId: string, searchGroup: SearchGroup) => {
@@ -1163,7 +1133,7 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
       try {
         await storageRef.current.deleteFolder(id);
       } catch (error) {
-        console.error('[GlobalState] 删除存储中的文件夹失败:', error);
+        // 删除存储中的文件夹失败
       }
     }
     setFolders(prev => prev.filter(f => f.id !== id));

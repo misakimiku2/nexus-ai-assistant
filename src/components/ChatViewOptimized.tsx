@@ -366,45 +366,53 @@ export const ChatViewOptimized: React.FC<ChatViewProps> = ({
     
     const isUser = msg.role === 'user';
     const effectiveWidth = commandChatWidth || (appMode === 'command' ? 450 : 800);
-    const charPerLine = Math.max(Math.floor((effectiveWidth - 100) / 8), 40);
+    const charPerLine = Math.max(Math.floor((effectiveWidth - 60) / 7), 35);
     
-    let height = isUser ? 70 : 90;
+    let height = isUser ? 90 : 120;
+    
+    if (!isUser) {
+      height += 52;
+    }
     
     if (msg.content) {
-      const lines = Math.ceil(msg.content.length / charPerLine);
-      height += Math.min(lines * 20, 350);
+      const contentLines = Math.ceil(msg.content.length / charPerLine);
+      height += Math.min(contentLines * 22, 600);
     }
     
     if (msg.thinking && msg.thinking.length > 0) {
-      const thinkingLines = Math.ceil(Math.min(msg.thinking.length, 500) / charPerLine);
-      height += Math.min(thinkingLines * 16 + 30, 120);
+      height += 180;
     }
     
     if (msg.agentExecution?.reasoningSteps?.length) {
-      height += Math.min(msg.agentExecution.reasoningSteps.length * 45, 300);
+      height += Math.min(msg.agentExecution.reasoningSteps.length * 55, 400);
     }
     
     if (msg.todos?.length) {
-      height += msg.todos.length * 90;
+      height += 50;
+      height += msg.todos.length * 95;
     }
     
     if (msg.fileEdits?.length) {
-      height += msg.fileEdits.length * 110;
+      height += 60 + msg.fileEdits.length * 130;
     }
     
     if (msg.attachments?.length) {
-      height += msg.attachments.reduce((acc, att) => acc + (att.type === 'image' ? 200 : 50), 0);
+      height += msg.attachments.reduce((acc, att) => acc + (att.type === 'image' ? 220 : 55), 0);
     }
     
     if (msg.error) {
-      height += 60;
+      height += 80;
     }
 
     if (msg.content === 'SMB_REPAIR_CARD') {
-      height = 180;
+      height = 220;
     }
     
-    return Math.max(height, isUser ? 70 : 90);
+    if (!isUser && appMode === 'command') {
+      height += 50;
+    }
+    
+    return Math.max(height, isUser ? 90 : 150);
   }, [messages, commandChatWidth, appMode]);
 
   const measuredHeightsRef = useRef<Map<number, number>>(new Map());
@@ -420,19 +428,20 @@ export const ChatViewOptimized: React.FC<ChatViewProps> = ({
     const height = rect.height;
     if (height > 0) {
       const oldHeight = measuredHeightsRef.current.get(virtualIndex);
-      if (!oldHeight || Math.abs(oldHeight - height) > 5) {
+      if (!oldHeight || Math.abs(oldHeight - height) > 2) {
         measuredHeightsRef.current.set(virtualIndex, height);
       }
     }
   }, []);
 
+  const resizeRafRef = useRef(0);
+  const pendingMeasureRef = useRef(false);
+
   const rowVirtualizer = useVirtualizer({
     count: messages.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: (index: number) => {
-      const measured = measuredHeightsRef.current.get(index);
-      if (measured) return measured;
-      return estimateMessageHeight(index);
+      return measuredHeightsRef.current.get(index) ?? estimateMessageHeight(index);
     },
     overscan: 5,
   });
@@ -444,48 +453,54 @@ export const ChatViewOptimized: React.FC<ChatViewProps> = ({
     if (!scrollEl) return;
     
     if (lastWidthRef.current !== commandChatWidth && lastWidthRef.current !== undefined) {
-      const scrollRatio = scrollEl.scrollTop / (scrollEl.scrollHeight - scrollEl.clientHeight || 1);
-      scrollRatioRef.current = scrollRatio;
-      if (!isResizingWidth) {
+      if (isResizingWidthRef.current) {
+        if (resizeRafRef.current) cancelAnimationFrame(resizeRafRef.current);
+        resizeRafRef.current = requestAnimationFrame(() => {
+          rowVirtualizer.measure();
+        });
+      } else if (!isInitializingRef.current) {
+        const scrollRatio = scrollEl.scrollTop / (scrollEl.scrollHeight - scrollEl.clientHeight || 1);
+        scrollRatioRef.current = scrollRatio;
+        console.log(`%c[commandChatWidth变化] 非拖拽`, 'background: #581c87; color: #fff; padding: 2px 6px; border-radius: 3px;', {
+          oldWidth: lastWidthRef.current,
+          newWidth: commandChatWidth,
+          scrollRatio: Math.round(scrollRatio * 100) + '%',
+        });
         measuredHeightsRef.current.clear();
+        rowVirtualizer.measure();
       }
-      rowVirtualizer.measure();
     }
     lastWidthRef.current = commandChatWidth;
-  }, [commandChatWidth, appMode, scrollRef, rowVirtualizer, isResizingWidth]);
-
-  const measureThrottleRef = useRef(0);
+  }, [commandChatWidth, appMode, scrollRef, rowVirtualizer]);
 
   useEffect(() => {
-    if (!resizeObserverRef.current) {
-      resizeObserverRef.current = new ResizeObserver((entries) => {
-        for (const entry of entries) {
-          const target = entry.target as HTMLElement;
-          const index = parseInt(target.getAttribute('data-index') || '-1', 10);
-          if (index >= 0) {
-            const height = entry.contentRect.height;
-            if (height > 0) {
-              const oldHeight = measuredHeightsRef.current.get(index);
-              if (!oldHeight || Math.abs(oldHeight - height) > 5) {
-                measuredHeightsRef.current.set(index, height);
-                if (!isResizingWidthRef.current) {
-                  rowVirtualizer.measure();
-                } else {
-                  const now = Date.now();
-                  if (now - measureThrottleRef.current > 100) {
-                    measureThrottleRef.current = now;
-                    rowVirtualizer.measure();
-                  }
-                }
+    if (resizeObserverRef.current) {
+      resizeObserverRef.current.disconnect();
+      resizeObserverRef.current = null;
+    }
+    
+    resizeObserverRef.current = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const target = entry.target as HTMLElement;
+        const index = parseInt(target.getAttribute('data-index') || '-1', 10);
+        if (index >= 0) {
+          const height = entry.contentRect.height;
+          if (height > 0) {
+            const oldHeight = measuredHeightsRef.current.get(index);
+            if (!oldHeight || Math.abs(oldHeight - height) > 2) {
+              measuredHeightsRef.current.set(index, height);
+              if (!isResizingWidthRef.current) {
+                rowVirtualizer.measure();
               }
             }
           }
         }
-      });
-    }
+      }
+    });
     
     return () => {
       resizeObserverRef.current?.disconnect();
+      resizeObserverRef.current = null;
     };
   }, [rowVirtualizer]);
 
@@ -516,15 +531,121 @@ export const ChatViewOptimized: React.FC<ChatViewProps> = ({
   }, [messages, rowVirtualizer, isResizingWidth]);
 
   const prevIsResizingWidthRef = useRef(false);
+  const forceMeasureRafRef = useRef(0);
+  
   useEffect(() => {
     if (prevIsResizingWidthRef.current && !isResizingWidth && appMode === 'command') {
+      if (resizeRafRef.current) {
+        cancelAnimationFrame(resizeRafRef.current);
+        resizeRafRef.current = 0;
+      }
+      if (forceMeasureRafRef.current) {
+        cancelAnimationFrame(forceMeasureRafRef.current);
+      }
+      console.log(`%c[拖拽结束]`, 'background: #166534; color: #fff; padding: 2px 6px; border-radius: 3px;', {
+        cacheSize: measuredHeightsRef.current.size,
+        commandChatWidth,
+      });
+      
       measuredHeightsRef.current.clear();
-      rowVirtualizer.measure();
+      
+      forceMeasureRafRef.current = requestAnimationFrame(() => {
+        const scrollEl = scrollRef.current;
+        if (!scrollEl) return;
+        
+        const items = scrollEl.querySelectorAll('[data-index]');
+        items.forEach((item) => {
+          const index = parseInt(item.getAttribute('data-index') || '-1', 10);
+          if (index >= 0) {
+            const height = (item as HTMLElement).getBoundingClientRect().height;
+            if (height > 0) {
+              measuredHeightsRef.current.set(index, height);
+            }
+          }
+        });
+        
+        rowVirtualizer.measure();
+        forceMeasureRafRef.current = 0;
+      });
     }
     prevIsResizingWidthRef.current = isResizingWidth;
-  }, [isResizingWidth, rowVirtualizer, appMode]);
+  }, [isResizingWidth, rowVirtualizer, appMode, commandChatWidth, scrollRef]);
+
+  const containerWidthRef = useRef(0);
+  useEffect(() => {
+    const scrollEl = scrollRef.current;
+    if (!scrollEl) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const newWidth = Math.round(entry.contentRect.width);
+        if (containerWidthRef.current > 0 && containerWidthRef.current !== newWidth) {
+          if (!isResizingWidthRef.current && !isInitializingRef.current) {
+            console.log(`%c[容器宽度变化] 非拖拽`, 'background: #7c2d12; color: #fff; padding: 2px 6px; border-radius: 3px;', {
+              oldWidth: containerWidthRef.current,
+              newWidth,
+            });
+            measuredHeightsRef.current.clear();
+            rowVirtualizer.measure();
+          }
+        }
+        containerWidthRef.current = newWidth;
+      }
+    });
+
+    observer.observe(scrollEl);
+    return () => observer.disconnect();
+  }, [rowVirtualizer, scrollRef]);
 
   const virtualItems = rowVirtualizer.getVirtualItems();
+  const initialMeasureDoneRef = useRef(false);
+  const isInitializingRef = useRef(true);
+
+  useEffect(() => {
+    if (appMode !== 'command') return;
+    if (initialMeasureDoneRef.current) return;
+    if (virtualItems.length === 0) return;
+    
+    initialMeasureDoneRef.current = true;
+    
+    const timer = setTimeout(() => {
+      isInitializingRef.current = false;
+    }, 2000);
+    
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const scrollEl = scrollRef.current;
+          if (!scrollEl) return;
+          
+          const items = scrollEl.querySelectorAll('[data-index]');
+          
+          items.forEach((item) => {
+            const index = parseInt(item.getAttribute('data-index') || '-1', 10);
+            if (index >= 0) {
+              const height = (item as HTMLElement).getBoundingClientRect().height;
+              if (height > 0) {
+                measuredHeightsRef.current.set(index, height);
+              }
+            }
+          });
+          
+          if (items.length > 0) {
+            console.log(`%c[初始测量完成]`, 'background: #059669; color: #fff; padding: 2px 6px; border-radius: 3px;', {
+              measuredCount: items.length,
+              cacheSize: measuredHeightsRef.current.size,
+            });
+            rowVirtualizer.measure();
+          }
+          
+          clearTimeout(timer);
+          isInitializingRef.current = false;
+        });
+      });
+    });
+    
+    return () => clearTimeout(timer);
+  }, [virtualItems.length, appMode, rowVirtualizer, scrollRef]);
 
   useEffect(() => {
     if (appMode !== 'command') return;
@@ -540,6 +661,20 @@ export const ChatViewOptimized: React.FC<ChatViewProps> = ({
   }, [rowVirtualizer, appMode, scrollRef]);
 
   const messageItems = useMemo(() => {
+    if (appMode === 'command' && virtualItems.length > 0) {
+      const positions = virtualItems.map(v => ({
+        idx: v.index,
+        role: messages[v.index]?.role?.[0] || '?',
+        start: Math.round(v.start),
+        size: Math.round(v.size),
+        measured: measuredHeightsRef.current.has(v.index),
+      }));
+      console.log(`%c[虚拟位置]`, 'background: #1e3a5f; color: #fff; padding: 2px 6px; border-radius: 3px;', {
+        width: containerWidthRef.current,
+        isResizing: isResizingWidthRef.current,
+        positions,
+      });
+    }
     return virtualItems.map((virtualRow) => {
       const msg = messages[virtualRow.index];
       return (

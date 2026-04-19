@@ -113,8 +113,6 @@ async function checkOnlineModelHealth(config: ModelConfig, timeout: number, star
       headers['Authorization'] = `Bearer ${config.apiKey}`;
     }
     
-    console.log(`[modelHealthCheck] Checking ${config.onlineProvider} model health at:`, requestUrl.substring(0, 80) + '...');
-    
     const response = await fetch(requestUrl, {
       method: 'GET',
       headers,

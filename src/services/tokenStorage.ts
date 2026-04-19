@@ -95,10 +95,8 @@ export async function migrateFromLocalStorage(): Promise<number> {
     
     await addTokenRecords(records);
     localStorage.removeItem('nexus_token_usage_records');
-    console.log(`[TokenStorage] 迁移了 ${records.length} 条记录从localStorage到IndexedDB`);
     return records.length;
   } catch (error) {
-    console.error('[TokenStorage] 迁移失败:', error);
     return 0;
   }
 }
@@ -114,7 +112,6 @@ export async function deleteTokenRecordsByModelId(modelId: string): Promise<numb
     if (filteredRecords.length > 0) {
       await addTokenRecords(filteredRecords);
     }
-    console.log(`[TokenStorage] 删除了 ${deletedCount} 条 modelId=${modelId} 的 token 记录`);
   }
   
   return deletedCount;
@@ -136,7 +133,6 @@ export async function updateTokenRecordsModelId(oldModelId: string, newModelId: 
     const db = await getDB();
     await db.clear(STORE_NAME);
     await addTokenRecords(updatedRecords);
-    console.log(`[TokenStorage] 更新了 ${updatedCount} 条 token 记录的 modelId: ${oldModelId} -> ${newModelId}`);
   }
   
   return updatedCount;

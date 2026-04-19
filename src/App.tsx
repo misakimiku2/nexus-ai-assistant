@@ -101,6 +101,30 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('chat');
   const [input, setInput] = useState('');
   const [isToolPanelOpen, setIsToolPanelOpen] = useState(true);
+
+  const debugLogLayout = React.useCallback((action: string) => {
+    console.log(`%c[布局调试] ${action}`, 'background: #222; color: #bada55; padding: 2px 6px; border-radius: 3px;');
+    console.log('  - isSidebarExpanded:', isSidebarExpanded);
+    console.log('  - isToolPanelOpen:', isToolPanelOpen);
+    console.log('  - window.innerWidth:', window.innerWidth);
+    console.log('  - timestamp:', new Date().toISOString());
+  }, [isSidebarExpanded, isToolPanelOpen]);
+
+  const handleSetSidebarExpanded = React.useCallback((value: boolean | ((prev: boolean) => boolean)) => {
+    setIsSidebarExpanded(prev => {
+      const newValue = typeof value === 'function' ? value(prev) : value;
+      debugLogLayout(`Sidebar ${newValue ? '展开' : '收起'}`);
+      return newValue;
+    });
+  }, [debugLogLayout]);
+
+  const handleSetToolPanelOpen = React.useCallback((value: boolean | ((prev: boolean) => boolean)) => {
+    setIsToolPanelOpen(prev => {
+      const newValue = typeof value === 'function' ? value(prev) : value;
+      debugLogLayout(`ToolPanel ${newValue ? '打开' : '关闭'}`);
+      return newValue;
+    });
+  }, [debugLogLayout]);
   const [appMode, setAppModeState] = useState<AppMode>(() => {
     const stored = localStorage.getItem('nexus_app_mode');
     return (stored === 'chat' || stored === 'command') ? stored : 'chat';
@@ -116,68 +140,152 @@ export default function App() {
   const [isSearching, setIsSearching] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
 
-  const [commandChatWidth, setCommandChatWidth] = useState(350);
-  const [isResizing, setIsResizing] = useState(false);
   const isResizingRef = useRef(false);
+  const commandChatWidthRef = useRef(350);
+  const [commandChatWidth, setCommandChatWidth] = useState(() => {
+    const stored = localStorage.getItem('nexus_command_chat_width');
+    const width = stored ? parseInt(stored, 10) : 350;
+    commandChatWidthRef.current = width;
+    return width;
+  });
+  const [isResizing, setIsResizing] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const widthMotionValue = useMotionValue(appMode === 'command' ? commandChatWidth : (typeof window !== 'undefined' ? window.innerWidth : 800));
+  const mainContentRef = useRef<HTMLDivElement>(null);
   const prevAppModeRef = useRef(appMode);
   const isInitializedRef = useRef(false);
+  const modeSwitchTimeRef = useRef(0);
+  const sidebarEffectHasRunRef = useRef(false);
+  const MODE_SWITCH_LOCK_DURATION = 1200;
+  const currentAnimationRef = useRef<(() => void) | null>(null);
+
+  const widthMotionValue = useMotionValue(typeof window !== 'undefined' ? window.innerWidth : 800);
+
+  useEffect(() => {
+    commandChatWidthRef.current = commandChatWidth;
+  }, [commandChatWidth]);
 
   useEffect(() => {
     if (isInitializedRef.current) return;
     isInitializedRef.current = true;
 
-    if (appMode === 'chat') {
+    requestAnimationFrame(() => {
       const parentEl = chatContainerRef.current?.parentElement;
-      const targetWidth = parentEl ? parentEl.getBoundingClientRect().width : window.innerWidth;
-      widthMotionValue.set(targetWidth);
-    }
+      const parentWidth = parentEl ? parentEl.getBoundingClientRect().width : window.innerWidth;
+
+      if (appMode === 'chat') {
+        widthMotionValue.set(parentWidth);
+      } else if (appMode === 'command') {
+        modeSwitchTimeRef.current = Date.now();
+        const storedWidth = localStorage.getItem('nexus_command_chat_width');
+        if (storedWidth) {
+          const parsedWidth = parseInt(storedWidth, 10);
+          if (!isNaN(parsedWidth) && parsedWidth >= 350 && parsedWidth <= 580) {
+            setCommandChatWidth(parsedWidth);
+            widthMotionValue.set(parsedWidth);
+            return;
+          }
+        }
+        const targetWidth = Math.min(Math.max(parentWidth * 0.45, 350), 580);
+        widthMotionValue.set(targetWidth);
+        setCommandChatWidth(Math.round(targetWidth));
+        localStorage.setItem('nexus_command_chat_width', String(Math.round(targetWidth)));
+      }
+    });
   }, []);
 
   useEffect(() => {
     if (isResizingRef.current) return;
+    if (prevAppModeRef.current === appMode) return;
 
-    if (appMode === 'command') {
-      if (prevAppModeRef.current !== 'command') {
-        const currentWidth = chatContainerRef.current?.getBoundingClientRect().width || commandChatWidth;
-        widthMotionValue.set(currentWidth);
+    if (appMode === 'command' && prevAppModeRef.current !== 'command') {
+      modeSwitchTimeRef.current = Date.now();
+      sidebarEffectHasRunRef.current = false;
+
+      const storedWidth = localStorage.getItem('nexus_command_chat_width');
+      let targetWidth: number;
+      if (storedWidth) {
+        const parsedWidth = parseInt(storedWidth, 10);
+        targetWidth = (!isNaN(parsedWidth) && parsedWidth >= 350 && parsedWidth <= 580) ? parsedWidth : 450;
+      } else {
+        targetWidth = 450;
       }
-      prevAppModeRef.current = appMode;
 
-      motionAnimate(widthMotionValue, commandChatWidth, {
-        duration: 0.3,
+      if (currentAnimationRef.current) {
+        currentAnimationRef.current();
+        currentAnimationRef.current = null;
+      }
+
+      const animation = motionAnimate(widthMotionValue, targetWidth, {
+        duration: 0.35,
         ease: [0.4, 0, 0.2, 1],
       });
-    } else if (prevAppModeRef.current === 'command') {
-      prevAppModeRef.current = appMode;
+      currentAnimationRef.current = () => animation.stop();
+      animation.then(() => { currentAnimationRef.current = null; }).catch(() => { currentAnimationRef.current = null; });
 
+      setCommandChatWidth(targetWidth);
+    } else if (appMode === 'chat' && prevAppModeRef.current !== 'chat') {
       const parentEl = chatContainerRef.current?.parentElement;
-      const targetWidth = parentEl ? parentEl.getBoundingClientRect().width : window.innerWidth;
+      if (parentEl) {
+        const targetWidth = parentEl.getBoundingClientRect().width;
 
-      motionAnimate(widthMotionValue, targetWidth, {
-        duration: 0.3,
-        ease: [0.4, 0, 0.2, 1],
-      });
-    } else {
-      prevAppModeRef.current = appMode;
+        if (currentAnimationRef.current) {
+          currentAnimationRef.current();
+          currentAnimationRef.current = null;
+        }
+
+        const animation = motionAnimate(widthMotionValue, targetWidth, {
+          duration: 0.35,
+          ease: [0.4, 0, 0.2, 1],
+        });
+        currentAnimationRef.current = () => animation.stop();
+        animation.then(() => { currentAnimationRef.current = null; }).catch(() => { currentAnimationRef.current = null; });
+      }
     }
-  }, [commandChatWidth, appMode, widthMotionValue]);
+
+    prevAppModeRef.current = appMode;
+  }, [appMode, widthMotionValue]);
 
   useEffect(() => {
     if (appMode !== 'chat') return;
 
-    const handleResize = () => {
-      if (isResizingRef.current) return;
-      const parentEl = chatContainerRef.current?.parentElement;
-      if (parentEl) {
-        widthMotionValue.set(parentEl.getBoundingClientRect().width);
-      }
-    };
+    const parentEl = chatContainerRef.current?.parentElement;
+    if (!parentEl) return;
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (isResizingRef.current) return;
+        if (currentAnimationRef.current) return;
+        const newWidth = entry.contentRect.width;
+        if (newWidth > 0) {
+          widthMotionValue.set(newWidth);
+        }
+      }
+    });
+
+    observer.observe(parentEl);
+    return () => observer.disconnect();
   }, [appMode, widthMotionValue]);
+
+  useEffect(() => {
+    if (appMode !== 'command') return;
+    if (isResizingRef.current) return;
+
+    const timeSinceSwitch = Date.now() - modeSwitchTimeRef.current;
+    if (timeSinceSwitch < MODE_SWITCH_LOCK_DURATION) return;
+
+    const parentEl = chatContainerRef.current?.parentElement;
+    if (!parentEl) return;
+
+    const parentWidth = parentEl.getBoundingClientRect().width;
+    const currentWidth = commandChatWidthRef.current;
+    const maxAllowedWidth = Math.min(Math.max(parentWidth - 200, 350), 580);
+
+    if (currentWidth > maxAllowedWidth) {
+      const finalWidth = Math.max(Math.min(currentWidth, maxAllowedWidth), 350);
+      setCommandChatWidth(finalWidth);
+      widthMotionValue.set(finalWidth);
+    }
+  }, [isSidebarExpanded, isToolPanelOpen, appMode, widthMotionValue]);
 
   const handleMouseMove = React.useCallback((e: MouseEvent) => {
     if (!isResizingRef.current || !chatContainerRef.current) return;
@@ -197,6 +305,7 @@ export default function App() {
       widthMotionValue.set(finalWidth);
       setIsResizing(false);
       setCommandChatWidth(finalWidth);
+      localStorage.setItem('nexus_command_chat_width', String(finalWidth));
     } else {
       setIsResizing(false);
     }
@@ -313,12 +422,14 @@ export default function App() {
     }
 
     const todoItems = taskPlanToTodoItems(plan);
+    const timestamp = Date.now();
 
     setMessages(prev => prev.map(m => {
       if (m.id === messageId) {
         return {
           ...m,
           todos: todoItems,
+          updatedAt: timestamp,
         };
       }
       return m;
@@ -327,7 +438,7 @@ export default function App() {
     if (currentRoundId) {
       setTaskRounds(prev => prev.map(round =>
         round.id === currentRoundId
-          ? { ...round, todos: todoItems }
+          ? { ...round, todos: todoItems, updatedAt: timestamp }
           : round
       ));
     }
@@ -1303,7 +1414,7 @@ export default function App() {
         openSettings={() => setIsSettingsOpen(true)}
       />
 
-      <main className="flex-1 flex flex-col min-w-0 relative overflow-hidden">
+      <main ref={mainContentRef} className="flex-1 flex flex-col min-w-0 relative overflow-hidden">
         <AnimatePresence>
           {!(activeTab === 'chat' && appMode === 'command') && (
             <motion.div
@@ -1317,9 +1428,9 @@ export default function App() {
             >
               <Header
                 isToolPanelOpen={isToolPanelOpen}
-                setIsToolPanelOpen={setIsToolPanelOpen}
+                setIsToolPanelOpen={handleSetToolPanelOpen}
                 isSidebarExpanded={isSidebarExpanded}
-                setIsSidebarExpanded={setIsSidebarExpanded}
+                setIsSidebarExpanded={handleSetSidebarExpanded}
               />
             </motion.div>
           )}
@@ -1331,8 +1442,8 @@ export default function App() {
               <motion.div 
                 ref={chatContainerRef}
                 className={cn(
-                  "flex flex-col h-full shrink-0 relative overflow-hidden",
-                  appMode === 'command' && "border-r",
+                  "flex flex-col h-full relative overflow-hidden shrink-0",
+                  appMode === 'command' ? "border-r" : "",
                   isDarkMode ? "border-zinc-700" : "border-zinc-200"
                 )}
                 initial={false}

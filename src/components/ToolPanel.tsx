@@ -458,6 +458,20 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
   const [expandedSearchGroupId, setExpandedSearchGroupId] = useState<string | null>(null);
   const [expandedRoundId, setExpandedRoundId] = useState<string | null>(null);
 
+  useEffect(() => {
+    console.log(`%c[ToolPanel] 状态变化`, 'background: #065f46; color: #fff; padding: 2px 6px; border-radius: 3px;', {
+      isOpen,
+      action: isOpen ? '打开' : '关闭',
+      timestamp: new Date().toISOString()
+    });
+
+    if (!isOpen) {
+      console.log(`%c[ToolPanel] 开始exit动画`, 'background: #065f46; color: #fff; padding: 2px 6px; border-radius: 3px;', {
+        message: '动画将在300ms后完成，然后DOM移除'
+      });
+    }
+  }, [isOpen]);
+
   // Filter task rounds by current session and sort by time
   const sessionTaskRounds = useMemo(() => {
     return taskRounds
@@ -540,7 +554,8 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
           initial={{ width: 0, opacity: 0 }}
           animate={{ width: 320, opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
-          className="glass border-y-0 border-r-0 flex flex-col z-10 overflow-hidden"
+          transition={{ duration: 0.3, ease: "easeInOut" }}
+          className="glass border-y-0 border-r-0 flex flex-col z-10 overflow-hidden shrink-0"
         >
           <div 
             data-tauri-drag-region
