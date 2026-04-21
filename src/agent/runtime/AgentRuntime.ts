@@ -8,6 +8,7 @@ import {
   DEFAULT_AGENT_CONFIG,
   ToolCallRecord,
   TaskPlan,
+  TaskResult,
 } from '../types';
 import { ReActEngine } from './ReActEngine';
 import { agentStateManager } from './AgentState';
@@ -171,7 +172,8 @@ export class AgentRuntime {
   ): Promise<string> {
     const context = this.buildExecutionContext(preprocessed, imageAttachments);
     this.engine = new ReActEngine(context);
-    return this.engine.run(preprocessed.processedUserInput);
+    const result = await this.engine.run(preprocessed.processedUserInput);
+    return result.content;
   }
 
   private async executePlannedTasks(
@@ -216,17 +218,21 @@ export class AgentRuntime {
 
       try {
         const stepInput = this.buildStepInput(step, plan, results);
-        const stepResult = await this.engine.run(stepInput);
+        const stepResult: TaskResult = await this.engine.run(stepInput);
 
-        plan = planner.updateStepStatus(plan, step.id, 'completed', stepResult);
+        if (stepResult.completionType === 'completed') {
+          plan = planner.updateStepStatus(plan, step.id, 'completed', stepResult.content);
+        } else {
+          plan = planner.updateStepStatus(plan, step.id, 'completed', stepResult.content, `⚠️ ${stepResult.reason || '任务未完全完成'}`);
+        }
         this.currentPlan = plan;
         this.callbacks.onTaskPlanUpdate?.(plan);
 
-        results.push(`## ${step.title}\n${stepResult}`);
+        results.push(`## ${step.title}\n${stepResult.content}`);
 
         currentMessages.push({
           role: 'assistant',
-          content: stepResult,
+          content: stepResult.content,
         });
 
         if (currentMessages.length > MAX_CONTEXT_MESSAGES) {
@@ -308,6 +314,7 @@ export class AgentRuntime {
     }
 
     contextParts.push('[INSTRUCTION: Your current task is below. Focus ONLY on completing this specific task. Do NOT echo the task description back. Just do the work and report results.]');
+    contextParts.push('[IMPORTANT: Do NOT perform work that belongs to other steps in the plan. Complete ONLY this step, then stop.]');
     contextParts.push(step.description);
 
     if (step.toolHint) {
@@ -438,6 +445,43 @@ export class AgentRuntime {
     this.aborted = true;
     this.engine?.abort();
     agentStateManager.updateStatus(this.agent.id, 'failed');
+
+    if (this.currentPlan) {
+      const planner = new TaskPlanner({
+        apiUrl: this.agent.apiUrl || 'http://localhost:1234/v1/chat/completions',
+        modelName: this.agent.modelId || 'local-model',
+        apiKey: this.agent.apiKey,
+        temperature: 0.3,
+        isGeminiModel: this.agent.onlineProvider === 'google' ||
+                       this.agent.modelId?.toLowerCase().includes('gemini'),
+        availableTools: ToolRegistry.getEnabledToolNames(),
+      });
+
+      let updated = false;
+      const steps = this.currentPlan.steps.map(step => {
+        if (step.status === 'in_progress') {
+          updated = true;
+          return { ...step, status: 'failed' as const, error: '用户手动停止执行' };
+        }
+        if (step.status === 'pending') {
+          updated = true;
+          return { ...step, status: 'failed' as const, error: '前置步骤被停止' };
+        }
+        return step;
+      });
+
+      if (updated) {
+        const anyFailed = steps.some(s => s.status === 'failed');
+        const allDone = steps.every(s => s.status === 'completed' || s.status === 'failed');
+        this.currentPlan = {
+          ...this.currentPlan,
+          steps,
+          status: allDone ? (anyFailed ? 'failed' : 'completed') : 'failed',
+          completedAt: Date.now(),
+        };
+        this.callbacks.onTaskPlanUpdate?.(this.currentPlan);
+      }
+    }
   }
 
   getState(): AgentExecutionState | undefined {

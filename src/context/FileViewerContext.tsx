@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { clearPendingWrite } from '../lib/pendingWrites';
+import { clearPendingWrite, getPendingWrite } from '../lib/pendingWrites';
 
 export interface DiffData {
   originalContent: string;
@@ -87,20 +87,25 @@ export const FileViewerProvider: React.FC<FileViewerProviderProps> = ({ children
     const isUntitled = path === 'untitled' || !path.includes('/') && !path.includes('\\');
 
     if (!content && !isUntitled) {
-      try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        const result = await invoke<{ content: string; size: number }>('read_file', {
-          path,
-          encoding: 'utf-8',
-        });
-        fileContent = result.content;
-      } catch {
+      const pending = getPendingWrite(path);
+      if (pending) {
+        fileContent = pending.newContent;
+      } else {
         try {
-          const response = await fetch(`file:///${path.replace(/\\/g, '/')}`);
-          fileContent = await response.text();
+          const { invoke } = await import('@tauri-apps/api/core');
+          const result = await invoke<{ content: string; size: number }>('read_file', {
+            path,
+            encoding: 'utf-8',
+          });
+          fileContent = result.content;
         } catch {
-          fileContent = `[无法读取文件: ${path}]`;
-          readOnly = true;
+          try {
+            const response = await fetch(`file:///${path.replace(/\\/g, '/')}`);
+            fileContent = await response.text();
+          } catch {
+            fileContent = `[无法读取文件: ${path}]`;
+            readOnly = true;
+          }
         }
       }
     }

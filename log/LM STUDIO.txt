@@ -1,0 +1,525 @@
+2026-04-21 18:45:06 [DEBUG]
+ Received request: POST to /v1/chat/completions with body  {
+  "model": "qwen/qwen3.5-9b",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an intelligent agent that uses the ReAct (... <Truncated in logs> ... continue the conversation based on those results."
+    },
+    {
+      "role": "user",
+      "content": "整理20份游戏行业相关的新闻内容，弄成markdown格式的文档。存在C:\\Users\\Misaki\\Documents\\demo"
+    },
+    {
+      "role": "assistant",
+      "content": "\n\n我需要搜索游戏行业相关的新闻，获取 20 篇新闻的标题和链接。让我开始进行搜索。\n\n\n\n"
+    },
+    {
+      "role": "user",
+      "content": "[INSTRUCTION: Below is context from previously com... <Truncated in logs> ...将整理好的markdown文档保存到C:\\Users\\Misaki\\Documents\\demo目录"
+    }
+  ],
+  "temperature": 0.7,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "description": "Search the web for current information. Returns a ... <Truncated in logs> ...R_1__`），请使用 `fetch_url` 工具获取网页内容，而不是 `web_search`。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query (2-4 keywords, natural language)"
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 5)",
+              "default": 5,
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "web_extract",
+        "description": "Extract content from web pages. Returns the cleane... <Truncated in logs> ... structured content from articles or documentation",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "urls": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "List of URLs to extract content from (max 20)"
+            },
+            "format": {
+              "type": "string",
+              "description": "Output format: \"markdown\" or \"text\"",
+              "enum": [
+                "markdown",
+                "text"
+              ],
+              "default": "markdown"
+            },
+            "include_images": {
+              "type": "boolean",
+              "description": "Include images extracted from the URLs",
+              "default": false
+            }
+          },
+          "required": [
+            "urls"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "web_crawl",
+        "description": "Crawl a website starting from a URL and extract co... <Truncated in logs> ...\n- Get structured content from documentation sites",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "The starting URL to crawl"
+            },
+            "max_depth": {
+              "type": "integer",
+              "description": "Maximum crawl depth (default: 1)",
+              "default": 1,
+              "minimum": 1,
+              "maximum": 5
+            },
+            "max_breadth": {
+              "type": "integer",
+              "description": "Maximum number of links to follow per page (default: 20)",
+              "default": 20
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Total number of pages to crawl (default: 50)",
+              "default": 50
+            },
+            "instructions": {
+              "type": "string",
+              "description": "Natural language instructions for what to look for"
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "web_map",
+        "description": "Discover all URLs on a website. Returns a list of ... <Truncated in logs> ...all available pages\n- Discover documentation pages",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "The starting URL to map"
+            },
+            "max_depth": {
+              "type": "integer",
+              "description": "Maximum mapping depth (default: 1)",
+              "default": 1,
+              "minimum": 1,
+              "maximum": 5
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Maximum number of URLs to discover (default: 50)",
+              "default": 50
+            },
+            "instructions": {
+              "type": "string",
+              "description": "Natural language instructions for what types of URLs to look for"
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "read_file",
+        "description": "Read the contents of a file from the local filesys... <Truncated in logs> ... to directory restrictions, use this tool instead.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "The absolute path to the file to read"
+            },
+            "encoding": {
+              "type": "string",
+              "description": "File encoding (default: utf-8)",
+              "default": "utf-8",
+              "enum": [
+                "utf-8",
+                "base64"
+              ]
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "write_file",
+        "description": "Write content to a file on the local filesystem. C... <Truncated in logs> ... to directory restrictions, use this tool instead.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "The absolute path where the file should be written"
+            },
+            "content": {
+              "type": "string",
+              "description": "The content to write to the file"
+            },
+            "encoding": {
+              "type": "string",
+              "description": "File encoding (default: utf-8)",
+              "default": "utf-8",
+              "enum": [
+                "utf-8",
+                "base64"
+              ]
+            }
+          },
+          "required": [
+            "path",
+            "content"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "list_directory",
+        "description": "List the contents of a directory on the local file... <Truncated in logs> ... to directory restrictions, use this tool instead.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "The absolute path to the directory to list"
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "execute_shell",
+        "description": "Execute a shell command on the local system. Use with caution.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string",
+              "description": "The command to execute"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Command arguments"
+            },
+            "timeout": {
+              "type": "integer",
+              "description": "Timeout in milliseconds (default: 30000)",
+              "default": 30000,
+              "maximum": 120000
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "fetch_url",
+        "description": "获取网页或 PDF 文档内容并提取正文。\n\n**重要：URL 处理规则**\n- URL 必须使用用户... <Truncated in logs> ... URL 30 分钟内不会重复请求\n- 使用 force_refresh: true 可强制刷新缓存",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "要获取的网页或 PDF URL。必须是用户提供的原始 URL 或 URL 占位符，禁止任何修改。"
+            },
+            "use_cache": {
+              "type": "boolean",
+              "description": "是否使用缓存（默认 true）",
+              "default": true
+            },
+            "force_refresh": {
+              "type": "boolean",
+              "description": "是否强制刷新缓存（默认 false）",
+              "default": false
+            },
+            "render_js": {
+              "type": "boolean",
+              "description": "是否启用 JS 渲染（用于 SPA 页面，默认 false）",
+              "default": false
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "calculate",
+        "description": "Perform mathematical calculations. Supports basic arithmetic and common math functions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string",
+              "description": "The mathematical expression to evaluate (e.g., \"2 + 2\", \"Math.sqrt(16)\", \"Math.PI * 2\")"
+            }
+          },
+          "required": [
+            "expression"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_time",
+        "description": "Get the current date and time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "timezone": {
+              "type": "string",
+              "description": "Timezone (e.g., \"Asia/Shanghai\", \"UTC\"). Default: local timezone"
+            },
+            "format": {
+              "type": "string",
+              "description": "Output format: \"iso\", \"locale\", or \"unix\"",
+              "enum": [
+                "iso",
+                "locale",
+                "unix"
+              ],
+              "default": "locale"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp__1776326656267hbr0ka8__puppeteer_navigate",
+        "description": "[MCP: Puppeteer] Navigate to a URL",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "allowDangerous": {
+              "description": "Allow dangerous LaunchOptions that reduce security... <Truncated in logs> ...ike --no-sandbox will throw errors. Default false.",
+              "type": "boolean"
+            },
+            "launchOptions": {
+              "description": "PuppeteerJS LaunchOptions. Default null. If change... <Truncated in logs> ...xample: { headless: true, args: ['--no-sandbox'] }",
+              "type": "object"
+            },
+            "url": {
+              "description": "URL to navigate to",
+              "type": "string"
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp__1776326656267hbr0ka8__puppeteer_screenshot",
+        "description": "[MCP: Puppeteer] Take a screenshot of the current page or a specific element",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "encoded": {
+              "description": "If true, capture the screenshot as a base64-encoded data URI (as text) instead of binary image content. Default false.",
+              "type": "boolean"
+            },
+            "height": {
+              "description": "Height in pixels (default: 600)",
+              "type": "number"
+            },
+            "name": {
+              "description": "Name for the screenshot",
+              "type": "string"
+            },
+            "selector": {
+              "description": "CSS selector for element to screenshot",
+              "type": "string"
+            },
+            "width": {
+              "description": "Width in pixels (default: 800)",
+              "type": "number"
+            }
+          },
+          "required": [
+            "name"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp__1776326656267hbr0ka8__puppeteer_click",
+        "description": "[MCP: Puppeteer] Click an element on the page",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "selector": {
+              "description": "CSS selector for element to click",
+              "type": "string"
+            }
+          },
+          "required": [
+            "selector"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp__1776326656267hbr0ka8__puppeteer_fill",
+        "description": "[MCP: Puppeteer] Fill out an input field",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "selector": {
+              "description": "CSS selector for input field",
+              "type": "string"
+            },
+            "value": {
+              "description": "Value to fill",
+              "type": "string"
+            }
+          },
+          "required": [
+            "selector",
+            "value"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp__1776326656267hbr0ka8__puppeteer_select",
+        "description": "[MCP: Puppeteer] Select an element on the page with Select tag",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "selector": {
+              "description": "CSS selector for element to select",
+              "type": "string"
+            },
+            "value": {
+              "description": "Value to select",
+              "type": "string"
+            }
+          },
+          "required": [
+            "selector",
+            "value"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp__1776326656267hbr0ka8__puppeteer_hover",
+        "description": "[MCP: Puppeteer] Hover an element on the page",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "selector": {
+              "description": "CSS selector for element to hover",
+              "type": "string"
+            }
+          },
+          "required": [
+            "selector"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp__1776326656267hbr0ka8__puppeteer_evaluate",
+        "description": "[MCP: Puppeteer] Execute JavaScript in the browser console",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "script": {
+              "description": "JavaScript code to execute",
+              "type": "string"
+            }
+          },
+          "required": [
+            "script"
+          ]
+        }
+      }
+    }
+  ],
+  "stream": true,
+  "tool_choice": "auto",
+  "stream_options": {
+    "include_usage": true
+  }
+}

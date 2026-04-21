@@ -38,9 +38,7 @@ export class TauriSessionStorage implements SessionStorageService {
       }
 
       this.initialized = true;
-      console.log('[TauriSessionStorage] 初始化完成, 数据目录:', this.dataDir);
     } catch (error) {
-      console.error('[TauriSessionStorage] 初始化失败:', error);
       throw error;
     }
   }
@@ -85,27 +83,23 @@ export class TauriSessionStorage implements SessionStorageService {
       try {
         return JSON.parse(text);
       } catch (parseError) {
-        console.warn('[TauriSessionStorage] JSON 解析失败，尝试修复:', filePath, parseError);
         const repaired = this.tryRepairJson(text, defaultValue);
         if (repaired !== null) {
           try {
             await this.writeJsonFile(filePath, repaired);
-            console.log('[TauriSessionStorage] 已修复损坏的文件:', filePath);
           } catch (writeError) {
-            console.error('[TauriSessionStorage] 修复文件写入失败:', filePath, writeError);
+            // 修复文件写入失败
           }
           return repaired;
         }
         try {
           await this.writeJsonFile(filePath, defaultValue);
-          console.log('[TauriSessionStorage] 已用默认值覆盖损坏的文件:', filePath);
         } catch (writeError) {
-          console.error('[TauriSessionStorage] 覆盖文件写入失败:', filePath, writeError);
+          // 覆盖文件写入失败
         }
         return defaultValue;
       }
     } catch (error) {
-      console.error('[TauriSessionStorage] 读取文件失败:', filePath, error);
       return defaultValue;
     }
   }
@@ -194,7 +188,6 @@ export class TauriSessionStorage implements SessionStorageService {
       const content = new TextEncoder().encode(JSON.stringify(data, null, 2));
       await writeFile(filePath, content);
     } catch (error) {
-      console.error('[TauriSessionStorage] 写入文件失败:', filePath, error);
       throw error;
     }
   }
@@ -406,7 +399,6 @@ export class TauriSessionStorage implements SessionStorageService {
       storagePath: filePath,
     };
 
-    console.log('[TauriSessionStorage] 附件已保存:', filePath);
     return stored;
   }
 

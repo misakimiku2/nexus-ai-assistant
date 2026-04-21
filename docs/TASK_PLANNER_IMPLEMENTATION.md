@@ -129,7 +129,7 @@ interface TodoItem {
 
 ### 3.1 循环检测机制（ReActEngine）
 
-实现了 **4 层** 循环检测：
+实现了 **5 层** 循环检测：
 
 ```typescript
 // 层级 1: 完全相同的工具调用（相同名称 + 相同参数）
@@ -141,10 +141,14 @@ const MAX_CONSECUTIVE_EMPTY_ACTIONS = 3;
 
 // 层级 3: 连续使用同类工具（按类别分组）
 // info_retrieval: web_search, fetch_url, http_request, scrape 等
-const MAX_CONSECUTIVE_SIMILAR_ACTIONS = 5;
+const MAX_CONSECUTIVE_SIMILAR_ACTIONS = 15;
 
 // 层级 4: 单步骤最大迭代次数（仅在有 TaskPlan 时生效）
-const MAX_STEP_ITERATIONS = 10;
+const MAX_STEP_ITERATIONS = 30;
+
+// 层级 5: 连续生成高度相似的回复内容（思考循环检测）
+const MAX_CONSECUTIVE_SIMILAR_CONTENT = 2;
+// 使用前缀匹配（commonPrefixLength），重叠率 > 0.7 视为相似
 ```
 
 工具分类函数 `getToolCategory()`：
@@ -299,7 +303,7 @@ if (writtenFiles.length > 0) {
 
 ### 3.9 文件写入暂存与合并（pendingWrites）
 
-`write_file` 工具不立即写入磁盘，而是暂存到内存中的 `pendingWrites` Map。同一文件多次写入时自动合并：
+`write_file` 工具对**修改已有文件**采用暂存机制，对**新建文件**立即写入磁盘：
 
 ```typescript
 // pendingWrites.ts
@@ -314,12 +318,14 @@ function setPendingWrite(path: string, originalContent: string, newContent: stri
 }
 ```
 
-**刷新时机**：
-1. **新建文件**：任务完成后自动调用 Tauri `write_file` 命令写入磁盘
-2. **修改文件**：任务完成后弹出 DiffView，用户接受后写入磁盘
+**写入时机**：
+1. **新建文件**：`write_file` 工具检测到 `originalContent` 为空时，立即调用 Tauri `invoke('write_file')` 写入磁盘（迭代 9 新增，之前要等到任务完成后才写入）
+2. **修改文件**：暂存到 pendingWrites，任务完成后弹出 DiffView，用户接受后写入磁盘
 3. **下次 execute 开始时**：`execute` 函数开头会刷新所有剩余的 pending writes 到磁盘并清空
 
 **read_file 兼容**：`read_file` 工具优先读取 pendingWrites 中的暂存内容，确保 AI 在同一任务中多次修改同一文件时，后续读取能看到之前的修改。
+
+**FileViewerContext 兼容**（迭代 9 新增）：`openFile` 函数优先检查 `pendingWrites`，如果文件有暂存内容则直接使用，避免从磁盘读取到旧版本或"文件不存在"错误。
 
 ### 3.10 文件夹持久化与删除修复
 
@@ -409,6 +415,107 @@ setMessages(prev => prev.map(m => {
 
 文件路径会被 ChatView 中的 `linkifyFilePaths` 函数自动转换为可点击的蓝色链接，点击后在工作区中打开文件。
 
+### 3.14 任务完成状态追踪（TaskResult）
+
+ReActEngine 的 `run()` 方法返回 `TaskResult` 而非 `string`，区分自然完成和强制终止：
+
+```typescript
+export type TaskCompletionType = 'completed' | 'incomplete';
+
+export interface TaskResult {
+  content: string;
+  completionType: TaskCompletionType;
+  reason?: string;
+}
+```
+
+**返回 `completed` 的场景**：LLM 不再生成工具调用（自然结束）
+
+**返回 `incomplete` 的场景**：
+1. 完全相同的工具调用重复 3 次
+2. 连续 3 次工具调用无有效结果
+3. 连续 15 次使用同类工具
+4. 单步骤迭代超过 30 次
+5. 连续 2 次生成高度相似的回复内容（思考循环）
+6. 工具调用失败率 ≥ 60%（总调用 ≥ 3 次）
+7. 用户手动中止
+
+**AgentRuntime 处理**：`executePlannedTasks` 根据 `completionType` 决定步骤标记方式——`completed` 正常标记，`incomplete` 标记为完成但附带 ⚠️ 警告信息。
+
+### 3.15 工具调用失败率统计
+
+ReActEngine 新增 `toolCallStats` 统计器，追踪每个步骤中工具调用的成功/失败情况：
+
+```typescript
+private toolCallStats: { total: number; failed: number } = { total: 0, failed: 0 };
+```
+
+每次工具调用后更新统计，当 LLM 自然停止生成工具调用时，检查失败率：
+
+```typescript
+const failureRate = total > 0 ? failed / total : 0;
+const highFailureRate = total >= 3 && failureRate >= 0.6;
+if (highFailureRate) {
+  return { content, completionType: 'incomplete', reason: `${total} 次工具调用中有 ${failed} 次失败（失败率 ${Math.round(failureRate * 100)}%）` };
+}
+```
+
+这解决了"所有工具调用都失败但任务仍标记为完成"的问题。
+
+### 3.16 工具调用参数校验
+
+`handleToolCall` 在参数解析后立即检测空参数，避免无效工具调用：
+
+```typescript
+// 参数非空但解析失败（JSON 格式错误）
+if (Object.keys(params).length === 0 && toolCall.function.arguments.trim().length > 0) {
+  return { output: '', error: `工具调用参数解析失败：无法解析 "..." 为有效 JSON` };
+}
+
+// 参数完全为空
+if (Object.keys(params).length === 0 && toolCall.function.arguments.trim().length === 0) {
+  return { output: '', error: `工具调用缺少参数：${toolName} 需要参数但未提供任何参数` };
+}
+```
+
+这避免了空参数传入工具导致 `web_search` 搜索 "undefined"、`fetch_url` 缺少 url 等问题。错误信息会反馈给 LLM，使其有机会修正参数格式。
+
+### 3.17 跨会话数据隔离
+
+`fetchMemoryManager` 和 `pendingWrites` 都是模块级全局单例，不会随会话切换自动清理。在 `switchSession` 中添加了清理逻辑：
+
+```typescript
+const switchSession = (id: string) => {
+  if (id !== currentSessionId) {
+    fetchMemoryManager.clear();      // 清除网页内容缓存
+    clearAllPendingWrites();          // 清除文件写入暂存
+    setCurrentSessionId(id);
+    // ...
+  }
+};
+```
+
+### 3.18 模型请求超时与流中断检测
+
+**5 分钟超时保护**（`functionCalling.ts`）：
+
+```typescript
+const fetchController = new AbortController();
+const fetchTimeout = setTimeout(() => fetchController.abort(), 300000);
+// 超时后抛出友好错误："模型请求超时（5分钟），连接已被中断"
+```
+
+**流中断检测**（`ReActEngine.callLLMStream`）：
+
+```typescript
+let receivedDone = false;
+// 在 done chunk 处理中: receivedDone = true;
+// 流结束后:
+if (!receivedDone && !this.isAborted()) {
+  throw new Error('LLM 流异常中断：未收到完整响应（缺少 done 信号）');
+}
+```
+
 ***
 
 ## 四、UI 设计规范
@@ -475,6 +582,16 @@ setMessages(prev => prev.map(m => {
 14. ~~**新建文件不写入磁盘（pending review）**~~：✅ 已修复（迭代 8）— 新建文件（`originalContent` 为空）任务完成后自动调用 Tauri `write_file` 写入磁盘；修改文件仍弹出 DiffView 审查
 15. ~~**任务完成后缺少文件路径信息**~~：✅ 已修复（迭代 8）— 新增 `onFilesWritten` 回调，任务完成后在 AI 回复中追加可点击的文件路径（`📄 新建: path` / `✏️ 修改: path`），路径由 `linkifyFilePaths` 自动转换为可点击链接
 16. ~~**Header 测试按钮误触创建无关文件夹**~~：✅ 已修复（迭代 8）— 移除 Header 中的"单体测试"和"集群测试"按钮
+17. ~~**任务完成状态不准确（强制终止标记为 completed）**~~：✅ 已修复（迭代 9）— 新增 `TaskResult` 类型（`completionType: 'completed' | 'incomplete'`），5 种强制终止场景返回 `incomplete` 并附带 `reason`；`AgentRuntime.executePlannedTasks` 根据 `completionType` 决定步骤状态标记
+18. ~~**模型思考循环（重复输出相同内容）**~~：✅ 已修复（迭代 9）— 新增第 5 层循环检测：内容重复检测（`MAX_CONSECUTIVE_SIMILAR_CONTENT = 2`），使用前缀匹配（`commonPrefixLength`）比较最近两次回复的前 300 字符，重叠率 > 70% 视为思考循环；同时检查 `response.content` 和 `response.reasoningContent`
+19. ~~**重试按钮不更新任务面板和搜索结果**~~：✅ 已修复（迭代 9）— `handleRegenerateMessage` 改为按 `currentRoundId` 清除当前轮次数据（而非按 `sessionId` 清除全部），清除后调用 `startNewRound()` 创建新轮次
+20. ~~**跨会话数据泄漏（fetchMemoryManager 全局单例）**~~：✅ 已修复（迭代 9）— `switchSession` 中添加 `fetchMemoryManager.clear()` 和 `clearAllPendingWrites()`，切换会话时清除缓存
+21. ~~**手动停止不更新任务面板**~~：✅ 已修复（迭代 9）— `AgentRuntime.abort()` 中更新 TaskPlan 步骤状态（`in_progress` → `failed`，`pending` → `failed`），并调用 `onTaskPlanUpdate` 同步到前端
+22. ~~**LLM 流异常中断无检测**~~：✅ 已修复（迭代 9）— `callLLMStream` 中新增 `receivedDone` 标志，流结束时若未收到 `[DONE]` 信号则抛出明确错误
+23. ~~**模型请求无超时保护**~~：✅ 已修复（迭代 9）— `functionCalling.ts` 中添加 5 分钟 `AbortController` 超时，超时后中断连接并抛出友好错误信息
+24. ~~**write_file 新建文件不立即写入磁盘**~~：✅ 已修复（迭代 9）— `write_file` 工具检测到新建文件时（`originalContent` 为空）立即调用 Tauri `invoke('write_file')` 写入磁盘；`FileViewerContext.openFile` 优先检查 `pendingWrites` 暂存内容
+25. ~~**工具调用参数解析失败导致无效调用**~~：✅ 已修复（迭代 9）— `handleToolCall` 中参数解析后检测空对象：参数非空但解析失败返回明确错误；参数为空字符串返回缺少参数错误。避免空参数传入工具导致 `web_search` 搜索 "undefined" 等问题
+26. ~~**工具调用大量失败但任务仍标记为完成**~~：✅ 已修复（迭代 9）— 新增 `toolCallStats` 统计器追踪每步工具调用成功/失败次数；自然完成时若 `total >= 3` 且 `failureRate >= 60%`，标记为 `completionType: 'incomplete'` 并附带失败率信息
 
 ***
 
@@ -491,4 +608,5 @@ setMessages(prev => prev.map(m => {
 | 迭代 6 | fallback 启发式分解、CJK 感知 token 估算、MCP 回退提示精确化、thought 折叠组件、上下文传递效率优化 |
 | 迭代 7 | 命令模式拖拽掉帧修复（移除 layout 动画+rAF 节流）、TodoCard 宽度溢出修复（items-start→items-stretch）、文件路径链接可点击化（含空格路径前瞻正则+MCP 工具支持）、Canvas 工作区 CodeMirror 6 重构（详见 [CANVAS_WORKSPACE.md](CANVAS_WORKSPACE.md)） |
 | 迭代 8 | TaskPlanner 触发条件优化（简单任务不显示看板）、文件夹持久化删除修复（deleteFolder+useEffect 同步策略）、JSON 损坏自动修复（readJsonFile 容错+逐对象提取）、DiffView 翻译调用修复（链式访问→函数调用）、ErrorBoundary 防白屏（DiffView+App 顶层）、DiffView 延迟弹出（任务完成后统一触发）、新建文件自动写入磁盘（移除 pending review）、任务完成后追加可点击文件路径（onFilesWritten 回调）、移除 Header 测试按钮 |
+| 迭代 9 | 任务完成状态准确性（TaskResult+completionType）、思考循环检测（第5层：前缀匹配内容重复检测）、重试按钮UI同步（按roundId清除+startNewRound）、跨会话数据泄漏修复（switchSession清缓存）、手动停止同步任务面板（abort更新TaskPlan）、LLM流中断检测（receivedDone标志）、模型请求超时保护（5分钟AbortController）、write_file新建文件立即写入磁盘+FileViewerContext检查pendingWrites、工具调用参数解析失败提前报错（空参数检测）、工具调用失败率统计（toolCallStats+60%阈值标记incomplete）、循环检测阈值调整（SIMILAR_ACTIONS 5→15、STEP_ITERATIONS 10→30、maxIterations 10→30） |
 

@@ -165,8 +165,16 @@ export interface AgentConfig {
   verboseLogging: boolean;
 }
 
+export type TaskCompletionType = 'completed' | 'incomplete';
+
+export interface TaskResult {
+  content: string;
+  completionType: TaskCompletionType;
+  reason?: string;
+}
+
 export const DEFAULT_AGENT_CONFIG: AgentConfig = {
-  maxIterations: 10,
+  maxIterations: 30,
   timeoutMs: 120000,
   enableAutoAuth: false,
   authTools: ['write_file', 'execute_shell', 'delete_file'],

@@ -593,6 +593,19 @@ function createWriteFileTool(config: BuiltinToolConfig): ToolDefinition {
         setPendingWrite(params.path as string, originalContent, params.content as string);
 
         const isNewFile = originalContent.length === 0;
+
+        if (isNewFile) {
+          try {
+            await invoke('write_file', {
+              path: params.path,
+              content: params.content,
+              encoding: 'utf-8',
+            });
+          } catch (writeError) {
+            console.error('[write_file] Failed to write new file to disk immediately:', writeError);
+          }
+        }
+
         return {
           success: true,
           output: isNewFile

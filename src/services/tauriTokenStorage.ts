@@ -75,7 +75,6 @@ export async function getAllTokenRecords(): Promise<TokenUsageRecord[]> {
     const text = new TextDecoder().decode(content);
     return JSON.parse(text);
   } catch (error) {
-    console.error('[TauriTokenStorage] 读取失败:', error);
     return [];
   }
 }
@@ -84,7 +83,6 @@ async function saveAllTokenRecords(records: TokenUsageRecord[]): Promise<void> {
   const isTauri = await checkTauriEnv();
   
   if (!isTauri) {
-    console.warn('[TauriTokenStorage] 非Tauri环境，无法保存');
     return;
   }
   
@@ -96,7 +94,7 @@ async function saveAllTokenRecords(records: TokenUsageRecord[]): Promise<void> {
     const content = new TextEncoder().encode(JSON.stringify(records, null, 2));
     await writeFile(filePath, content);
   } catch (error) {
-    console.error('[TauriTokenStorage] 保存失败:', error);
+    // 保存失败
   }
 }
 
@@ -124,8 +122,6 @@ export async function migrateFromIndexedDB(): Promise<number> {
     const db = await openDB(DB_NAME, 1);
     const records = await db.getAll(STORE_NAME);
     
-    console.log('[TauriTokenStorage] IndexedDB中找到', records.length, '条记录');
-    
     if (records.length === 0) return 0;
     
     const existingRecords = await getAllTokenRecords();
@@ -133,10 +129,8 @@ export async function migrateFromIndexedDB(): Promise<number> {
     await saveAllTokenRecords(allRecords);
     
     await db.clear(STORE_NAME);
-    console.log(`[TauriTokenStorage] 迁移了 ${records.length} 条记录从IndexedDB到本地文件`);
     return records.length;
   } catch (error) {
-    console.log('[TauriTokenStorage] IndexedDB迁移失败或不存在:', error);
     return 0;
   }
 }
@@ -160,10 +154,8 @@ export async function migrateFromLocalStorage(): Promise<number> {
     await saveAllTokenRecords(allRecords);
     
     localStorage.removeItem('nexus_token_usage_records');
-    console.log(`[TauriTokenStorage] 迁移了 ${records.length} 条记录从localStorage到本地文件`);
     return records.length;
   } catch (error) {
-    console.error('[TauriTokenStorage] localStorage迁移失败:', error);
     return 0;
   }
 }
@@ -181,7 +173,6 @@ export async function deleteTokenRecordsByModelId(modelId: string): Promise<numb
   
   if (deletedCount > 0) {
     await saveAllTokenRecords(filteredRecords);
-    console.log(`[TauriTokenStorage] 删除了 ${deletedCount} 条 modelId=${modelId} 的 token 记录`);
   }
   
   return deletedCount;
@@ -201,7 +192,6 @@ export async function updateTokenRecordsModelId(oldModelId: string, newModelId: 
   
   if (updatedCount > 0) {
     await saveAllTokenRecords(updatedRecords);
-    console.log(`[TauriTokenStorage] 更新了 ${updatedCount} 条 token 记录的 modelId: ${oldModelId} -> ${newModelId}`);
   }
   
   return updatedCount;

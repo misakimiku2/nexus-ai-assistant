@@ -13,9 +13,9 @@ export interface FunctionCallingConfig {
   apiKey?: string;
   temperature?: number;
   maxTokens?: number;
-  supportsStreamOptions?: boolean;  // 是否支持 stream_options (OpenAI支持, Gemini等不支持)
-  isGeminiModel?: boolean;  // 是否为 Google Gemini 模型（需要特殊处理）
-  includeThoughts?: boolean;  // 是否包含思考内容 (Gemini 3/2.5 支持)
+  supportsStreamOptions?: boolean;
+  isGeminiModel?: boolean;
+  includeThoughts?: boolean;
 }
 
 export interface StreamCallbacks {
@@ -416,11 +416,25 @@ export async function* streamLLMWithTools(
     }
   }
 
-  const response = await fetch(config.apiUrl, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-  });
+  const fetchController = new AbortController();
+  const fetchTimeout = setTimeout(() => fetchController.abort(), 300000);
+
+  let response: Response;
+  try {
+    response = await fetch(config.apiUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal: fetchController.signal,
+    });
+  } catch (error) {
+    clearTimeout(fetchTimeout);
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('模型请求超时（5分钟），连接已被中断。可能是模型服务无响应或网络问题。');
+    }
+    throw new Error(`模型连接失败: ${error instanceof Error ? error.message : '未知网络错误'}。请检查模型服务是否正常运行。`);
+  }
+  clearTimeout(fetchTimeout);
 
   if (!response.ok) {
     let errorMessage = `API request failed: ${response.status} ${response.statusText}`;

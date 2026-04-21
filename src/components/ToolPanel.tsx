@@ -459,16 +459,8 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
   const [expandedRoundId, setExpandedRoundId] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log(`%c[ToolPanel] 状态变化`, 'background: #065f46; color: #fff; padding: 2px 6px; border-radius: 3px;', {
-      isOpen,
-      action: isOpen ? '打开' : '关闭',
-      timestamp: new Date().toISOString()
-    });
-
     if (!isOpen) {
-      console.log(`%c[ToolPanel] 开始exit动画`, 'background: #065f46; color: #fff; padding: 2px 6px; border-radius: 3px;', {
-        message: '动画将在300ms后完成，然后DOM移除'
-      });
+      // 动画将在300ms后完成，然后DOM移除
     }
   }, [isOpen]);
 

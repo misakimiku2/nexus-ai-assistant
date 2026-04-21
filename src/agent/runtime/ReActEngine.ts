@@ -10,6 +10,7 @@ import {
   ToolCallRequest,
   DEFAULT_AGENT_CONFIG,
   ContentPart,
+  TaskResult,
 } from '../types';
 import { ToolRegistry } from '../tools/ToolRegistry';
 import {
@@ -24,8 +25,9 @@ import { fetchMemoryManager } from '../memory';
 
 const MAX_CONSECUTIVE_IDENTICAL_CALLS = 3;
 const MAX_CONSECUTIVE_EMPTY_ACTIONS = 3;
-const MAX_CONSECUTIVE_SIMILAR_ACTIONS = 5;
-const MAX_STEP_ITERATIONS = 10;
+const MAX_CONSECUTIVE_SIMILAR_ACTIONS = 15;
+const MAX_STEP_ITERATIONS = 30;
+const MAX_CONSECUTIVE_SIMILAR_CONTENT = 2;
 const REASONING_UPDATE_THROTTLE_MS = 100;
 
 const INFO_RETRIEVAL_TOOLS = new Set([
@@ -95,6 +97,8 @@ export class ReActEngine {
   private consecutiveEmptyActions: number = 0;
   private consecutiveSimilarActions: number = 0;
   private lastToolCategory: string | null = null;
+  private recentResponseContents: string[] = [];
+  private toolCallStats: { total: number; failed: number } = { total: 0, failed: 0 };
 
   constructor(context: AgentExecutionContext) {
     this.context = context;
@@ -120,7 +124,7 @@ export class ReActEngine {
     return this.abortController?.signal.aborted === true;
   }
 
-  async run(userInput: string): Promise<string> {
+  async run(userInput: string): Promise<TaskResult> {
     this.abortController = new AbortController();
     this.updateStatus('thinking');
     this.state.startTime = Date.now();
@@ -128,6 +132,8 @@ export class ReActEngine {
     this.consecutiveEmptyActions = 0;
     this.consecutiveSimilarActions = 0;
     this.lastToolCategory = null;
+    this.recentResponseContents = [];
+    this.toolCallStats = { total: 0, failed: 0 };
 
     const messages: ConversationMessage[] = this.buildInitialMessages(userInput);
     let allContent = '';
@@ -137,7 +143,7 @@ export class ReActEngine {
         if (this.isAborted()) {
           this.flushReasoningUpdate();
           this.updateStatus('failed');
-          return allContent || 'Execution was cancelled by user.';
+          return { content: allContent || 'Execution was cancelled by user.', completionType: 'incomplete', reason: '用户中止执行' };
         }
 
         this.state.iterationCount++;
@@ -149,7 +155,7 @@ export class ReActEngine {
         if (this.isAborted()) {
           this.flushReasoningUpdate();
           this.updateStatus('failed');
-          return allContent || 'Execution was cancelled by user.';
+          return { content: allContent || 'Execution was cancelled by user.', completionType: 'incomplete', reason: '用户中止执行' };
         }
 
         if (response.finishReason === 'error') {
@@ -162,17 +168,55 @@ export class ReActEngine {
           allContent += response.content;
         }
 
+        const contentToCheck = (response.content || '').trim();
+        const reasoningToCheck = (response.reasoningContent || '').trim();
+        const textToCheck = reasoningToCheck.length > contentToCheck.length ? reasoningToCheck : contentToCheck;
+
+        if (textToCheck.length > 10) {
+          const normalizedContent = textToCheck.substring(0, 300);
+          this.recentResponseContents.push(normalizedContent);
+          if (this.recentResponseContents.length > MAX_CONSECUTIVE_SIMILAR_CONTENT + 1) {
+            this.recentResponseContents.shift();
+          }
+          if (this.recentResponseContents.length >= MAX_CONSECUTIVE_SIMILAR_CONTENT) {
+            const lastTwo = this.recentResponseContents.slice(-MAX_CONSECUTIVE_SIMILAR_CONTENT);
+            const prefixLen = this.commonPrefixLength(lastTwo[0], lastTwo[1]);
+            const minLen = Math.min(lastTwo[0].length, lastTwo[1].length);
+            if (minLen > 0 && prefixLen / minLen > 0.7) {
+              this.flushReasoningUpdate();
+              this.finalizeExecutingToolCalls();
+              const reason = `连续 ${MAX_CONSECUTIVE_SIMILAR_CONTENT} 次生成高度相似的回复内容，检测到思考循环`;
+              this.addReasoningStep('error', `${reason}。`);
+              this.updateStatus('completed');
+              return { content: allContent, completionType: 'incomplete', reason };
+            }
+          }
+        }
+
         if (!response.toolCalls || response.toolCalls.length === 0) {
           this.flushReasoningUpdate();
           this.updateStatus('completed');
-          return allContent || 'Task completed.';
+
+          const { total, failed } = this.toolCallStats;
+          const failureRate = total > 0 ? failed / total : 0;
+          const highFailureRate = total >= 3 && failureRate >= 0.6;
+
+          if (highFailureRate) {
+            return {
+              content: allContent || 'Task ended with high tool call failure rate.',
+              completionType: 'incomplete',
+              reason: `${total} 次工具调用中有 ${failed} 次失败（失败率 ${Math.round(failureRate * 100)}%），任务可能未真正完成`,
+            };
+          }
+
+          return { content: allContent || 'Task completed.', completionType: 'completed' };
         }
 
         for (const toolCall of response.toolCalls) {
           if (this.isAborted()) {
             this.flushReasoningUpdate();
             this.updateStatus('failed');
-            return allContent || 'Execution was cancelled by user.';
+            return { content: allContent || 'Execution was cancelled by user.', completionType: 'incomplete', reason: '用户中止执行' };
           }
 
           const callKey = `${toolCall.function.name}:${toolCall.function.arguments}`;
@@ -182,17 +226,23 @@ export class ReActEngine {
           if (callCount >= MAX_CONSECUTIVE_IDENTICAL_CALLS) {
             this.flushReasoningUpdate();
             this.finalizeExecutingToolCalls();
-            this.addReasoningStep('error', `检测到重复调用 ${toolCall.function.name} 已达 ${callCount} 次，自动终止循环。`);
+            const reason = `检测到重复调用 ${toolCall.function.name} 已达 ${callCount} 次，自动终止循环`;
+            this.addReasoningStep('error', `${reason}。`);
             this.updateStatus('completed');
-            return allContent || `任务执行因检测到重复操作而终止。已尝试 ${this.state.iterationCount} 轮迭代。`;
+            return { content: allContent || `任务执行因检测到重复操作而终止。已尝试 ${this.state.iterationCount} 轮迭代。`, completionType: 'incomplete', reason };
           }
 
           const result = await this.handleToolCall(toolCall);
 
+          this.toolCallStats.total++;
+          if (result.error || !result.output || result.output.trim().length === 0) {
+            this.toolCallStats.failed++;
+          }
+
           if (this.isAborted()) {
             this.flushReasoningUpdate();
             this.updateStatus('failed');
-            return allContent || 'Execution was cancelled by user.';
+            return { content: allContent || 'Execution was cancelled by user.', completionType: 'incomplete', reason: '用户中止执行' };
           }
 
           const isUnproductiveResult = !result.output || 
@@ -212,9 +262,10 @@ export class ReActEngine {
           if (this.consecutiveEmptyActions >= MAX_CONSECUTIVE_EMPTY_ACTIONS) {
             this.flushReasoningUpdate();
             this.finalizeExecutingToolCalls();
-            this.addReasoningStep('error', `连续 ${this.consecutiveEmptyActions} 次工具调用无有效结果，自动终止循环。`);
+            const reason = `连续 ${this.consecutiveEmptyActions} 次工具调用无有效结果，自动终止循环`;
+            this.addReasoningStep('error', `${reason}。`);
             this.updateStatus('completed');
-            return allContent || `任务执行因连续空结果而终止。已尝试 ${this.state.iterationCount} 轮迭代。`;
+            return { content: allContent || `任务执行因连续空结果而终止。已尝试 ${this.state.iterationCount} 轮迭代。`, completionType: 'incomplete', reason };
           }
 
           const toolCategory = getToolCategory(toolCall.function.name);
@@ -228,17 +279,19 @@ export class ReActEngine {
           if (this.consecutiveSimilarActions >= MAX_CONSECUTIVE_SIMILAR_ACTIONS) {
             this.flushReasoningUpdate();
             this.finalizeExecutingToolCalls();
-            this.addReasoningStep('error', `连续 ${this.consecutiveSimilarActions} 次使用同类工具 (${toolCategory})，可能陷入循环，自动终止。`);
+            const reason = `连续 ${this.consecutiveSimilarActions} 次使用同类工具 (${toolCategory})，可能陷入循环，自动终止`;
+            this.addReasoningStep('error', `${reason}。`);
             this.updateStatus('completed');
-            return allContent || `任务执行因检测到重复操作模式而终止。已尝试 ${this.state.iterationCount} 轮迭代。`;
+            return { content: allContent || `任务执行因检测到重复操作模式而终止。已尝试 ${this.state.iterationCount} 轮迭代。`, completionType: 'incomplete', reason };
           }
 
           if (this.context.currentTaskPlan && this.state.iterationCount >= MAX_STEP_ITERATIONS) {
             this.flushReasoningUpdate();
             this.finalizeExecutingToolCalls();
-            this.addReasoningStep('error', `当前步骤已执行 ${this.state.iterationCount} 轮迭代，超过单步骤最大限制 ${MAX_STEP_ITERATIONS}，自动终止。`);
+            const reason = `当前步骤已执行 ${this.state.iterationCount} 轮迭代，超过单步骤最大限制 ${MAX_STEP_ITERATIONS}，自动终止`;
+            this.addReasoningStep('error', `${reason}。`);
             this.updateStatus('completed');
-            return allContent || `当前步骤执行超过最大迭代限制。已尝试 ${this.state.iterationCount} 轮迭代。`;
+            return { content: allContent || `当前步骤执行超过最大迭代限制。已尝试 ${this.state.iterationCount} 轮迭代。`, completionType: 'incomplete', reason };
           }
 
           this.emitToolProgress(toolCall.function.name, result, result.observationData);
@@ -263,7 +316,7 @@ export class ReActEngine {
 
       this.flushReasoningUpdate();
       this.updateStatus('completed');
-      return allContent || 'Maximum iterations reached. Task may not be fully completed.';
+      return { content: allContent || 'Maximum iterations reached. Task may not be fully completed.', completionType: 'incomplete', reason: `已达到最大迭代次数 ${this.state.maxIterations}` };
     } catch (error) {
       this.flushReasoningUpdate();
       this.updateStatus('failed');
@@ -289,19 +342,24 @@ export class ReActEngine {
       const plan = this.context.currentTaskPlan;
       const currentStep = plan.steps.find(s => s.status === 'in_progress');
       if (currentStep) {
-        systemPrompt += `\n\n[TASK PLAN CONTEXT - This is internal context, do NOT echo or repeat these headings in your response]\n`;
-        systemPrompt += `You are executing a multi-step task plan. Current step: "${currentStep.title}".\n`;
-        systemPrompt += `Focus ONLY on completing this step. Do not deviate to other steps.\n`;
+        systemPrompt += `\n\n[TASK PLAN CONTEXT - CRITICAL INSTRUCTIONS]\n`;
+        systemPrompt += `You are executing step "${currentStep.title}" in a multi-step plan.\n\n`;
+        systemPrompt += `STRICT RULES:\n`;
+        systemPrompt += `1. You MUST ONLY complete the current step: "${currentStep.title}"\n`;
+        systemPrompt += `2. You MUST NOT perform work that belongs to other steps\n`;
+        systemPrompt += `3. When the current step is done, stop and report results. Do NOT continue to the next step.\n`;
+        systemPrompt += `4. If you find yourself about to do work for a later step, STOP immediately.\n\n`;
         if (currentStep.toolHint) {
-          systemPrompt += `Suggested tool: ${currentStep.toolHint}\n`;
+          systemPrompt += `Suggested tool for this step: ${currentStep.toolHint}\n\n`;
         }
-        systemPrompt += `\nPlan overview:\n`;
+        systemPrompt += `Plan overview:\n`;
         for (const step of plan.steps) {
           const statusIcon = step.status === 'completed' ? '✅' :
                              step.status === 'in_progress' ? '🔄' :
                              step.status === 'failed' ? '❌' : '⏳';
-          systemPrompt += `- ${statusIcon} ${step.title}${step.id === currentStep.id ? ' (current step)' : ''}\n`;
+          systemPrompt += `- ${statusIcon} ${step.title}${step.id === currentStep.id ? ' ← YOUR CURRENT STEP (only do this one)' : ''}\n`;
         }
+        systemPrompt += `\nRemember: Complete ONLY "${currentStep.title}". Other steps will be handled separately.\n`;
       }
     }
 
@@ -398,6 +456,7 @@ export class ReActEngine {
     let currentThoughtStepId: string | null = null;
     let hasToolCalls = false;
     let isResponding = false;
+    let receivedDone = false;
 
     try {
       const stream = streamLLMWithTools(config, messages, {
@@ -428,6 +487,7 @@ export class ReActEngine {
           const tc = chunk.data as ToolCallRequest;
           toolCallsMap.set(tc.id, tc);
         } else if (chunk.type === 'done' && typeof chunk.data === 'object') {
+          receivedDone = true;
           if (currentThoughtStepId) {
             this.finalizeReasoningStep(currentThoughtStepId);
           }
@@ -444,6 +504,10 @@ export class ReActEngine {
 
       if (currentThoughtStepId) {
         this.finalizeReasoningStep(currentThoughtStepId);
+      }
+
+      if (!receivedDone && !this.isAborted()) {
+        throw new Error('LLM 流异常中断：未收到完整响应（缺少 done 信号）。可能是网络连接中断或服务端超时。');
       }
 
       return {
@@ -486,6 +550,21 @@ export class ReActEngine {
   private async handleToolCall(toolCall: ToolCallRequest): Promise<{ output: string; error?: string; observationData?: Array<{ title: string; url: string; snippet?: string }> }> {
     const toolName = toolCall.function.name;
     let params = parseToolCallArguments(toolCall.function.arguments);
+
+    if (Object.keys(params).length === 0 && toolCall.function.arguments.trim().length > 0) {
+      return {
+        output: '',
+        error: `工具调用参数解析失败：无法解析 "${toolCall.function.arguments.substring(0, 100)}" 为有效 JSON。请检查参数格式后重试。`,
+      };
+    }
+
+    if (Object.keys(params).length === 0 && toolCall.function.arguments.trim().length === 0) {
+      return {
+        output: '',
+        error: `工具调用缺少参数：${toolName} 需要参数但未提供任何参数。请提供正确的参数后重试。`,
+      };
+    }
+
     const requiresAuth = ToolRegistry.requiresAuth(toolName);
 
     if (this.context.preprocessedUrls && params.url && typeof params.url === 'string') {
@@ -704,6 +783,15 @@ export class ReActEngine {
     this.state.status = status;
     this.state.lastUpdateTime = Date.now();
     this.context.onStatusChange?.(status);
+  }
+
+  private commonPrefixLength(a: string, b: string): number {
+    const maxLen = Math.min(a.length, b.length);
+    let i = 0;
+    while (i < maxLen && a[i] === b[i]) {
+      i++;
+    }
+    return i;
   }
 
   private emitToolProgress(

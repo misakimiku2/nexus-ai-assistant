@@ -197,6 +197,39 @@ export default function App() {
     if (isResizingRef.current) return;
     if (prevAppModeRef.current === appMode) return;
 
+    console.log('[Mode Switch Debug] === MODE SWITCH STARTED ===');
+    console.log('[Mode Switch Debug] Switching from:', prevAppModeRef.current, 'to:', appMode);
+    console.log('[Mode Switch Debug] Timestamp:', new Date().toISOString());
+
+    // Capture DOM state before switch
+    if (chatContainerRef.current) {
+      const container = chatContainerRef.current;
+      console.log('[Mode Switch Debug] Container BEFORE switch:', {
+        scrollHeight: container.scrollHeight,
+        clientHeight: container.clientHeight,
+        offsetWidth: container.offsetWidth,
+        offsetHeight: container.offsetHeight,
+        computedWidth: window.getComputedStyle(container).width,
+        computedHeight: window.getComputedStyle(container).height
+      });
+
+      // Capture last 2 message positions before switch
+      const messages = container.querySelectorAll('[data-role]');
+      if (messages.length >= 2) {
+        const lastTwo = Array.from(messages).slice(-2);
+        lastTwo.forEach((msg, idx) => {
+          const el = msg as HTMLElement;
+          console.log(`[Mode Switch Debug] Message ${messages.length - 2 + idx} BEFORE switch:`, {
+            id: el.id,
+            role: el.getAttribute('data-role'),
+            offsetTop: el.offsetTop,
+            offsetHeight: el.offsetHeight,
+            boundingRect: el.getBoundingClientRect()
+          });
+        });
+      }
+    }
+
     if (appMode === 'command' && prevAppModeRef.current !== 'command') {
       modeSwitchTimeRef.current = Date.now();
       sidebarEffectHasRunRef.current = false;
@@ -224,9 +257,11 @@ export default function App() {
 
       setCommandChatWidth(targetWidth);
     } else if (appMode === 'chat' && prevAppModeRef.current !== 'chat') {
+      console.log('[Mode Switch Debug] Switching to CHAT mode - starting animation');
       const parentEl = chatContainerRef.current?.parentElement;
       if (parentEl) {
         const targetWidth = parentEl.getBoundingClientRect().width;
+        console.log('[Mode Switch Debug] Chat mode target width:', targetWidth);
 
         if (currentAnimationRef.current) {
           currentAnimationRef.current();
@@ -238,7 +273,120 @@ export default function App() {
           ease: [0.4, 0, 0.2, 1],
         });
         currentAnimationRef.current = () => animation.stop();
-        animation.then(() => { currentAnimationRef.current = null; }).catch(() => { currentAnimationRef.current = null; });
+
+        // Log during animation
+        let frameCount = 0;
+        const logInterval = setInterval(() => {
+          if (frameCount < 10 && chatContainerRef.current) { // Log for ~500ms (10 frames * 50ms)
+            console.log(`[Mode Switch Debug] Animation frame ${frameCount}:`, {
+              currentWidth: widthMotionValue.get(),
+              containerWidth: chatContainerRef.current.offsetWidth,
+              timestamp: Date.now()
+            });
+            frameCount++;
+          } else {
+            clearInterval(logInterval);
+          }
+        }, 50);
+
+        animation.then(() => {
+          console.log('[Mode Switch Debug] Animation COMPLETED');
+          console.log('[Mode Switch Debug] Final width:', widthMotionValue.get());
+
+          // Capture DOM state after animation completes
+          setTimeout(() => {
+            if (chatContainerRef.current) {
+              const container = chatContainerRef.current;
+
+              console.log('[Mode Switch Debug] === FORCING REFLOW ===');
+
+              // Force a complete reflow by temporarily changing the container's style
+              const originalDisplay = container.style.display;
+              const originalOverflow = container.style.overflow;
+
+              // Step 1: Force browser to acknowledge the new layout
+              container.style.display = 'none';
+              void container.offsetHeight; // Trigger reflow
+              container.style.display = originalDisplay || '';
+              void container.offsetHeight; // Trigger reflow again
+
+              // Step 2: Scroll to top to reset scroll position, then to bottom
+              const originalScrollTop = container.scrollTop;
+              container.scrollTop = 0;
+              void container.offsetHeight; // Trigger reflow
+              container.scrollTop = originalScrollTop;
+
+              // Step 3: Force all child elements to recalculate their positions
+              const messages = container.querySelectorAll('[data-role]');
+              messages.forEach((msg) => {
+                const el = msg as HTMLElement;
+                void el.offsetTop; // Force reflow for each message
+              });
+
+              // Final forced reflow
+              void container.scrollHeight;
+              void container.getBoundingClientRect();
+
+              console.log('[Mode Switch Debug] Reflow completed');
+              console.log('[Mode Switch Debug] Container AFTER reflow:', {
+                scrollHeight: container.scrollHeight,
+                clientHeight: container.clientHeight,
+                offsetWidth: container.offsetWidth,
+                offsetHeight: container.offsetHeight
+              });
+
+              // Capture last 2 message positions after switch (reuse existing 'messages' variable)
+              if (messages.length >= 2) {
+                const lastTwo = Array.from(messages).slice(-2);
+                lastTwo.forEach((msg, idx) => {
+                  const el = msg as HTMLElement;
+                  const rect = el.getBoundingClientRect();
+                  console.log(`[Mode Switch Debug] Message ${messages.length - 2 + idx} AFTER switch:`, {
+                    id: el.id,
+                    role: el.getAttribute('data-role'),
+                    offsetTop: el.offsetTop,  // In virtual scroll this is always 0
+                    offsetHeight: el.offsetHeight,
+                    boundingRect: {
+                      top: rect.top,
+                      bottom: rect.bottom,
+                      left: rect.left,
+                      right: rect.right
+                    }
+                  });
+                });
+
+                // Check for overlap using getBoundingClientRect (works correctly with virtual scroll)
+                if (lastTwo.length === 2) {
+                  const first = lastTwo[0] as HTMLElement;
+                  const second = lastTwo[1] as HTMLElement;
+                  const firstRect = first.getBoundingClientRect();
+                  const secondRect = second.getBoundingClientRect();
+
+                  const firstBottom = firstRect.bottom;
+                  const secondTop = secondRect.top;
+                  const overlap = firstBottom > secondTop;
+
+                  console.log('[Mode Switch Debug] Overlap check (using boundingRect):', {
+                    firstBottom: Math.round(firstBottom),
+                    secondTop: Math.round(secondTop),
+                    overlap,
+                    gap: Math.round(secondTop - firstBottom),
+                    note: 'In virtual scroll, use boundingRect instead of offsetTop'
+                  });
+
+                  if (overlap) {
+                    console.warn('[Mode Switch Debug] ⚠️ OVERLAP DETECTED! Messages are visually overlapping!');
+                  } else {
+                    console.log('[Mode Switch Debug] ✅ No overlap detected');
+                  }
+                }
+              }
+            }
+            console.log('[Mode Switch Debug] === MODE SWITCH END ===');
+          }, 100); // Wait 100ms for DOM to stabilize
+        }).catch((err) => {
+          console.error('[Mode Switch Debug] Animation error:', err);
+        });
       }
     }
 
@@ -1269,6 +1417,14 @@ export default function App() {
     if (!lastUserMsg) return;
 
     addLog(t.logs.regenerating, 'info');
+    
+    if (currentRoundId) {
+      setSearchGroups(prev => prev.filter(g => g.roundId !== currentRoundId));
+      setTaskRounds(prev => prev.map(r =>
+        r.id === currentRoundId ? { ...r, searchGroups: [], todos: [], status: 'failed' as const } : r
+      ));
+    }
+    const newRoundId = startNewRound(lastUserMsg.content, currentSessionId || '');
     
     if (agentExecution.currentAgent) {
       const assistantMessageId = Date.now().toString() + Math.random().toString(36).substring(2, 9);

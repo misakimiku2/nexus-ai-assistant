@@ -8,6 +8,8 @@ import { checkModelHealth, HealthCheckResult } from '../services/modelHealthChec
 import { getSessionStorage, SessionStorageService } from '../services/sessionStorage';
 import { migrateFromLocalStorage, checkMigrationNeeded } from '../services/sessionMigration';
 import { exportSession, batchExportSessions, importSessionFromData, ExportFormat, getFileExtension, getMimeType } from '../services/sessionExport';
+import { fetchMemoryManager } from '../agent/memory/FetchMemory';
+import { clearAllPendingWrites } from '../lib/pendingWrites';
 
 interface GlobalState {
   messages: Message[];
@@ -933,6 +935,8 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({ childre
 
   const switchSession = (id: string) => {
     if (id !== currentSessionId) {
+      fetchMemoryManager.clear();
+      clearAllPendingWrites();
       setCurrentSessionId(id);
       const session = sessions.find(s => s.id === id);
       if (session) {

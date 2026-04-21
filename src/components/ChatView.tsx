@@ -294,6 +294,93 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const lastScrollTopRef = useRef(0);
 
   useEffect(() => {
+    console.log('[ChatView Debug] Component state changed:', {
+      appMode,
+      messageCount: messages.length,
+      isStreaming,
+      timestamp: new Date().toISOString(),
+      lastMessageId: messages.length > 0 ? messages[messages.length - 1].id : null,
+      lastMessageRole: messages.length > 0 ? messages[messages.length - 1].role : null
+    });
+
+    if (scrollRef.current) {
+      const el = scrollRef.current;
+      console.log('[ChatView Debug] Container on mode/render change:', {
+        scrollHeight: el.scrollHeight,
+        clientHeight: el.clientHeight,
+        scrollTop: el.scrollTop,
+        appMode,
+        className: el.className
+      });
+    }
+
+    // Detailed mode switch logging
+    if (appMode === 'chat') {
+      console.log('[ChatView Debug] === CHAT MODE APPLIED ===');
+      console.log('[ChatView Debug] Chat mode CSS classes that will be used:');
+      console.log('  - Scroll container: "flex-1 overflow-y-auto overflow-x-hidden space-y-8 scroll-smooth z-10 p-6"');
+      console.log('  - Message container: "flex flex-col gap-1 mx-auto w-full min-w-0 max-w-4xl items-start/end"');
+      console.log('  - Message layout: "flex-row/flex-row-reverse gap-4 items-start"');
+
+      // Log all message elements' current classes
+      if (scrollRef.current) {
+        const messageElements = scrollRef.current.querySelectorAll('[data-role]');
+        console.log(`[ChatView Debug] Total message elements: ${messageElements.length}`);
+        if (messageElements.length >= 2) {
+          const lastTwo = Array.from(messageElements).slice(-2);
+          lastTwo.forEach((msg, idx) => {
+            const el = msg as HTMLElement;
+            console.log(`[ChatView Debug] Message ${messageElements.length - 2 + idx} current state in chat mode:`, {
+              id: el.id,
+              role: el.getAttribute('data-role'),
+              className: el.className,
+              offsetTop: el.offsetTop,
+              offsetHeight: el.offsetHeight,
+              computedDisplay: window.getComputedStyle(el).display,
+              computedPosition: window.getComputedStyle(el).position,
+              computedMaxWidth: window.getComputedStyle(el).maxWidth
+            });
+          });
+        }
+      }
+    } else if (appMode === 'command') {
+      console.log('[ChatView Debug] === COMMAND MODE APPLIED ===');
+      console.log('[ChatView Debug] Command mode CSS classes that will be used:');
+      console.log('  - Scroll container: "flex-1 overflow-y-auto overflow-x-hidden space-y-8 scroll-smooth z-10 py-4 px-0 no-scrollbar"');
+      console.log('  - Message container: "flex flex-col gap-1 mx-auto w-full min-w-0 items-stretch"');
+      console.log('  - Message layout: "flex-col group px-[20px]"');
+    }
+  }, [appMode, messages.length, isStreaming]);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      const el = scrollRef.current;
+      console.log('[ChatView Debug] Scroll container info:', {
+        scrollHeight: el.scrollHeight,
+        clientHeight: el.clientHeight,
+        scrollTop: el.scrollTop,
+        offsetHeight: el.offsetHeight,
+        scrollWidth: el.scrollWidth,
+        clientWidth: el.clientWidth,
+      });
+
+      const observer = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          console.log('[ChatView Debug] Scroll container resized:', {
+            width: entry.contentRect.width,
+            height: entry.contentRect.height,
+            scrollHeight: el.scrollHeight,
+            messageCount: messages.length,
+            appMode
+          });
+        }
+      });
+      observer.observe(el);
+      return () => observer.disconnect();
+    }
+  }, [scrollRef.current, messages.length, appMode]);
+
+  useEffect(() => {
     userScrolledRef.current = false;
   }, [scrollResetKey]);
 
@@ -327,6 +414,60 @@ export const ChatView: React.FC<ChatViewProps> = ({
       });
     }
   }, [messages, isStreaming]);
+
+  // Debug: Monitor message element positions
+  useEffect(() => {
+    if (messages.length < 2) return;
+
+    const lastTwoMessages = messages.slice(-2);
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        console.log('[ChatView Debug] Last 2 messages position:');
+        lastTwoMessages.forEach((msg, idx) => {
+          const el = document.getElementById(`msg-${msg.id}`);
+          if (el) {
+            const rect = el.getBoundingClientRect();
+            console.log(`[ChatView Debug] Message ${messages.length - 2 + idx} (${msg.role}):`, {
+              id: msg.id,
+              offsetTop: el.offsetTop,
+              offsetLeft: el.offsetLeft,
+              offsetHeight: el.offsetHeight,
+              offsetWidth: el.offsetWidth,
+              scrollTop: el.scrollTop,
+              boundingRect: {
+                top: rect.top,
+                bottom: rect.bottom,
+                left: rect.left,
+                right: rect.right,
+                width: rect.width,
+                height: rect.height
+              },
+              computedStyle: {
+                position: window.getComputedStyle(el).position,
+                display: window.getComputedStyle(el).display,
+                zIndex: window.getComputedStyle(el).zIndex
+              }
+            });
+          } else {
+            console.log(`[ChatView Debug] Message ${messages.length - 2 + idx} (${msg.role}): Element not found in DOM`);
+          }
+        });
+
+        if (scrollRef.current) {
+          const container = scrollRef.current;
+          console.log('[ChatView Debug] Container state:', {
+            scrollHeight: container.scrollHeight,
+            clientHeight: container.clientHeight,
+            scrollTop: container.scrollTop,
+            lastMessageBottomOffset: lastTwoMessages.length > 0 ? (() => {
+              const lastEl = document.getElementById(`msg-${lastTwoMessages[lastTwoMessages.length - 1].id}`);
+              return lastEl ? lastEl.offsetTop + lastEl.offsetHeight : null;
+            })() : null
+          });
+        }
+      }, 100);
+    });
+  }, [messages.length, appMode]);
 
   // Scroll tracking for active message
   useEffect(() => {
@@ -491,7 +632,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
           "flex-1 overflow-y-auto overflow-x-hidden space-y-8 scroll-smooth z-10",
           appMode === 'command' ? "py-4 px-0 no-scrollbar" : "p-6"
         )}
-        style={{ fontFamily, contain: 'layout style' }}
+        style={{ fontFamily }}
       >
         {messages.length === 0 ? (
         <div className="h-full flex flex-col items-center justify-center text-center max-w-md mx-auto opacity-40">
@@ -511,8 +652,21 @@ export const ChatView: React.FC<ChatViewProps> = ({
         </div>
       ) : (
         <>
-          {messages.map((msg) => {
+          {messages.map((msg, index) => {
             const isUser = msg.role === 'user';
+
+            if (index === messages.length - 1 || index === messages.length - 2) {
+              console.log(`[ChatView Debug] Message ${index} (id: ${msg.id}):`, {
+                role: msg.role,
+                contentLength: msg.content?.length || 0,
+                hasThinking: !!msg.thinking,
+                hasAgentExecution: !!msg.agentExecution,
+                hasTodos: !!(msg.todos && msg.todos.length > 0),
+                timestamp: new Date(msg.timestamp).toISOString(),
+                appMode
+              });
+            }
+
           let senderName = isUser ? userName : aiName;
           let AvatarIcon: React.ElementType = isUser ? User : Cpu;
           let avatarUrl = isUser ? userAvatar : aiAvatar;
@@ -556,8 +710,33 @@ export const ChatView: React.FC<ChatViewProps> = ({
               key={msg.id}
               id={`msg-${msg.id}`}
               data-role={msg.role}
+              data-index={index}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2 }}
+              onAnimationStart={() => {
+                if (index >= messages.length - 2) {
+                  console.log(`[ChatView Debug] Animation START for message ${index} (${msg.role}, id: ${msg.id})`, {
+                    appMode,
+                    contentLength: msg.content?.length || 0,
+                    timestamp: Date.now()
+                  });
+                }
+              }}
+              onAnimationComplete={() => {
+                if (index >= messages.length - 2) {
+                  const el = document.getElementById(`msg-${msg.id}`);
+                  console.log(`[ChatView Debug] Animation COMPLETE for message ${index} (${msg.role}, id: ${msg.id})`, {
+                    appMode,
+                    elementPosition: el ? {
+                      offsetTop: el.offsetTop,
+                      offsetHeight: el.offsetHeight,
+                      boundingRect: el.getBoundingClientRect()
+                    } : null,
+                    timestamp: Date.now()
+                  });
+                }
+              }}
               className={cn(
                 "flex flex-col gap-1 mx-auto w-full min-w-0",
                 appMode === 'command' ? "items-stretch" : (isUser ? "max-w-4xl items-end" : "max-w-4xl items-start")

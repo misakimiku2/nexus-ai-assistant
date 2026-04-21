@@ -456,6 +456,52 @@ export const ChatViewOptimized: React.FC<ChatViewProps> = ({
 
   virtualizerRef.current = rowVirtualizer;
 
+  const prevAppModeRef = useRef(appMode);
+
+  useEffect(() => {
+    if (prevAppModeRef.current === appMode) return;
+
+    console.log('[Virtual Scroll Debug] Mode switch detected:', {
+      from: prevAppModeRef.current,
+      to: appMode,
+      messageCount: messages.length,
+      timestamp: Date.now()
+    });
+
+    if (prevAppModeRef.current === 'command' && appMode === 'chat') {
+      console.log('[Virtual Scroll Debug] Switching command → chat, clearing cache and scheduling remeasure...');
+
+      measuredHeightsRef.current.clear();
+
+      const measureAndLog = (label: string) => {
+        const scrollEl = scrollRef.current;
+        if (!scrollEl) return;
+
+        const items = scrollEl.querySelectorAll('[data-index]');
+        let measuredCount = 0;
+        items.forEach((item) => {
+          const index = parseInt(item.getAttribute('data-index') || '-1', 10);
+          if (index >= 0) {
+            const height = (item as HTMLElement).getBoundingClientRect().height;
+            if (height > 0) {
+              measuredHeightsRef.current.set(index, height);
+              measuredCount++;
+            }
+          }
+        });
+
+        console.log(`[Virtual Scroll Debug] ${label}: Measured ${measuredCount} elements, container width: ${scrollEl.offsetWidth}px`);
+        rowVirtualizer.measure();
+      };
+
+      setTimeout(() => measureAndLog('Measure at 200ms (during animation)'), 200);
+      setTimeout(() => measureAndLog('Measure at 400ms (after animation)'), 400);
+      setTimeout(() => measureAndLog('Final measure at 500ms (stabilized)'), 500);
+    }
+
+    prevAppModeRef.current = appMode;
+  }, [appMode, messages.length, scrollRef, rowVirtualizer]);
+
   useEffect(() => {
     if (appMode !== 'command') return;
     
@@ -570,10 +616,6 @@ export const ChatViewOptimized: React.FC<ChatViewProps> = ({
       if (forceMeasureRafRef.current) {
         cancelAnimationFrame(forceMeasureRafRef.current);
       }
-      console.log(`%c[拖拽结束]`, 'background: #166534; color: #fff; padding: 2px 6px; border-radius: 3px;', {
-        cacheSize: measuredHeightsRef.current.size,
-        commandChatWidth,
-      });
       
       measuredHeightsRef.current.clear();
       
@@ -600,6 +642,9 @@ export const ChatViewOptimized: React.FC<ChatViewProps> = ({
   }, [isResizingWidth, rowVirtualizer, appMode, commandChatWidth, scrollRef]);
 
   const containerWidthRef = useRef(0);
+  const prevContainerWidthRef = useRef(0);
+  let resizeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
   useEffect(() => {
     const scrollEl = scrollRef.current;
     if (!scrollEl) return;
@@ -607,23 +652,67 @@ export const ChatViewOptimized: React.FC<ChatViewProps> = ({
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const newWidth = Math.round(entry.contentRect.width);
+
         if (containerWidthRef.current > 0 && containerWidthRef.current !== newWidth) {
+          console.log(`[Virtual Scroll Debug] Container resized: ${containerWidthRef.current}px → ${newWidth}px (mode: ${appMode})`);
+
           if (!isResizingWidthRef.current && !isInitializingRef.current) {
-            console.log(`%c[容器宽度变化] 非拖拽`, 'background: #7c2d12; color: #fff; padding: 2px 6px; border-radius: 3px;', {
-              oldWidth: containerWidthRef.current,
-              newWidth,
-            });
-            measuredHeightsRef.current.clear();
-            rowVirtualizer.measure();
+            // Debounce rapid resize events
+            if (resizeDebounceTimer) {
+              clearTimeout(resizeDebounceTimer);
+            }
+
+            resizeDebounceTimer = setTimeout(() => {
+              console.log('[Virtual Scroll Debug] Debounced resize - clearing cache and remeasuring...');
+
+              measuredHeightsRef.current.clear();
+
+              // Force immediate reflow
+              scrollEl.style.display = 'none';
+              void scrollEl.offsetHeight;
+              scrollEl.style.display = '';
+              void scrollEl.offsetHeight;
+
+              // Remeasure all visible elements
+              const items = scrollEl.querySelectorAll('[data-index]');
+              items.forEach((item) => {
+                const index = parseInt(item.getAttribute('data-index') || '-1', 10);
+                if (index >= 0) {
+                  const height = (item as HTMLElement).getBoundingClientRect().height;
+                  if (height > 0) {
+                    measuredHeightsRef.current.set(index, height);
+                  }
+                }
+              });
+
+              rowVirtualizer.measure();
+
+              // Second measure after a short delay to catch any async updates
+              setTimeout(() => {
+                rowVirtualizer.measure();
+                console.log(`[Virtual Scroll Debug] Resize re-measure completed, container width: ${scrollEl.offsetWidth}px`);
+              }, 50);
+
+              resizeDebounceTimer = null;
+            }, 100); // 100ms debounce for window resize
           }
         }
+
+        prevContainerWidthRef.current = containerWidthRef.current;
         containerWidthRef.current = newWidth;
       }
     });
 
     observer.observe(scrollEl);
-    return () => observer.disconnect();
-  }, [rowVirtualizer, scrollRef]);
+
+    return () => {
+      observer.disconnect();
+      if (resizeDebounceTimer) {
+        clearTimeout(resizeDebounceTimer);
+        resizeDebounceTimer = null;
+      }
+    };
+  }, [rowVirtualizer, scrollRef, appMode, isResizingWidth]);
 
   const virtualItems = rowVirtualizer.getVirtualItems();
   const initialMeasureDoneRef = useRef(false);
@@ -659,10 +748,6 @@ export const ChatViewOptimized: React.FC<ChatViewProps> = ({
           });
           
           if (items.length > 0) {
-            console.log(`%c[初始测量完成]`, 'background: #059669; color: #fff; padding: 2px 6px; border-radius: 3px;', {
-              measuredCount: items.length,
-              cacheSize: measuredHeightsRef.current.size,
-            });
             rowVirtualizer.measure();
           }
           
@@ -697,11 +782,6 @@ export const ChatViewOptimized: React.FC<ChatViewProps> = ({
         size: Math.round(v.size),
         measured: measuredHeightsRef.current.has(v.index),
       }));
-      console.log(`%c[虚拟位置]`, 'background: #1e3a5f; color: #fff; padding: 2px 6px; border-radius: 3px;', {
-        width: containerWidthRef.current,
-        isResizing: isResizingWidthRef.current,
-        positions,
-      });
     }
     return virtualItems.map((virtualRow) => {
       const msg = messages[virtualRow.index];

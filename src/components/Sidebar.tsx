@@ -114,27 +114,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const sidebarRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    console.log(`%c[Sidebar] 状态变化`, 'background: #6b21a8; color: #fff; padding: 2px 6px; border-radius: 3px;', {
-      isExpanded,
-      expectedTotalWidth: isExpanded ? 288 : 64,
-      padding: isExpanded ? '12px×2=24px' : '0px',
-      boxSizing: 'border-box (width包含padding)'
-    });
-
     const el = sidebarRef.current;
     if (!el) return;
 
     const checkWidth = () => {
       const rect = el.getBoundingClientRect();
       const style = getComputedStyle(el);
-      console.log(`%c[Sidebar] 实际尺寸`, 'background: #6b21a8; color: #fff; padding: 2px 6px; border-radius: 3px;', {
-        actualTotalWidth: Math.round(rect.width),
-        computedStyleWidth: style.width,
-        paddingLeft: style.paddingLeft,
-        paddingRight: style.paddingRight,
-        boxSizing: style.boxSizing,
-        isExpanded
-      });
     };
 
     setTimeout(checkWidth, 50);
@@ -230,7 +215,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     try {
       await exportSessionToFile(sessionId, format);
     } catch (err) {
-      console.error('[Sidebar] 导出失败:', err);
+      // 导出失败
     } finally {
       setIsExporting(false);
     }
@@ -242,7 +227,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     try {
       await batchExportSessionsToFile(Array.from(selectedSessions), format);
     } catch (err) {
-      console.error('[Sidebar] 批量导出失败:', err);
+      // 批量导出失败
     } finally {
       setIsExporting(false);
     }
@@ -253,7 +238,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     try {
       await importSessionFromFile();
     } catch (err) {
-      console.error('[Sidebar] 导入失败:', err);
+      // 导入失败
     } finally {
       setIsImporting(false);
     }

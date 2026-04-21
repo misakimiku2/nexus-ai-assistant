@@ -118,7 +118,7 @@ export function taskPlanToTodoItems(plan: TaskPlan): TodoItem[] {
       if (step.toolCalls && step.toolCalls.length > 0) {
         const totalCalls = step.toolCalls.length;
         const completedCalls = step.toolCalls.filter(tc =>
-          tc.status === 'completed' || tc.status === 'error'
+          tc.status === 'completed' || tc.status === 'failed'
         ).length;
         const executingCalls = step.toolCalls.filter(tc =>
           tc.status === 'executing'
